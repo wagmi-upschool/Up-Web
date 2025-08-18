@@ -75,10 +75,12 @@ export type TaskTypeItems = "task" | "milestone" | "project";
 
 export interface ChatMessage {
   id: string;
-  text: string;
+  text?: string;
+  content?: string; // Lambda'dan gelen field
   sender: 'user' | 'ai';
-  time: string;
+  time?: string;
   createdAt?: string;
+  assistantId?: string;
 }
 
 export interface Chat {

@@ -7,6 +7,7 @@ import { Search, Send, Plus, Mic, Paperclip, ThumbsUp, ThumbsDown, Copy, Volume2
 import Image from "next/image";
 import { useGetChatsQuery, useGetChatMessagesQuery } from "@/state/api";
 import { Chat, ChatMessage } from "@/types/type";
+import MessageRenderer from "@/components/messages/MessageRenderer";
 
 type Props = {};
 
@@ -27,25 +28,21 @@ function HomePage({}: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useGetChatsQuery();
+  const { data: messagesData, isLoading: isLoadingMessages, error: messagesError } = useGetChatMessagesQuery(
+    { chatId: activeChat!, limit: "50" },
+    { skip: !activeChat }
+  );
   
   console.log('Chats data:', chats);
   console.log('Chats loading:', isLoadingChats);
   console.log('Chats error:', chatsError);
+  console.log('Active chat:', activeChat);
+  console.log('Messages data:', messagesData);
+  console.log('Messages loading:', isLoadingMessages);
+  console.log('Messages error:', messagesError);
 
-  const [messages] = useState<Message[]>([
-    {
-      id: "1",
-      text: "Bana özel koşullarını söyle, ben de mükemmel e-postayı yazmana yardım edeceğim! Bu arada, başarılı e-postalar için bazı iyi ipuçlarını burada bulabilirsiniz.",
-      sender: 'ai',
-      time: "Wed 8:21 AM"
-    },
-    {
-      id: "2", 
-      text: "Bana özel koşullarını söyle, ben de mükemmel e-postayı yazmana yardım edeceğim! Bu arada, başarılı e-postalar için bazı iyi ipuçlarını burada bulabilirsiniz.",
-      sender: 'ai',
-      time: "Wed 8:21 AM"
-    }
-  ]);
+  // Use real messages if available, otherwise show empty state
+  const messages = messagesData?.messages || [];
 
   const handleSignOut = async () => {
     try {
@@ -244,45 +241,71 @@ function HomePage({}: Props) {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div key={message.id} className="flex items-start gap-3">
-                <div className="w-10 h-10 flex items-center justify-center">
-                  <Image
-                    src="/up_face.svg"
-                    alt="UP"
-                    width={40}
-                    height={40}
-                    className="object-contain"
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className="bg-message-box-bg rounded-lg p-4 shadow-sm">
-                    <p className="font-poppins text-text-body-black text-sm font-medium leading-relaxed">{message.text}</p>
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center gap-2">
-                        <button className="p-1 hover:bg-icon-slate-white rounded">
-                          <ThumbsUp className="w-4 h-4 text-passive-icon" />
-                        </button>
-                        <button className="p-1 hover:bg-icon-slate-white rounded">
-                          <ThumbsDown className="w-4 h-4 text-passive-icon" />
-                        </button>
-                        <button className="p-1 hover:bg-icon-slate-white rounded">
-                          <Copy className="w-4 h-4 text-passive-icon" />
-                        </button>
-                        <button className="p-1 hover:bg-icon-slate-white rounded">
-                          <Volume2 className="w-4 h-4 text-passive-icon" />
-                        </button>
-                        <button className="p-1 hover:bg-icon-slate-white rounded">
-                          <Paperclip className="w-4 h-4 text-passive-icon" />
-                        </button>
+          {!activeChat ? (
+            <div className="flex items-center justify-center h-full text-center">
+              <div>
+                <h3 className="text-lg font-medium text-text-black mb-2">Bir sohbet seçin</h3>
+                <p className="text-text-description-gray">Mesajları görüntülemek için sol taraftan bir sohbet seçin</p>
+              </div>
+            </div>
+          ) : isLoadingMessages ? (
+            <div className="flex items-center justify-center h-full">
+              <Spinner />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-center">
+              <div>
+                <h3 className="text-lg font-medium text-text-black mb-2">Henüz mesaj yok</h3>
+                <p className="text-text-description-gray">Bu sohbette henüz mesaj bulunmuyor</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message, index) => (
+                <div key={message.id || `message-${index}`} className="flex items-start gap-3">
+                  <div className="w-10 h-10 flex items-center justify-center">
+                    <Image
+                      src="/up_face.svg"
+                      alt="UP"
+                      width={40}
+                      height={40}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <div className="bg-message-box-bg rounded-lg p-4 shadow-sm">
+                      <MessageRenderer 
+                        content={message.text || message.content || 'Mesaj içeriği yok'}
+                        sender={message.sender || 'ai'}
+                      />
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center gap-2">
+                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                            <ThumbsUp className="w-4 h-4 text-passive-icon" />
+                          </button>
+                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                            <ThumbsDown className="w-4 h-4 text-passive-icon" />
+                          </button>
+                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                            <Copy className="w-4 h-4 text-passive-icon" />
+                          </button>
+                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                            <Volume2 className="w-4 h-4 text-passive-icon" />
+                          </button>
+                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                            <Paperclip className="w-4 h-4 text-passive-icon" />
+                          </button>
+                        </div>
+                        {message.time && (
+                          <span className="text-xs text-text-description-gray">{message.time}</span>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Message Input */}
