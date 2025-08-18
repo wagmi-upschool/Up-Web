@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Spinner } from "../global/loader/spinner";
 import { Search, Send, Plus, Mic, Paperclip, ThumbsUp, ThumbsDown, Copy, Volume2, MoreHorizontal } from "lucide-react";
 import Image from "next/image";
+import { useGetChatsQuery, useGetChatMessagesQuery } from "@/state/api";
+import { Chat, ChatMessage } from "@/types/type";
 
 type Props = {};
 
@@ -15,54 +17,18 @@ interface Message {
   time: string;
 }
 
-interface Chat {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  isActive: boolean;
-  hasNewMessage?: boolean;
-  newMessageCount?: number;
-}
-
 function HomePage({}: Props) {
   const [userInfo, setUserInfo] = useState<any>(null);
   const [userAttributes, setUserAttributes] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
+  const [activeChat, setActiveChat] = useState<string | null>(null);
   
-  const [chats] = useState<Chat[]>([
-    {
-      id: "1",
-      title: "UP'tan mesajlar",
-      description: "3 yeni mesaj",
-      icon: "💬",
-      isActive: false,
-      hasNewMessage: true,
-      newMessageCount: 3
-    },
-    {
-      id: "2", 
-      title: "Mükemmel e-posta yazın",
-      description: "Bir e-posta için gereken tüm unsurları içer...",
-      icon: "✏️",
-      isActive: true
-    },
-    {
-      id: "3",
-      title: "Daha fazla odaklanın", 
-      description: "Photoshop öğrenirken yaratıcılığınızı keşfe...",
-      icon: "🎯",
-      isActive: false
-    },
-    {
-      id: "4",
-      title: "UP'a hoşgeldin",
-      description: "Her gün kitap okumak, zihinsel keşiflerinizi ...",
-      icon: "👋",
-      isActive: false
-    }
-  ]);
+  const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useGetChatsQuery();
+  
+  console.log('Chats data:', chats);
+  console.log('Chats loading:', isLoadingChats);
+  console.log('Chats error:', chatsError);
 
   const [messages] = useState<Message[]>([
     {
@@ -96,7 +62,7 @@ function HomePage({}: Props) {
     fetchUser();
   }, []);
 
-  if (loadingUser) return <Spinner />;
+  if (loadingUser || isLoadingChats) return <Spinner />;
 
   return (
     <div className="flex h-screen bg-icon-slate-white">
@@ -169,19 +135,25 @@ function HomePage({}: Props) {
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto p-4">
+          {chats.length === 0 && !isLoadingChats && (
+            <div className="text-center text-gray-500 mt-4">
+              Henüz chat yok. Chats data: {JSON.stringify(chats)}
+            </div>
+          )}
           <div className="space-y-4">
             {chats.map((chat) => (
               <div
                 key={chat.id}
+                onClick={() => setActiveChat(chat.id)}
                 className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                  chat.isActive 
+                  activeChat === chat.id
                     ? 'bg-message-box-bg shadow-md border-b-4 border-primary' 
                     : 'bg-message-box-bg shadow-sm hover:shadow-md'
                 } ${chat.hasNewMessage ? 'shadow-lg' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-icon-slate-white rounded-lg flex items-center justify-center">
-                    <span className="text-lg">{chat.icon}</span>
+                    <span className="text-lg">{chat.icon || '💬'}</span>
                   </div>
                   <div className="flex-1">
                     <h3 className="font-poppins font-semibold text-sm text-text-black">{chat.title}</h3>

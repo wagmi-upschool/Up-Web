@@ -72,3 +72,23 @@ export interface Team {
 }
 
 export type TaskTypeItems = "task" | "milestone" | "project";
+
+export interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'ai';
+  time: string;
+  createdAt?: string;
+}
+
+export interface Chat {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  isActive?: boolean;
+  hasNewMessage?: boolean;
+  newMessageCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}

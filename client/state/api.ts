@@ -4,26 +4,57 @@ import {
   TasksTypes,
   Team,
   User,
+  Chat,
+  ChatMessage,
 } from "@/types/type";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { fetchAuthSession, getCurrentUser } from "aws-amplify/auth";
 
-export const api = createApi({
-  baseQuery: fetchBaseQuery({
-    baseUrl: process.env.NEXT_PUBLIC_BASE_URL,
-    prepareHeaders: async (headers) => {
+const baseQuery = fetchBaseQuery({
+  baseUrl: process.env.NEXT_PUBLIC_BASE_URL,
+  prepareHeaders: async (headers) => {
+    const session = await fetchAuthSession();
+    const { accessToken } = session.tokens ?? {};
+
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    return headers;
+  },
+});
+
+const localApiQuery = fetchBaseQuery({
+  baseUrl: "http://localhost:3001/",
+  prepareHeaders: async (headers) => {
+    try {
       const session = await fetchAuthSession();
-      const { accessToken } = session.tokens ?? {};
+      const { accessToken, idToken } = session.tokens ?? {};
+      const user = await getCurrentUser();
 
-      if (accessToken) {
+      if (accessToken && idToken) {
         headers.set("Authorization", `Bearer ${accessToken}`);
+        headers.set("x-id-token", idToken.toString());
+        headers.set("x-user-id", user.userId);
+      } else {
+        // Development fallback
+        headers.set("Authorization", "Bearer test");
+        headers.set("x-user-id", "test123");
       }
+    } catch (error) {
+      // Development fallback
+      headers.set("Authorization", "Bearer test");
+      headers.set("x-user-id", "test123");
+    }
 
-      return headers;
-    },
-  }),
+    return headers;
+  },
+});
+
+export const api = createApi({
+  baseQuery: baseQuery,
   reducerPath: "api",
-  tagTypes: ["Projects", "Tasks", "Users", "Teams"],
+  tagTypes: ["Projects", "Tasks", "Users", "Teams", "Chats"],
   endpoints: (build) => ({
     getAuthUser: build.query({
       queryFn: async (_, _queryApi, _extraoptions, fetchWihBQ) => {
@@ -102,6 +133,40 @@ export const api = createApi({
     search: build.query<SearchResults, string>({
       query: (query) => `search?query=${query}`,
     }),
+    getChats: build.query<Chat[], void>({
+      queryFn: async (_, _queryApi, _extraoptions, fetchWithBQ) => {
+        try {
+          const result = await localApiQuery("api/chats", {});
+          return result;
+        } catch (error: any) {
+          return { error: error.message };
+        }
+      },
+      providesTags: ["Chats"],
+    }),
+    getChatMessages: build.query<{ messages: ChatMessage[] }, { chatId: string; limit?: string }>({
+      queryFn: async ({ chatId, limit = "20" }) => {
+        try {
+          const result = await localApiQuery(`api/chats/${chatId}/messages?limit=${limit}`, {});
+          return result;
+        } catch (error: any) {
+          return { error: error.message };
+        }
+      },
+    }),
+    deleteChat: build.mutation<void, string>({
+      queryFn: async (chatId) => {
+        try {
+          const result = await localApiQuery(`api/chats/${chatId}`, {
+            method: "DELETE",
+          });
+          return result;
+        } catch (error: any) {
+          return { error: error.message };
+        }
+      },
+      invalidatesTags: ["Chats"],
+    }),
   }),
 });
 
@@ -116,4 +181,7 @@ export const {
   useGetTeamsQuery,
   useGetTasksByUserQuery,
   useGetAuthUserQuery,
+  useGetChatsQuery,
+  useGetChatMessagesQuery,
+  useDeleteChatMutation,
 } = api;
