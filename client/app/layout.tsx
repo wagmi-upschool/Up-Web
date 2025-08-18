@@ -1,9 +1,19 @@
 import DashboardWrapper from "@/components/wrapper/dashboardWrapper";
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Poppins, Righteous } from "next/font/google";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"] });
+const poppins = Poppins({ 
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-poppins"
+});
+
+const righteous = Righteous({ 
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-righteous"
+});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -17,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={jakarta.className}>
+      <body className={`${poppins.variable} ${righteous.variable} font-sans`}>
         <DashboardWrapper>{children}</DashboardWrapper>
       </body>
     </html>

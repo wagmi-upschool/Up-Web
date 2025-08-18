@@ -2,7 +2,8 @@ import { formFields } from "@/components/data/columns";
 import { Authenticator } from "@aws-amplify/ui-react";
 import "@aws-amplify/ui-react/styles.css";
 import { Amplify } from "aws-amplify";
-import React from "react";
+import { useRouter } from "next/navigation";
+import React, { useEffect } from "react";
 
 type Props = {
   children: React.ReactNode;

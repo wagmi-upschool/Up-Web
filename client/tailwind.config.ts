@@ -9,6 +9,11 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        'poppins': ['var(--font-poppins)', 'sans-serif'],
+        'righteous': ['var(--font-righteous)', 'sans-serif'],
+        'sans': ['var(--font-poppins)', 'sans-serif'],
+      },
       colors: {
         white: "#ffffff",
         gray: {

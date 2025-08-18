@@ -1,22 +1,29 @@
-import { setIsDarkMode, setIsSidebarCollapsed } from "@/state";
-import { useGetAuthUserQuery } from "@/state/api";
-import { signOut } from "aws-amplify/auth";
-import { Menu, Moon, Search, Settings, Sun, User } from "lucide-react";
-import Image from "next/image";
+import { setIsDarkMode } from "@/state";
+import { getCurrentUser, signOut } from "aws-amplify/auth";
+import { Moon, Search, Settings, Sun, User } from "lucide-react";
 import Link from "next/link";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../wrapper/redux";
 
 type Props = {};
 
 function Navbar({}: Props) {
   const dispatch = useAppDispatch();
-  const isSidebarCollapsed = useAppSelector(
-    (state) => state.global.isSidebarCollapsed,
-  );
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
+  
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const { data: currentUser } = useGetAuthUserQuery({});
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -26,19 +33,9 @@ function Navbar({}: Props) {
     }
   };
 
-  if (!currentUser) return null;
-  const currentUserDetails = currentUser.user;
-
   return (
     <div className="flex items-center justify-between bg-white px-4 py-3 dark:bg-black">
       <div className="flex items-center gap-8">
-        {!isSidebarCollapsed ? null : (
-          <button
-            onClick={() => dispatch(setIsSidebarCollapsed(!isSidebarCollapsed))}
-          >
-            <Menu className="h-8 w-8 dark:text-white" />
-          </button>
-        )}
         <div className="relative flex h-min w-[200px]">
           <Search className="absolute left-[4px] top-1/2 mr-2 h-5 w-5 -translate-y-1/2 transform cursor-pointer dark:text-white" />
           <input
@@ -79,7 +76,7 @@ function Navbar({}: Props) {
             <User className="h-6 w-6 cursor-pointer self-center rounded-full dark:text-white" />
           </div>
           <span className="mx-3 text-gray-800 dark:text-white">
-            {currentUserDetails?.username}
+            {currentUser?.username || 'User'}
           </span>
           <button
             className="hidden rounded bg-blue-400 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500 md:block"
