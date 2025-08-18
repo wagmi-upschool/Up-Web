@@ -85,10 +85,29 @@ export interface Chat {
   id: string;
   title: string;
   description?: string;
-  icon?: string;
+  icon?: string; // Can be emoji or image URL
   isActive?: boolean;
   hasNewMessage?: boolean;
   newMessageCount?: number;
   createdAt?: string;
   updatedAt?: string;
+  type?: string;
+  assistantId?: string;
+  isArchived?: boolean;
+  userId?: string;
+  assistantGroupId?: string;
+  lastMessage?: string;
+  iconUrl?: string;
+  accountabilityDetail?: any;
+  // Merged assistant data
+  assistantName?: string;
+  assistantDescription?: string;
+  assistantPrompt?: string;
+  assistantTemplate?: string;
+  // Merged group data
+  groupName?: string;
+  groupDescription?: string;
+  // Flashcard support methods (like in Flutter model)
+  isFlashcardType?: boolean;
+  isRegularChat?: boolean;
 }

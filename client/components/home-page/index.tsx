@@ -1,9 +1,9 @@
 "use client";
 
-import { getCurrentUser, fetchUserAttributes } from "aws-amplify/auth";
-import { useEffect, useState } from "react";
+import { getCurrentUser, fetchUserAttributes, signOut } from "aws-amplify/auth";
+import { useEffect, useState, useRef } from "react";
 import { Spinner } from "../global/loader/spinner";
-import { Search, Send, Plus, Mic, Paperclip, ThumbsUp, ThumbsDown, Copy, Volume2, MoreHorizontal } from "lucide-react";
+import { Search, Send, Plus, Mic, Paperclip, ThumbsUp, ThumbsDown, Copy, Volume2, MoreHorizontal, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useGetChatsQuery, useGetChatMessagesQuery } from "@/state/api";
 import { Chat, ChatMessage } from "@/types/type";
@@ -23,6 +23,8 @@ function HomePage({}: Props) {
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
   const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useGetChatsQuery();
   
@@ -45,6 +47,15 @@ function HomePage({}: Props) {
     }
   ]);
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setShowDropdown(false);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -60,6 +71,19 @@ function HomePage({}: Props) {
     };
 
     fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   if (loadingUser || isLoadingChats) return <Spinner />;
@@ -152,12 +176,22 @@ function HomePage({}: Props) {
                 } ${chat.hasNewMessage ? 'shadow-lg' : ''}`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-icon-slate-white rounded-lg flex items-center justify-center">
-                    <span className="text-lg">{chat.icon || '💬'}</span>
+                  <div className="w-10 h-10 bg-icon-slate-white rounded-lg flex items-center justify-center overflow-hidden">
+                    {chat.icon && chat.icon.startsWith('http') ? (
+                      <Image
+                        src={chat.icon}
+                        alt={chat.title}
+                        width={40}
+                        height={40}
+                        className="object-cover rounded-lg"
+                      />
+                    ) : (
+                      <span className="text-lg">{chat.icon || '💬'}</span>
+                    )}
                   </div>
                   <div className="flex-1">
                     <h3 className="font-poppins font-semibold text-sm text-text-black">{chat.title}</h3>
-                    <p className="font-poppins text-xs font-medium text-text-description-gray mt-1">{chat.description}</p>
+                    <p className="font-poppins text-xs font-medium text-text-description-gray mt-1 line-clamp-2 overflow-hidden">{chat.description}</p>
                   </div>
                   {chat.hasNewMessage && (
                     <div className="flex items-center gap-2">
@@ -182,9 +216,28 @@ function HomePage({}: Props) {
               <button className="p-2 hover:bg-icon-slate-white rounded">
                 <Search className="w-5 h-5 text-passive-icon" />
               </button>
-              <button className="p-2 hover:bg-icon-slate-white rounded">
-                <MoreHorizontal className="w-5 h-5 text-passive-icon" />
-              </button>
+              <div className="relative" ref={dropdownRef}>
+                <button 
+                  className="p-2 hover:bg-icon-slate-white rounded"
+                  onClick={() => setShowDropdown(!showDropdown)}
+                >
+                  <MoreHorizontal className="w-5 h-5 text-passive-icon" />
+                </button>
+                
+                {showDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-message-box-bg border border-message-box-border rounded-lg shadow-lg z-50">
+                    <div className="py-1">
+                      <button
+                        onClick={handleSignOut}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
