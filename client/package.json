@@ -28,9 +28,12 @@
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18",
+    "react-markdown": "^10.1.0",
     "react-redux": "^9.2.0",
     "recharts": "^2.15.0",
-    "redux-persist": "^6.0.0"
+    "redux-persist": "^6.0.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.13",

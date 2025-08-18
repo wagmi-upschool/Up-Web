@@ -1,4 +1,8 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import Image from 'next/image';
 
 interface MessageRendererProps {
   content: string;
@@ -221,8 +225,9 @@ const WidgetRenderer: React.FC<{ data: WidgetData }> = ({ data }) => {
   }
 };
 
-// Main MessageRenderer component
+// Main MessageRenderer component  
 const MessageRenderer: React.FC<MessageRendererProps> = ({ content, sender }) => {
+  const isUser = sender === 'user';
   // Try to parse JSON to detect widget messages
   const parseMessageContent = (content: string) => {
     try {
@@ -246,11 +251,114 @@ const MessageRenderer: React.FC<MessageRendererProps> = ({ content, sender }) =>
     );
   }
 
-  // Regular text message
+  // Regular text message with Markdown support
   return (
-    <p className="font-poppins text-text-body-black text-sm font-medium leading-relaxed whitespace-pre-wrap">
-      {data as string}
-    </p>
+    <div className={`prose prose-sm max-w-none font-poppins ${isUser ? '!text-white' : 'text-text-body-black'}`}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          // Custom components for better styling
+          p: ({ children }) => (
+            <p className={`${isUser ? '!text-white font-normal' : 'text-text-body-black font-medium'} text-sm font-poppins leading-tight mb-2 last:mb-0`}>
+              {children}
+            </p>
+          ),
+          h1: ({ children }) => (
+            <h1 className={`${isUser ? '!text-white' : 'text-title-black'} text-lg font-bold mb-3 font-righteous`}>
+              {children}
+            </h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className={`${isUser ? '!text-white' : 'text-title-black'} text-base font-semibold mb-2 font-righteous`}>
+              {children}
+            </h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className={`${isUser ? '!text-white' : 'text-title-black'} text-sm font-semibold mb-2`}>
+              {children}
+            </h3>
+          ),
+          strong: ({ children }) => (
+            <strong className={`font-bold ${isUser ? '!text-white' : 'text-title-black'}`}>
+              {children}
+            </strong>
+          ),
+          em: ({ children }) => (
+            <em className={`italic ${isUser ? '!text-white' : 'text-text-body-black'}`}>
+              {children}
+            </em>
+          ),
+          code: ({ inline, children, ...props }: any) => (
+            inline ? (
+              <code className="bg-message-box-bg px-1 py-0.5 rounded text-xs font-mono border border-message-box-border">
+                {children}
+              </code>
+            ) : (
+              <code className="block bg-message-box-bg p-3 rounded-lg text-xs font-mono border border-message-box-border overflow-x-auto">
+                {children}
+              </code>
+            )
+          ),
+          ul: ({ children }) => (
+            <ul className="text-sm space-y-1 mb-2">
+              {children}
+            </ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal list-inside text-sm text-text-body-black space-y-1 mb-2">
+              {children}
+            </ol>
+          ),
+          li: ({ children }) => (
+            <li className={`flex items-start gap-2 text-sm ${isUser ? '!text-white' : 'text-text-body-black'}`}>
+              <Image
+                src="/star.svg"
+                alt="Star"
+                width={16}
+                height={16}
+                className="mt-0.5 flex-shrink-0"
+              />
+              <span>{children}</span>
+            </li>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-primary pl-4 italic text-text-description-gray text-sm mb-2">
+              {children}
+            </blockquote>
+          ),
+          a: ({ href, children }) => (
+            <a 
+              href={href} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline font-medium"
+            >
+              {children}
+            </a>
+          ),
+          table: ({ children }) => (
+            <div className="overflow-x-auto mb-2">
+              <table className="min-w-full border border-message-box-border rounded-lg">
+                {children}
+              </table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border border-message-box-border bg-icon-slate-white px-3 py-2 text-left text-xs font-semibold text-title-black">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border border-message-box-border px-3 py-2 text-sm text-text-body-black">
+              {children}
+            </td>
+          ),
+        }}
+      >
+        {data as string}
+      </ReactMarkdown>
+    </div>
   );
 };
 

@@ -208,7 +208,12 @@ function HomePage({}: Props) {
         {/* Chat Header */}
         <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-normal text-title-black font-righteous">Mükemmel e-postayı yazın yazın yazın...</h2>
+            <h2 className="text-neutral-900 text-base font-semibold font-poppins leading-snug">
+              {activeChat ? 
+                chats.find(chat => chat.id === activeChat)?.title || 'Sohbet' 
+                : 'Bir sohbet seçin'
+              }
+            </h2>
             <div className="flex items-center gap-2">
               <button className="p-2 hover:bg-icon-slate-white rounded">
                 <Search className="w-5 h-5 text-passive-icon" />
@@ -250,7 +255,10 @@ function HomePage({}: Props) {
             </div>
           ) : isLoadingMessages ? (
             <div className="flex items-center justify-center h-full">
-              <Spinner />
+              <div className="text-center">
+                <Spinner />
+                <p className="text-text-description-gray text-sm mt-3">Mesajlar yükleniyor...</p>
+              </div>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex items-center justify-center h-full text-center">
@@ -260,70 +268,97 @@ function HomePage({}: Props) {
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              {messages.map((message, index) => (
-                <div key={message.id || `message-${index}`} className="flex items-start gap-3">
-                  <div className="w-10 h-10 flex items-center justify-center">
-                    <Image
-                      src="/up_face.svg"
-                      alt="UP"
-                      width={40}
-                      height={40}
-                      className="object-contain"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="bg-message-box-bg rounded-lg p-4 shadow-sm">
-                      <MessageRenderer 
-                        content={message.text || message.content || 'Mesaj içeriği yok'}
-                        sender={message.sender || 'ai'}
-                      />
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-2">
-                          <button className="p-1 hover:bg-icon-slate-white rounded">
+            <div className="space-y-4 max-w-4xl mx-auto">
+              {messages.map((message, index) => {
+                const isUser = message.sender === 'user' || message.role === 'user';
+                return (
+                  <div key={message.id || `message-${index}`} className={`${
+                    isUser 
+                      ? 'flex flex-col justify-center items-end pl-[300px] gap-2 w-full' 
+                      : 'flex items-start gap-3'
+                  }`}>
+                    {/* Avatar - Only show for AI messages */}
+                    {!isUser && (
+                      <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
+                        <Image
+                          src="/up_face.svg"
+                          alt="UP Face"
+                          width={40}
+                          height={40}
+                          className="object-contain"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Message Content */}
+                    <div className={`${isUser ? 'w-auto' : 'flex-1 max-w-[80%]'}`}>
+                      <div className={`p-4 ${
+                        isUser 
+                          ? 'bg-blue-600 rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] text-white' 
+                          : 'bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black'
+                      }`}>
+                        <MessageRenderer 
+                          content={message.text || message.content || 'Mesaj içeriği yok'}
+                          sender={isUser ? 'user' : 'ai'}
+                        />
+                      </div>
+                      
+                      {/* Action buttons - Only for AI messages */}
+                      {!isUser && (
+                        <div className="flex items-center gap-2 mt-2 ml-2">
+                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
                             <ThumbsUp className="w-4 h-4 text-passive-icon" />
                           </button>
-                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
                             <ThumbsDown className="w-4 h-4 text-passive-icon" />
                           </button>
-                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
                             <Copy className="w-4 h-4 text-passive-icon" />
                           </button>
-                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
                             <Volume2 className="w-4 h-4 text-passive-icon" />
                           </button>
-                          <button className="p-1 hover:bg-icon-slate-white rounded">
+                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
                             <Paperclip className="w-4 h-4 text-passive-icon" />
                           </button>
                         </div>
-                        {message.time && (
-                          <span className="text-xs text-text-description-gray">{message.time}</span>
-                        )}
-                      </div>
+                      )}
+                      
+                      {/* Timestamp */}
+                      {(message.time || message.createdAt) && (
+                        <div className={`text-xs text-gray-500 mt-2 ${isUser ? 'text-right mr-2' : 'ml-2'}`}>
+                          {message.time || new Date(message.createdAt!).toLocaleTimeString('tr-TR', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Message Input */}
-        <div className="p-6">
-          <div className="bg-message-box-bg rounded-lg border border-message-box-border p-4">
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="Buraya yazabilirsin"
-                value={currentMessage}
-                onChange={(e) => setCurrentMessage(e.target.value)}
-                className="flex-1 bg-transparent font-poppins text-sm font-medium text-text-body-black placeholder-text-description-gray focus:outline-none"
-              />
-              <button className="p-2 text-primary hover:bg-primary-faded rounded">
-                <Send className="w-5 h-5" />
-              </button>
+        <div className="w-full bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex flex-col justify-start items-start gap-2 p-4">
+            <div className="self-stretch h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex flex-col justify-center items-start gap-1 overflow-hidden">
+              <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
+                <div className="flex justify-start items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    placeholder="Buraya yazabilirsin"
+                    value={currentMessage}
+                    onChange={(e) => setCurrentMessage(e.target.value)}
+                    className="flex-1 bg-transparent text-neutral-400 text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400"
+                  />
+                </div>
+                <button className="w-4 h-4 relative overflow-hidden flex items-center justify-center">
+                  <Send className="w-4 h-4 text-neutral-500" />
+                </button>
+              </div>
             </div>
-          </div>
         </div>
       </div>
     </div>
