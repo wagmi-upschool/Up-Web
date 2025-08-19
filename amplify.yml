@@ -4,10 +4,16 @@ frontend:
     preBuild:
       commands:
         - cd client
+        - nvm use 18
         - npm ci
     build:
       commands:
         - cd client
+        - env | grep -e NEXT_PUBLIC_BASE_URL >> .env.local
+        - env | grep -e NEXT_PUBLIC_COGNITO_USER_POOL_ID >> .env.local
+        - env | grep -e NEXT_PUBLIC_COGNITO_USER_CLIENT_ID >> .env.local
+        - env | grep -e REMOTE_URL >> .env.local
+        - env | grep -e STREAM_URL >> .env.local
         - npm run build
   artifacts:
     baseDirectory: client/.next
