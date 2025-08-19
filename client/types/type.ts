@@ -78,9 +78,11 @@ export interface ChatMessage {
   text?: string;
   content?: string; // Lambda'dan gelen field
   sender: 'user' | 'ai';
+  role?: string; // assistant, user, human, journal
   time?: string;
   createdAt?: string;
   assistantId?: string;
+  type?: string; // typing, widget, etc.
 }
 
 export interface Chat {

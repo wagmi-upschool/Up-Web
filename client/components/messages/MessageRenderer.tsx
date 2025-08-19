@@ -225,9 +225,26 @@ const WidgetRenderer: React.FC<{ data: WidgetData }> = ({ data }) => {
   }
 };
 
+// Typing indicator component
+const TypingIndicator: React.FC = () => (
+  <div className="flex items-center gap-1 py-2">
+    <div className="flex space-x-1">
+      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+    </div>
+  </div>
+);
+
 // Main MessageRenderer component  
-const MessageRenderer: React.FC<MessageRendererProps> = ({ content, sender }) => {
+const MessageRenderer: React.FC<MessageRendererProps & { messageType?: string }> = ({ content, sender, messageType }) => {
   const isUser = sender === 'user';
+  
+  // Show typing indicator for typing messages
+  if (messageType === 'typing') {
+    return <TypingIndicator />;
+  }
+  
   // Try to parse JSON to detect widget messages
   const parseMessageContent = (content: string) => {
     try {

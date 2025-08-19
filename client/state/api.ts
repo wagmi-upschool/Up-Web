@@ -52,9 +52,9 @@ const localApiQuery = fetchBaseQuery({
 });
 
 export const api = createApi({
-  baseQuery: baseQuery,
+  baseQuery: localApiQuery,
   reducerPath: "api",
-  tagTypes: ["Projects", "Tasks", "Users", "Teams", "Chats"],
+  tagTypes: ["Projects", "Tasks", "Users", "Teams", "Chats", "Messages"],
   endpoints: (build) => ({
     getAuthUser: build.query({
       queryFn: async (_, _queryApi, _extraoptions, fetchWihBQ) => {
@@ -65,7 +65,6 @@ export const api = createApi({
           if (!session) throw new Error("No session found");
 
           const { userSub } = session;
-          const { accessToken } = session.tokens ?? {};
 
           const userDetailsResponse = await fetchWihBQ(`users/${userSub}`);
           const userDetails = userDetailsResponse.data as User;
@@ -134,37 +133,46 @@ export const api = createApi({
       query: (query) => `search?query=${query}`,
     }),
     getChats: build.query<Chat[], void>({
-      queryFn: async (_, _queryApi, _extraoptions, fetchWithBQ) => {
-        try {
-          const result = await localApiQuery("api/chats", {});
-          return result;
-        } catch (error: any) {
-          return { error: error.message };
-        }
-      },
+      query: () => "api/chats",
       providesTags: ["Chats"],
     }),
     getChatMessages: build.query<{ messages: ChatMessage[] }, { chatId: string; limit?: string }>({
-      queryFn: async ({ chatId, limit = "20" }) => {
-        try {
-          const result = await localApiQuery(`api/chats/${chatId}/messages?limit=${limit}`, {});
-          return result;
-        } catch (error: any) {
-          return { error: error.message };
-        }
-      },
+      query: ({ chatId, limit = "20" }) => `api/chats/${chatId}/messages?limit=${limit}`,
+      providesTags: (result, error, { chatId }) => [
+        { type: 'Messages', id: chatId },
+        'Messages'
+      ],
     }),
     deleteChat: build.mutation<void, string>({
-      queryFn: async (chatId) => {
-        try {
-          const result = await localApiQuery(`api/chats/${chatId}`, {
-            method: "DELETE",
-          });
-          return result;
-        } catch (error: any) {
-          return { error: error.message };
-        }
-      },
+      query: (chatId) => ({
+        url: `api/chats/${chatId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Chats"],
+    }),
+    sendChatMessage: build.mutation<any, { chatId: string; message: string; assistantId: string }>({
+      query: ({ chatId, message, assistantId }) => ({
+        url: `api/chats/${chatId}/send`,
+        method: "POST",
+        body: { message, assistantId },
+      }),
+      invalidatesTags: (result, error, { chatId }) => [
+        "Chats",
+        { type: 'Messages', id: chatId },
+        'Messages'
+      ],
+    }),
+    saveChatMessages: build.mutation<any, { 
+      chatId: string; 
+      messages: ChatMessage[]; 
+      assistantId: string; 
+      assistantGroupId?: string; 
+    }>({
+      query: ({ chatId, messages, assistantId, assistantGroupId }) => ({
+        url: `api/chats/${chatId}/save`,
+        method: "POST",
+        body: { messages, assistantId, assistantGroupId },
+      }),
       invalidatesTags: ["Chats"],
     }),
   }),
@@ -184,4 +192,6 @@ export const {
   useGetChatsQuery,
   useGetChatMessagesQuery,
   useDeleteChatMutation,
+  useSendChatMessageMutation,
+  useSaveChatMessagesMutation,
 } = api;

@@ -1,11 +1,11 @@
 "use client";
 
-import { getCurrentUser, fetchUserAttributes, signOut } from "aws-amplify/auth";
+import { getCurrentUser, fetchUserAttributes, signOut, fetchAuthSession } from "aws-amplify/auth";
 import { useEffect, useState, useRef } from "react";
 import { Spinner } from "../global/loader/spinner";
 import { Search, Send, Plus, Mic, Paperclip, ThumbsUp, ThumbsDown, Copy, Volume2, MoreHorizontal, LogOut } from "lucide-react";
 import Image from "next/image";
-import { useGetChatsQuery, useGetChatMessagesQuery } from "@/state/api";
+import { useGetChatsQuery, useGetChatMessagesQuery, useSendChatMessageMutation } from "@/state/api";
 import { Chat, ChatMessage } from "@/types/type";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 
@@ -26,12 +26,14 @@ function HomePage({}: Props) {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   
   const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useGetChatsQuery();
   const { data: messagesData, isLoading: isLoadingMessages, error: messagesError } = useGetChatMessagesQuery(
     { chatId: activeChat!, limit: "50" },
     { skip: !activeChat }
   );
+  const [sendMessage, { isLoading: isSendingMessage }] = useSendChatMessageMutation();
   
   console.log('Chats data:', chats);
   console.log('Chats loading:', isLoadingChats);
@@ -41,8 +43,8 @@ function HomePage({}: Props) {
   console.log('Messages loading:', isLoadingMessages);
   console.log('Messages error:', messagesError);
 
-  // Use real messages if available, otherwise show empty state
-  const messages = messagesData?.messages || [];
+  // Use real messages combined with optimistic messages
+  const messages = [...(messagesData?.messages || []), ...optimisticMessages];
 
   const handleSignOut = async () => {
     try {
@@ -50,6 +52,146 @@ function HomePage({}: Props) {
       setShowDropdown(false);
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!currentMessage.trim() || !activeChat) return;
+    
+    const currentActiveChat = chats.find(chat => chat.id === activeChat);
+    if (!currentActiveChat?.assistantId) {
+      console.error('No assistant ID found for current chat');
+      return;
+    }
+
+    const messageText = currentMessage;
+    const timestamp = new Date().toISOString();
+
+    // Add optimistic user message immediately
+    const userMessage: ChatMessage = {
+      id: `temp-user-${Date.now()}`,
+      text: messageText,
+      content: messageText,
+      sender: 'user',
+      role: 'user',
+      createdAt: timestamp,
+      assistantId: currentActiveChat.assistantId,
+    };
+
+    // Add typing indicator for AI response
+    const typingMessageId = `temp-typing-${Date.now()}`;
+    const typingMessage: ChatMessage = {
+      id: typingMessageId,
+      text: '...',
+      content: '...',
+      sender: 'ai',
+      role: 'assistant',
+      createdAt: timestamp,
+      assistantId: currentActiveChat.assistantId,
+      type: 'typing'
+    };
+
+    setOptimisticMessages([userMessage, typingMessage]);
+    setCurrentMessage(""); // Clear input immediately
+
+    try {
+      console.log('Sending message with streaming:', {
+        chatId: activeChat,
+        message: messageText,
+        assistantId: currentActiveChat.assistantId
+      });
+
+      // Get proper auth headers
+      const session = await fetchAuthSession();
+      const { accessToken, idToken } = session.tokens ?? {};
+      const user = await getCurrentUser();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (accessToken && idToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+        headers['x-id-token'] = idToken.toString();
+        headers['x-user-id'] = user.userId;
+      } else {
+        // Development fallback
+        headers['Authorization'] = 'Bearer test';
+        headers['x-user-id'] = 'test123';
+      }
+
+      // Start streaming response
+      const response = await fetch(`/api/chats/${activeChat}/send`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          message: messageText,
+          assistantId: currentActiveChat.assistantId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let aiResponseContent = '';
+
+      if (reader) {
+        let aiMessage: ChatMessage = {
+          id: `ai-response-${Date.now()}`,
+          text: '',
+          content: '',
+          sender: 'ai',
+          role: 'assistant',
+          createdAt: new Date().toISOString(),
+          assistantId: currentActiveChat.assistantId,
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          const chunk = decoder.decode(value);
+          aiResponseContent += chunk;
+          
+          // Update AI message with accumulated content
+          aiMessage = {
+            ...aiMessage,
+            text: aiResponseContent,
+            content: aiResponseContent
+          };
+
+          // Update optimistic messages with streaming content
+          setOptimisticMessages([userMessage, aiMessage]);
+        }
+
+        console.log('Streaming completed, final response:', aiResponseContent);
+        
+        // Clear optimistic messages after a short delay to let the stream finish
+        setTimeout(() => {
+          setOptimisticMessages([]);
+          // Force refetch messages to get the real saved messages
+          // This will be handled by RTK Query cache invalidation
+        }, 1000);
+      }
+
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Remove optimistic messages on error
+      setOptimisticMessages([]);
+      // Restore the message to input
+      setCurrentMessage(messageText);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
@@ -82,6 +224,11 @@ function HomePage({}: Props) {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Clear optimistic messages when switching chats
+  useEffect(() => {
+    setOptimisticMessages([]);
+  }, [activeChat]);
 
   if (loadingUser || isLoadingChats) return <Spinner />;
 
@@ -300,6 +447,7 @@ function HomePage({}: Props) {
                         <MessageRenderer 
                           content={message.text || message.content || 'Mesaj içeriği yok'}
                           sender={isUser ? 'user' : 'ai'}
+                          messageType={message.type}
                         />
                       </div>
                       
@@ -351,11 +499,21 @@ function HomePage({}: Props) {
                     placeholder="Buraya yazabilirsin"
                     value={currentMessage}
                     onChange={(e) => setCurrentMessage(e.target.value)}
-                    className="flex-1 bg-transparent text-neutral-400 text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400"
+                    onKeyPress={handleKeyPress}
+                    disabled={isSendingMessage || !activeChat}
+                    className="flex-1 bg-transparent text-neutral-400 text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400 disabled:opacity-50"
                   />
                 </div>
-                <button className="w-4 h-4 relative overflow-hidden flex items-center justify-center">
-                  <Send className="w-4 h-4 text-neutral-500" />
+                <button 
+                  onClick={handleSendMessage}
+                  disabled={isSendingMessage || !activeChat || !currentMessage.trim()}
+                  className="w-4 h-4 relative overflow-hidden flex items-center justify-center disabled:opacity-50 hover:opacity-70 transition-opacity"
+                >
+                  {isSendingMessage ? (
+                    <div className="w-4 h-4 border border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Send className="w-4 h-4 text-neutral-500" />
+                  )}
                 </button>
               </div>
             </div>
