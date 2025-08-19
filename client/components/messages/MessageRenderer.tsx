@@ -130,10 +130,12 @@ const NewAssistantAnnouncement: React.FC<{ data: any }> = ({ data }) => (
     )}
     {data.imageUrl && (
       <div className="w-full h-32 bg-gray-200 rounded-lg mb-3 flex items-center justify-center">
-        <img
+        <Image
           src={data.imageUrl}
           alt={data.title}
-          className="max-w-full max-h-full rounded-lg"
+          width={300}
+          height={128}
+          className="max-w-full max-h-full rounded-lg object-cover"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
           }}

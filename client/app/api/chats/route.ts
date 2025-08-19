@@ -109,8 +109,8 @@ export async function GET(req: NextRequest) {
         console.log(`Total conversations fetched: ${allConversations.length}`);
         
         // Fetch assistant and group data to merge with conversations
-        const assistantIds = [...new Set(allConversations.map(chat => chat.assistantId).filter(Boolean))];
-        const groupIds = [...new Set(allConversations.map(chat => chat.assistantGroupId).filter(Boolean))];
+        const assistantIds = Array.from(new Set(allConversations.map(chat => chat.assistantId).filter(Boolean)));
+        const groupIds = Array.from(new Set(allConversations.map(chat => chat.assistantGroupId).filter(Boolean)));
         
         console.log(`Fetching ${assistantIds.length} assistants and ${groupIds.length} groups`);
         
