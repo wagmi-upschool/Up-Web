@@ -8,7 +8,6 @@ frontend:
     build:
       commands:
         - cd client
-        - env | grep -e NEXT_PUBLIC_BASE_URL >> .env.local
         - env | grep -e NEXT_PUBLIC_COGNITO_USER_POOL_ID >> .env.local
         - env | grep -e NEXT_PUBLIC_COGNITO_USER_CLIENT_ID >> .env.local
         - env | grep -e REMOTE_URL >> .env.local
@@ -17,7 +16,7 @@ frontend:
   artifacts:
     baseDirectory: client/.next
     files:
-      - '**/*'
+      - "**/*"
   cache:
     paths:
       - client/node_modules/**/*
