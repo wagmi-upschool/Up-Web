@@ -3,6 +3,7 @@
 import { getCurrentUser, fetchUserAttributes, signOut, fetchAuthSession } from "aws-amplify/auth";
 import { useEffect, useState, useRef } from "react";
 import { Spinner } from "../global/loader/spinner";
+import LottieSpinner from "../global/loader/lottie-spinner";
 import { Search, Send, Plus, Mic, Paperclip, ThumbsUp, ThumbsDown, Copy, Volume2, MoreHorizontal, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useGetChatsQuery, useGetChatMessagesQuery, useSendChatMessageMutation } from "@/state/api";
@@ -230,7 +231,11 @@ function HomePage({}: Props) {
     setOptimisticMessages([]);
   }, [activeChat]);
 
-  if (loadingUser || isLoadingChats) return <Spinner />;
+  if (loadingUser || isLoadingChats) return (
+    <div className="min-h-screen flex items-center justify-center bg-icon-slate-white">
+      <LottieSpinner size={180} />
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-icon-slate-white">
@@ -309,7 +314,28 @@ function HomePage({}: Props) {
             </div>
           )}
           <div className="space-y-4">
-            {chats.map((chat) => (
+            {chats
+              .filter((chat) => {
+                // Filter out reflectionJournal type chats (check both chat.type and assistant type)
+                if (chat.type === 'reflectionJournal') return false;
+                
+                // Also check if the assistant itself is of reflectionJournal type
+                // This requires checking the assistant data, but we can infer from assistantId or other properties
+                const reflectionJournalAssistants = ['reflectionJournal'];
+                if (reflectionJournalAssistants.some(type => 
+                  chat.assistantId?.includes(type) || 
+                  chat.title?.toLowerCase().includes('günlük') ||
+                  chat.title?.toLowerCase().includes('journal') ||
+                  chat.description?.toLowerCase().includes('günlük')
+                )) return false;
+                
+                // Filter out specific assistant types
+                const excludedTypes = ['flashcard', 'boolean-tester', 'fill-in-blanks'];
+                if (excludedTypes.includes(chat.type || '')) return false;
+                
+                return true;
+              })
+              .map((chat) => (
               <div
                 key={chat.id}
                 onClick={() => setActiveChat(chat.id)}
@@ -351,7 +377,7 @@ function HomePage({}: Props) {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-gradient-to-br from-primary-faded to-blue-200">
+      <div className="flex-1 flex flex-col" style={{backgroundImage: 'url(/bg.png)', backgroundSize: 'cover', backgroundPosition: 'center'}}>
         {/* Chat Header */}
         <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
           <div className="flex items-center justify-between">
@@ -403,7 +429,7 @@ function HomePage({}: Props) {
           ) : isLoadingMessages ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <Spinner />
+                <LottieSpinner size={120} />
                 <p className="text-text-description-gray text-sm mt-3">Mesajlar yükleniyor...</p>
               </div>
             </div>

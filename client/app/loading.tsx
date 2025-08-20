@@ -1,11 +1,11 @@
-import { Spinner } from "@/components/global/loader/spinner";
+import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type Props = {};
 
 function Loading({}: Props) {
   return (
-    <div className="flex h-screen items-center justify-center">
-      <Spinner />
+    <div className="min-h-screen flex items-center justify-center bg-icon-slate-white">
+      <LottieSpinner size={220} />
     </div>
   );
 }
