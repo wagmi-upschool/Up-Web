@@ -1,3 +1,5 @@
+"use client";
+
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type Props = {};

@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import Lottie from 'lottie-react';
 import splashLoadingAnimation from '@/public/lotties/splash_loading.json';

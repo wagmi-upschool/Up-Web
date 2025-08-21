@@ -329,9 +329,16 @@ function HomePage({}: Props) {
                   chat.description?.toLowerCase().includes('günlük')
                 )) return false;
                 
-                // Filter out specific assistant types
-                const excludedTypes = ['flashcard', 'boolean-tester', 'fill-in-blanks'];
+                // Filter out specific chat types and assistant types
+                const excludedTypes = ['accountability', 'flashcard', 'boolean-tester', 'fill-in-blanks'];
                 if (excludedTypes.includes(chat.type || '')) return false;
+                
+                // Also check assistant type for the same excluded types
+                if (excludedTypes.some(type => 
+                  chat.assistantId?.includes(type) || 
+                  chat.title?.toLowerCase().includes(type) ||
+                  chat.description?.toLowerCase().includes(type)
+                )) return false;
                 
                 return true;
               })

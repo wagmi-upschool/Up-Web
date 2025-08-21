@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import Image from 'next/image';
+import AssistantInputOption from '@/services/AssistantInputOption';
 
 interface MessageRendererProps {
   content: string;
@@ -269,92 +270,136 @@ const TopicSelectionMessage: React.FC<{ data: any }> = ({ data }) => (
   </div>
 );
 
-const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => (
-  <div className="w-full p-4 bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl flex flex-col items-end gap-4">
-    <div className="self-stretch flex flex-col gap-1">
-      <div className="text-zinc-800 text-sm font-medium font-poppins leading-tight">
-        {data.introMessage || 'Bu konuda ihtiyacını daha iyi anlayabilmem için aşağıdaki metindeki boşlukları benim için doldurabilir misin?'}
-      </div>
-    </div>
+const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => {
+  const [selectedOptions, setSelectedOptions] = React.useState<{[key: string]: any}>({});
+  const [dropdownStates, setDropdownStates] = React.useState<{[key: string]: boolean}>({});
+  
+  // Parse the message to extract blanks and create form fields
+  const parseMessage = (message: string) => {
+    if (!message) return { parts: [], blanks: [] };
     
-    <div className="self-stretch p-4 bg-white rounded-2xl flex flex-col gap-2">
-      <div className="inline-flex justify-start items-center gap-2">
-        <div className="flex-1 text-zinc-800 text-sm font-normal font-poppins leading-tight">
-          Şirketimize yeni bir ürün/hizmet/girişim fikri sunmak istiyorum. Sunumun ana fikri:
-        </div>
-      </div>
-      
-      <div className="h-8 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex justify-between items-center px-4 py-2 overflow-hidden">
-        <div className="text-neutral-400 text-sm font-medium font-poppins leading-tight">
-          Seç
-        </div>
-        <div className="w-4 h-4 relative overflow-hidden">
-          <Image
-            src="/down_button.svg"
-            alt="Down Arrow"
-            width={16}
-            height={16}
-            className="object-contain"
-          />
-        </div>
-      </div>
-      
-      <div className="h-8 inline-flex justify-start items-center gap-2">
-        <div className="text-zinc-800 text-sm font-normal font-poppins leading-tight">Hedef kitlesi:</div>
-        <div className="flex-1 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex justify-between items-center px-4 py-2 overflow-hidden">
-          <div className="text-neutral-400 text-sm font-medium font-poppins leading-tight">
-            Seç
-          </div>
-          <div className="w-4 h-4 relative overflow-hidden">
-            <Image
-              src="/down_button.svg"
-              alt="Down Arrow"
-              width={16}
-              height={16}
-              className="object-contain"
-            />
-          </div>
-        </div>
-      </div>
-      
-      <div className="inline-flex justify-start items-center gap-2">
-        <div className="flex-1 text-zinc-800 text-sm font-normal font-poppins leading-tight">
-          ile bir konuşma yapmam gerekiyor. Sunumum sonunda
-        </div>
-      </div>
-      
-      <div className="h-8 inline-flex justify-start items-center gap-2">
-        <div className="text-zinc-800 text-sm font-normal font-poppins leading-tight">dinleyicilere</div>
-        <div className="flex-1 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex justify-between items-center px-4 py-2 overflow-hidden">
-          <div className="text-neutral-400 text-sm font-medium font-poppins leading-tight">
-            Seç
-          </div>
-          <div className="w-4 h-4 relative overflow-hidden">
-            <Image
-              src="/down_button.svg"
-              alt="Down Arrow"
-              width={16}
-              height={16}
-              className="object-contain"
-            />
-          </div>
-        </div>
-      </div>
-      
-      <div className="inline-flex justify-start items-center gap-2">
-        <div className="flex-1 text-zinc-800 text-sm font-normal font-poppins leading-tight">
-          gibi bir etki yaratmaya hedefliyorum.
-        </div>
-      </div>
-    </div>
+    const parts = message.split('[BLANK]');
+    const blanks = parts.length - 1;
     
-    <div className="h-10 px-2 py-3 opacity-40 bg-blue-600 rounded-2xl outline outline-1 inline-flex justify-center items-center gap-2">
-      <div className="text-white text-sm font-semibold font-poppins leading-tight">
-        Gönder
+    return { parts, blanks };
+  };
+
+  const { parts } = parseMessage(data.message || '');
+  const settings = data.settings || [[]];
+  const userOptions = data.userOptions || {};
+
+  const handleOptionSelect = async (stageIndex: number, option: any) => {
+    try {
+      // Save the selection to backend
+      await AssistantInputOption.saveOption({
+        value: option.value,
+        optionId: option.optionId,
+        assistantId: data.assistantId,
+        conversationId: data.conversationId,
+        itemIndex: data.itemIndex
+      });
+
+      // Update local state
+      setSelectedOptions(prev => ({
+        ...prev,
+        [stageIndex]: option
+      }));
+
+      // Close dropdown
+      setDropdownStates(prev => ({
+        ...prev,
+        [stageIndex]: false
+      }));
+
+    } catch (error) {
+      console.error('Error saving option selection:', error);
+    }
+  };
+
+  const toggleDropdown = (stageIndex: number) => {
+    // Don't open dropdown if option is already selected
+    if (selectedOptions[stageIndex] || userOptions[stageIndex]) {
+      return;
+    }
+    
+    setDropdownStates(prev => ({
+      ...prev,
+      [stageIndex]: !prev[stageIndex]
+    }));
+  };
+
+  return (
+    <div className="w-full p-4 bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl flex flex-col items-end gap-4">
+      <div className="self-stretch flex flex-col gap-1">
+        <div className="text-zinc-800 text-sm font-medium font-poppins leading-tight">
+          {data.introMessage || 'Bu konuda ihtiyacını daha iyi anlayabilmem için aşağıdaki metindeki boşlukları benim için doldurabilir misin?'}
+        </div>
+      </div>
+      
+      <div className="self-stretch p-4 bg-white rounded-2xl flex flex-col gap-2">
+        {/* Render message with interactive blanks */}
+        {parts.map((part, index) => (
+          <div key={index} className="flex flex-col gap-2">
+            {/* Text part */}
+            {part && (
+              <div className="text-zinc-800 text-sm font-normal font-poppins leading-tight">
+                {part.trim()}
+              </div>
+            )}
+            
+            {/* Dropdown for this blank (if exists) */}
+            {index < settings.length && settings[index] && settings[index].length > 0 && (
+              <div className="relative">
+                <div 
+                  onClick={() => toggleDropdown(index)}
+                  className={`h-8 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex justify-between items-center px-4 py-2 overflow-hidden ${
+                    selectedOptions[index] || userOptions[index] 
+                      ? 'cursor-default' 
+                      : 'cursor-pointer hover:bg-gray-50'
+                  }`}
+                >
+                  <div className={`text-sm font-medium font-poppins leading-tight ${
+                    selectedOptions[index] || userOptions[index] 
+                      ? 'text-zinc-800' 
+                      : 'text-neutral-400'
+                  }`}>
+                    {selectedOptions[index]?.value || userOptions[index]?.value || 'Seç'}
+                  </div>
+                  <div className={`w-4 h-4 relative overflow-hidden transition-transform ${
+                    dropdownStates[index] ? 'rotate-180' : ''
+                  }`}>
+                    <Image
+                      src="/down_button.svg"
+                      alt="Down Arrow"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  </div>
+                </div>
+
+                {/* Dropdown Options */}
+                {dropdownStates[index] && (
+                  <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {settings[index].map((option: any, optionIndex: number) => (
+                      <div
+                        key={option.optionId || optionIndex}
+                        onClick={() => handleOptionSelect(index, option)}
+                        className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm font-medium font-poppins leading-tight text-zinc-800 border-b border-neutral-100 last:border-b-0"
+                      >
+                        {option.value}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const TitleTextBoxMessage: React.FC<{ data: any }> = ({ data }) => (
   <div className="bg-gray-50 rounded-lg p-4 border">
