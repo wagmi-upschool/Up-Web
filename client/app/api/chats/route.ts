@@ -38,12 +38,17 @@ export async function GET(req: NextRequest) {
         
         let allConversations: any[] = [];
         let nextToken: string | null = null;
+        let previousToken: string | null = null; // Track previous token to detect loops
         let totalFetched = 0;
         const batchSize = 50; // Fetch in batches of 50
+        const MAX_CONVERSATIONS = 100; // Limit to first 100 conversations
+        const MAX_BATCHES = 2; // Maximum 2 batches to prevent infinite loop
+        let batchCount = 0;
         
         do {
+            batchCount++;
             const url: string = `${process.env.REMOTE_URL}/conversation/user/${userId}/get?limit=${batchSize}${nextToken ? `&nextToken=${nextToken}` : ''}`;
-            console.log(`Fetching batch from URL: ${url} (Total so far: ${totalFetched})`);
+            console.log(`📦 Fetching batch ${batchCount}/${MAX_BATCHES} from URL: ${url} (Total so far: ${totalFetched}/${MAX_CONVERSATIONS})`);
             
             const lambda = await fetch(url, {
                 method: 'GET',
@@ -96,17 +101,46 @@ export async function GET(req: NextRequest) {
             
             // Add conversations from this batch
             if (data.conversations && Array.isArray(data.conversations)) {
+                const previousCount = allConversations.length;
                 allConversations = allConversations.concat(data.conversations);
                 totalFetched = allConversations.length;
+                
+                // Check if we got new conversations
+                if (batchCount > 1 && totalFetched === previousCount) {
+                    console.log(`⚠️ No new conversations received in batch ${batchCount}`);
+                    console.log(`✋ Breaking - likely reached end or duplicate data`);
+                    break;
+                }
             }
             
             // Check if there's more data to fetch - handle both formats
-            nextToken = data.nextToken || data.lastEvaluatedKey?.idUpdatedAt || null;
-            console.log(`Next token: ${nextToken}, Total fetched: ${totalFetched}`);
+            const newNextToken = data.nextToken || data.lastEvaluatedKey?.idUpdatedAt || null;
+            console.log(`Batch ${batchCount}: Next token: ${newNextToken}, Total fetched: ${totalFetched}`);
             
-        } while (nextToken);
+            // Check for same token loop (infinite loop prevention)
+            if (newNextToken && newNextToken === previousToken) {
+                console.log(`🔄 LOOP DETECTED! Same nextToken as previous: ${newNextToken}`);
+                console.log(`✋ Breaking to prevent infinite loop`);
+                break;
+            }
+            
+            // Safety checks to prevent infinite fetching
+            if (totalFetched >= MAX_CONVERSATIONS) {
+                console.log(`✋ Stopping fetch - reached max conversations limit (${MAX_CONVERSATIONS})`);
+                break;
+            }
+            if (batchCount >= MAX_BATCHES) {
+                console.log(`✋ Stopping fetch - reached max batches limit (${MAX_BATCHES})`);
+                break;
+            }
+            
+            // Update tokens for next iteration
+            previousToken = nextToken;
+            nextToken = newNextToken;
+            
+        } while (nextToken && totalFetched < MAX_CONVERSATIONS && batchCount < MAX_BATCHES);
         
-        console.log(`Total conversations fetched: ${allConversations.length}`);
+        console.log(`✅ Fetch complete: ${allConversations.length} conversations in ${batchCount} batches (limited to ${MAX_CONVERSATIONS} max)`);
         
         // Fetch assistant and group data to merge with conversations
         const assistantIds = Array.from(new Set(allConversations.map(chat => chat.assistantId).filter(Boolean)));

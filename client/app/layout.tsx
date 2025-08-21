@@ -1,6 +1,7 @@
 import DashboardWrapper from "@/components/wrapper/dashboardWrapper";
 import type { Metadata } from "next";
 import { Poppins, Righteous } from "next/font/google";
+import { Toaster } from 'react-hot-toast';
 import "./globals.css";
 
 const poppins = Poppins({ 
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${poppins.variable} ${righteous.variable} font-sans`}>
         <DashboardWrapper>{children}</DashboardWrapper>
+        <Toaster />
       </body>
     </html>
   );

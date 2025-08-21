@@ -71,6 +71,8 @@ export async function GET(req: NextRequest, { params }: { params: { chatId: stri
         }
         
         console.log('Parsed response data:', data);
+        console.log('[MESSAGE CONTENT DEBUG] First message from parsed data:', data.messages?.[0]);
+        console.log('[MESSAGE CONTENT DEBUG] Content field exists:', !!data.messages?.[0]?.content);
         
         if (data && data.message === "Internal server error") {
             throw new Error("Failed to fetch messages");
@@ -85,8 +87,19 @@ export async function GET(req: NextRequest, { params }: { params: { chatId: stri
         });
         
         console.log(`Total messages fetched: ${sortedMessages.length}`);
+        console.log('[MESSAGE STREAM TEST] 📄 Sample message structure:', sortedMessages[0]);
         
-        return NextResponse.json({ messages: sortedMessages }, { status: 200 });
+        // Add content field to messages if missing but message field exists
+        const processedMessages = sortedMessages.map((msg: any) => {
+            if (!msg.content && msg.message) {
+                return { ...msg, content: msg.message };
+            }
+            return msg;
+        });
+        
+        console.log('[MESSAGE CONTENT DEBUG] After processing - content field exists:', !!processedMessages[0]?.content);
+        
+        return NextResponse.json({ messages: processedMessages }, { status: 200 });
     } catch (error: any) {
         console.error('Error in GET /api/chats/[chatId]/messages:', error);
         return NextResponse.json({ error: 'Failed to fetch messages', details: error?.message || 'Unknown error' }, { status: 500 });

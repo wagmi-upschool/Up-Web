@@ -158,8 +158,7 @@ export const api = createApi({
       }),
       invalidatesTags: (result, error, { chatId }) => [
         "Chats",
-        { type: 'Messages', id: chatId },
-        'Messages'
+        { type: 'Messages', id: chatId }
       ],
     }),
     saveChatMessages: build.mutation<any, { 
@@ -173,7 +172,33 @@ export const api = createApi({
         method: "POST",
         body: { messages, assistantId, assistantGroupId },
       }),
-      invalidatesTags: ["Chats"],
+      invalidatesTags: (result, error, { chatId }) => [
+        "Chats",
+        { type: 'Messages', id: chatId }
+      ],
+    }),
+    saveConversation: build.mutation<any, {
+      chatId: string;
+      assistantId: string;
+      assistantGroupId?: string;
+      type?: string;
+      userId?: string;
+      localDateTime?: string;
+      iconUrl?: string;
+      lastMessage?: string;
+      title?: string;
+      messages: ChatMessage[];
+      conversationId?: string;
+    }>({
+      query: ({ chatId, ...body }) => ({
+        url: `api/chats/${chatId}/conversation-save`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (result, error, { chatId }) => [
+        "Chats",
+        { type: 'Messages', id: chatId }
+      ],
     }),
   }),
 });
@@ -194,4 +219,5 @@ export const {
   useDeleteChatMutation,
   useSendChatMessageMutation,
   useSaveChatMessagesMutation,
+  useSaveConversationMutation,
 } = api;

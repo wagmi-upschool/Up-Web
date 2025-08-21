@@ -1,33 +1,42 @@
 "use client";
 
-import { getCurrentUser, fetchUserAttributes, signOut, fetchAuthSession } from "aws-amplify/auth";
+import { getCurrentUser, signOut, fetchAuthSession } from "aws-amplify/auth";
 import { useEffect, useState, useRef } from "react";
-import { Spinner } from "../global/loader/spinner";
 import LottieSpinner from "../global/loader/lottie-spinner";
-import { Search, Send, Plus, Mic, Paperclip, ThumbsUp, ThumbsDown, Copy, Volume2, MoreHorizontal, LogOut } from "lucide-react";
+import { Search, Send, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, LogOut } from "lucide-react";
 import Image from "next/image";
-import { useGetChatsQuery, useGetChatMessagesQuery, useSendChatMessageMutation } from "@/state/api";
-import { Chat, ChatMessage } from "@/types/type";
+import { useGetChatsQuery, useGetChatMessagesQuery, useSendChatMessageMutation, useSaveConversationMutation } from "@/state/api";
+import { ChatMessage } from "@/types/type";
 import MessageRenderer from "@/components/messages/MessageRenderer";
+import toast from 'react-hot-toast';
 
 type Props = {};
 
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai';
-  time: string;
-}
+
+// Helper function to format date like mobile (local timezone)
+const formatMobileDateTime = (date?: Date | string): string => {
+  const d = date ? new Date(date) : new Date();
+  // Use local time instead of UTC
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  const milliseconds = String(d.getMilliseconds()).padStart(3, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+};
 
 function HomePage({}: Props) {
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [userAttributes, setUserAttributes] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [messageLikes, setMessageLikes] = useState<{[messageId: string]: 'like' | 'dislike' | null}>({});
   
   const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useGetChatsQuery();
   const { data: messagesData, isLoading: isLoadingMessages, error: messagesError } = useGetChatMessagesQuery(
@@ -35,6 +44,7 @@ function HomePage({}: Props) {
     { skip: !activeChat }
   );
   const [sendMessage, { isLoading: isSendingMessage }] = useSendChatMessageMutation();
+  const [saveConversation] = useSaveConversationMutation();
   
   console.log('Chats data:', chats);
   console.log('Chats loading:', isLoadingChats);
@@ -46,6 +56,11 @@ function HomePage({}: Props) {
 
   // Use real messages combined with optimistic messages
   const messages = [...(messagesData?.messages || []), ...optimisticMessages];
+  console.log('[MESSAGE STREAM TEST] 📋 Combined messages:', {
+    realMessages: messagesData?.messages?.length || 0,
+    optimisticMessages: optimisticMessages.length,
+    totalMessages: messages.length
+  });
 
   const handleSignOut = async () => {
     try {
@@ -66,7 +81,7 @@ function HomePage({}: Props) {
     }
 
     const messageText = currentMessage;
-    const timestamp = new Date().toISOString();
+    const timestamp = formatMobileDateTime();
 
     // Add optimistic user message immediately
     const userMessage: ChatMessage = {
@@ -96,11 +111,12 @@ function HomePage({}: Props) {
     setCurrentMessage(""); // Clear input immediately
 
     try {
-      console.log('Sending message with streaming:', {
+      console.log('[MESSAGE STREAM TEST] 🚀 Sending message with streaming:', {
         chatId: activeChat,
         message: messageText,
         assistantId: currentActiveChat.assistantId
       });
+      console.log('[MESSAGE STREAM TEST] 📨 Optimistic messages set:', optimisticMessages.length);
 
       // Get proper auth headers
       const session = await fetchAuthSession();
@@ -147,41 +163,155 @@ function HomePage({}: Props) {
           content: '',
           sender: 'ai',
           role: 'assistant',
-          createdAt: new Date().toISOString(),
+          createdAt: formatMobileDateTime(),
           assistantId: currentActiveChat.assistantId,
         };
 
-        while (true) {
-          const { done, value } = await reader.read();
-          
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          aiResponseContent += chunk;
-          
-          // Update AI message with accumulated content
-          aiMessage = {
-            ...aiMessage,
-            text: aiResponseContent,
-            content: aiResponseContent
-          };
+        // Process stream exactly like Flutter _processStream
+        let buffer = '';
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            
+            // Check for errors like Flutter
+            if (chunk.includes('error')) {
+              try {
+                const errorMap = JSON.parse(chunk);
+                console.error('[MESSAGE STREAM TEST] ❌ Stream error:', errorMap);
+                throw new Error('Stream error received');
+              } catch (e) {
+                // Continue if not valid JSON
+              }
+            }
 
-          // Update optimistic messages with streaming content
-          setOptimisticMessages([userMessage, aiMessage]);
+            // Process chunk like Flutter: remove [DONE-UP] and add to buffer
+            buffer += chunk.replace('[DONE-UP]', '');
+            const isDone = chunk.includes('[DONE-UP]');
+            
+            console.log('[MESSAGE STREAM TEST] 📝 Chunk processed, buffer length:', buffer.length);
+            
+            // Update AI message with accumulated buffer content (like Flutter MessageReceivedEvent)
+            aiMessage = {
+              ...aiMessage,
+              text: buffer,
+              content: buffer
+            };
+
+            // Real-time UI update like Flutter emit
+            setOptimisticMessages([userMessage, aiMessage]);
+            console.log('[MESSAGE STREAM TEST] 🔄 UI updated with chunk');
+
+            if (isDone) {
+              console.log('[MESSAGE STREAM TEST] ✅ Stream completed with [DONE-UP]');
+              break;
+            }
+          }
+        } catch (error) {
+          console.error('[MESSAGE STREAM TEST] ❌ Stream processing error:', error);
+          throw error;
         }
+
+        // Use buffer as final response content
+        aiResponseContent = buffer;
 
         console.log('Streaming completed, final response:', aiResponseContent);
         
-        // Clear optimistic messages after a short delay to let the stream finish
-        setTimeout(() => {
-          setOptimisticMessages([]);
-          // Force refetch messages to get the real saved messages
-          // This will be handled by RTK Query cache invalidation
-        }, 1000);
+        console.log('[MESSAGE STREAM TEST] ✅ Streaming completed, final response length:', aiResponseContent.length);
+        
+        // Save the conversation using conversation-save endpoint (Flutter-style)
+        try {
+          console.log('[MESSAGE STREAM TEST] 💾 Saving conversation via conversation-save endpoint...');
+          
+          // Get current user for userId
+          const user = await getCurrentUser();
+          
+          // Prepare ONLY the new messages (user + AI response) - existing messages don't have content
+          const newUserMessage: ChatMessage = {
+            id: `user-${Date.now()}`,
+            text: messageText,
+            content: messageText,
+            role: 'user',
+            sender: 'user',
+            createdAt: timestamp,
+            assistantId: currentActiveChat.assistantId,
+            type: 'default'
+          };
+
+          const newAiMessage: ChatMessage = {
+            id: `ai-${Date.now()}`,
+            text: aiResponseContent,
+            content: aiResponseContent,
+            role: 'assistant',
+            sender: 'ai', 
+            createdAt: formatMobileDateTime(),
+            assistantId: currentActiveChat.assistantId,
+            type: 'default'
+          };
+
+          // Only send NEW messages since existing ones don't have content from API
+          const messagesToSave: ChatMessage[] = [
+            newUserMessage,
+            newAiMessage
+          ];
+
+          console.log('[MESSAGE STREAM TEST] 📝 Preparing conversation-save request:', {
+            messagesCount: messagesToSave.length,
+            assistantId: currentActiveChat.assistantId,
+            conversationId: activeChat,
+            userId: user.userId,
+            lastFewMessages: messagesToSave.slice(-3).map(m => ({
+              id: m.id,
+              text: m.text,
+              content: m.content,
+              message: (m as any).message,
+              role: m.role
+            }))
+          });
+
+          // Use conversation-save endpoint (Flutter-style)
+          const saveResult = await saveConversation({
+            chatId: activeChat,
+            assistantId: currentActiveChat.assistantId,
+            assistantGroupId: currentActiveChat.assistantGroupId || '',
+            type: 'conversation',
+            userId: user.userId,
+            localDateTime: formatMobileDateTime(),
+            title: currentActiveChat.title || 'Untitled Conversation',
+            lastMessage: aiResponseContent.substring(0, 100) + (aiResponseContent.length > 100 ? '...' : ''),
+            messages: messagesToSave.map(msg => ({  // Now we have only 2 messages with actual content
+              id: msg.id,
+              content: msg.text || msg.content || '',  // Use content field directly
+              role: msg.role,
+              sender: msg.sender,
+              createdAt: msg.createdAt ? formatMobileDateTime(msg.createdAt) : formatMobileDateTime(),
+              assistantId: msg.assistantId,
+              type: msg.type || 'default'
+            })),
+            conversationId: activeChat // Use existing chat ID as conversation ID
+          });
+          
+          if ('data' in saveResult) {
+            console.log('[MESSAGE STREAM TEST] ✅ Conversation saved successfully via conversation-save endpoint');
+            console.log('[MESSAGE STREAM TEST] 🔄 RTK Query cache automatically invalidated');
+            console.log('[MESSAGE STREAM TEST] 📄 Save result:', saveResult.data);
+          } else {
+            console.error('[MESSAGE STREAM TEST] ❌ Failed to save conversation:', saveResult.error);
+          }
+        } catch (saveError) {
+          console.error('[MESSAGE STREAM TEST] ❌ Error saving conversation:', saveError);
+        }
+        
+        // Optimistic messages will be cleared automatically by useEffect when real messages load
+        console.log('[MESSAGE STREAM TEST] 💭 Optimistic messages will be cleared when real messages with content are detected');
       }
 
     } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('[MESSAGE STREAM TEST] ❌ Failed to send message:', error);
       // Remove optimistic messages on error
       setOptimisticMessages([]);
       // Restore the message to input
@@ -196,13 +326,52 @@ function HomePage({}: Props) {
     }
   };
 
+  const handleLikeDislike = async (messageId: string, type: 'like' | 'dislike') => {
+    try {
+      // Optimistically update the UI
+      const currentStatus = messageLikes[messageId];
+      const newStatus = currentStatus === type ? null : type;
+      setMessageLikes(prev => ({ ...prev, [messageId]: newStatus }));
+
+      // Call the API
+      const session = await fetchAuthSession();
+      const { accessToken, idToken } = session.tokens ?? {};
+      const user = await getCurrentUser();
+
+      if (accessToken && idToken && user.userId) {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/messages/${messageId}/rate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'x-id-token': idToken.toString(),
+            'x-user-id': user.userId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            rating: newStatus === 'like' ? 1 : newStatus === 'dislike' ? -1 : 0
+          })
+        });
+
+        if (!response.ok) {
+          // Revert on error
+          setMessageLikes(prev => ({ ...prev, [messageId]: currentStatus }));
+          toast.error('Rating kaydedilemedi');
+        } else {
+          toast.success(newStatus === 'like' ? 'Beğenildi' : newStatus === 'dislike' ? 'Beğenilmedi' : 'Rating kaldırıldı');
+        }
+      }
+    } catch (error) {
+      console.error('Error rating message:', error);
+      toast.error('Rating kaydedilemedi');
+    }
+  };
+
   useEffect(() => {
+    console.log('[MESSAGE STREAM TEST] 🔄 HomePage component mounted/remounted');
+    
     const fetchUser = async () => {
       try {
-        const user = await getCurrentUser();
-        const attributes = await fetchUserAttributes();
-        setUserInfo(user);
-        setUserAttributes(attributes);
+        await getCurrentUser();
       } catch (error) {
         console.error("Error fetching user:", error);
       } finally {
@@ -230,6 +399,22 @@ function HomePage({}: Props) {
   useEffect(() => {
     setOptimisticMessages([]);
   }, [activeChat]);
+
+  // Clear optimistic messages when real messages are loaded with content
+  useEffect(() => {
+    if (messagesData?.messages && optimisticMessages.length > 0) {
+      const realMessages = messagesData.messages;
+      const hasContentMessages = realMessages.some(msg => msg.content);
+      
+      if (hasContentMessages) {
+        console.log('[MESSAGE STREAM TEST] 🔄 Real messages with content detected, clearing optimistic messages');
+        // Small delay to ensure UI update is smooth
+        setTimeout(() => {
+          setOptimisticMessages([]);
+        }, 500);
+      }
+    }
+  }, [messagesData?.messages, optimisticMessages.length]);
 
   if (loadingUser || isLoadingChats) return (
     <div className="min-h-screen flex items-center justify-center bg-icon-slate-white">
@@ -287,11 +472,6 @@ function HomePage({}: Props) {
         <div className="p-6 border-b border-message-box-border">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-normal text-title-black font-righteous">Upper Sohbetler</h1>
-            <div className="flex items-center gap-2">
-              <button className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-                <Plus className="w-4 h-4 text-secondary-text" />
-              </button>
-            </div>
           </div>
           
           {/* Search Bar */}
@@ -301,8 +481,9 @@ function HomePage({}: Props) {
               type="text"
               placeholder="Ara"
               className="w-full bg-message-box-bg border border-message-box-border rounded-lg pl-10 pr-4 py-2 text-sm font-poppins font-medium text-text-body-black placeholder-text-description-gray focus:outline-none focus:ring-2 focus:ring-primary"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Mic className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-passive-icon" />
           </div>
         </div>
 
@@ -332,6 +513,9 @@ function HomePage({}: Props) {
                 // Filter out specific chat types and assistant types
                 const excludedTypes = ['accountability', 'flashcard', 'boolean-tester', 'fill-in-blanks'];
                 if (excludedTypes.includes(chat.type || '')) return false;
+                
+                // Search filter
+                if (searchTerm && !chat.title?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
                 
                 // Also check assistant type for the same excluded types
                 if (excludedTypes.some(type => 
@@ -395,9 +579,6 @@ function HomePage({}: Props) {
               }
             </h2>
             <div className="flex items-center gap-2">
-              <button className="p-2 hover:bg-icon-slate-white rounded">
-                <Search className="w-5 h-5 text-passive-icon" />
-              </button>
               <div className="relative" ref={dropdownRef}>
                 <button 
                   className="p-2 hover:bg-icon-slate-white rounded"
@@ -478,7 +659,22 @@ function HomePage({}: Props) {
                           : 'bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black'
                       }`}>
                         <MessageRenderer 
-                          content={message.text || message.content || 'Mesaj içeriği yok'}
+                          content={(() => {
+                            // Debug: Always log message structure
+                            console.log('[MESSAGE DEBUG] 🔍 Full message object:', message);
+                            console.log('[MESSAGE DEBUG] 📝 Message keys:', Object.keys(message));
+                            console.log('[MESSAGE DEBUG] 🎯 All possible content fields:', {
+                              text: message.text,
+                              content: message.content,
+                              message: (message as any).message,
+                              body: (message as any).body,
+                              data: (message as any).data
+                            });
+                            
+                            const content = message.content || message.text || (message as any).message || (message as any).body || 'Mesaj içeriği yok';
+                            console.log('[MESSAGE DEBUG] ✅ Final content:', content);
+                            return content;
+                          })()}
                           sender={isUser ? 'user' : 'ai'}
                           messageType={message.type}
                         />
@@ -487,33 +683,51 @@ function HomePage({}: Props) {
                       {/* Action buttons - Only for AI messages */}
                       {!isUser && (
                         <div className="flex items-center gap-2 mt-2 ml-2">
-                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
-                            <ThumbsUp className="w-4 h-4 text-passive-icon" />
+                          <button 
+                            onClick={() => handleLikeDislike(message.id, 'like')}
+                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                          >
+{messageLikes[message.id] === 'like' ? (
+                              <Image 
+                                src="/liked.svg" 
+                                alt="Liked" 
+                                width={16} 
+                                height={16} 
+                                className="w-4 h-4"
+                              />
+                            ) : (
+                              <ThumbsUp className="w-4 h-4 text-passive-icon" />
+                            )}
                           </button>
-                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
-                            <ThumbsDown className="w-4 h-4 text-passive-icon" />
+                          <button 
+                            onClick={() => handleLikeDislike(message.id, 'dislike')}
+                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                          >
+{messageLikes[message.id] === 'dislike' ? (
+                              <Image 
+                                src="/disliked.svg" 
+                                alt="Disliked" 
+                                width={16} 
+                                height={16} 
+                                className="w-4 h-4"
+                              />
+                            ) : (
+                              <ThumbsDown className="w-4 h-4 text-passive-icon" />
+                            )}
                           </button>
-                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
+                          <button 
+                            onClick={() => {
+                              const content = message.content || message.text || (message as any).message || (message as any).body || '';
+                              navigator.clipboard.writeText(content);
+                              toast.success('Mesaj kopyalandı');
+                            }}
+                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                          >
                             <Copy className="w-4 h-4 text-passive-icon" />
-                          </button>
-                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
-                            <Volume2 className="w-4 h-4 text-passive-icon" />
-                          </button>
-                          <button className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors">
-                            <Paperclip className="w-4 h-4 text-passive-icon" />
                           </button>
                         </div>
                       )}
                       
-                      {/* Timestamp */}
-                      {(message.time || message.createdAt) && (
-                        <div className={`text-xs text-gray-500 mt-2 ${isUser ? 'text-right mr-2' : 'ml-2'}`}>
-                          {message.time || new Date(message.createdAt!).toLocaleTimeString('tr-TR', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -532,7 +746,7 @@ function HomePage({}: Props) {
                     placeholder="Buraya yazabilirsin"
                     value={currentMessage}
                     onChange={(e) => setCurrentMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     disabled={isSendingMessage || !activeChat}
                     className="flex-1 bg-transparent text-neutral-400 text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400 disabled:opacity-50"
                   />

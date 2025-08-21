@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest, { params }: { params: { chatId: string } }) {
-    console.log('POST /api/chats/[chatId]/save called');
+    console.log('[MESSAGE STREAM TEST] 📝 POST /api/chats/[chatId]/save called');
     
     const { chatId } = params;
-    console.log('Chat ID:', chatId);
+    console.log('[MESSAGE STREAM TEST] 📝 Chat ID:', chatId);
     
     // Get both access token and id token
     const authHeader = req.headers.get('Authorization');
@@ -56,7 +56,8 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             message.role === 'journal'
         ).length;
         
-        console.log(`💬 Saving ${messages.length} messages, ${userMessageCount} are user messages`);
+        console.log(`[MESSAGE STREAM TEST] 💬 Saving ${messages.length} messages, ${userMessageCount} are user messages`);
+        console.log('[MESSAGE STREAM TEST] 📤 Received messages data:', JSON.stringify(messages, null, 2));
         
         // Filter out widget messages for JSON (like Flutter)
         const messagesJson = messages
@@ -113,8 +114,8 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             })
         ]);
         
-        console.log('Conversation save result:', conversationSave.status);
-        console.log('Vector save result:', vectorSave.status);
+        console.log('[MESSAGE STREAM TEST] 💾 Conversation save result:', conversationSave.status);
+        console.log('[MESSAGE STREAM TEST] 💾 Vector save result:', vectorSave.status);
         
         // Check if both operations succeeded
         const conversationResult = conversationSave.status === 'fulfilled' ? await conversationSave.value.json() : null;
