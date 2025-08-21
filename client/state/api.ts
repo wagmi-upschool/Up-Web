@@ -195,9 +195,8 @@ export const api = createApi({
         method: "POST",
         body,
       }),
-      invalidatesTags: (result, error, { chatId }) => [
-        "Chats",
-        { type: 'Messages', id: chatId }
+      invalidatesTags: [
+        "Chats"
       ],
     }),
   }),

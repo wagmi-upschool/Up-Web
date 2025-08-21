@@ -1,7 +1,7 @@
 "use client";
 
 import { getCurrentUser, signOut, fetchAuthSession } from "aws-amplify/auth";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import LottieSpinner from "../global/loader/lottie-spinner";
 import { Search, Send, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, LogOut } from "lucide-react";
 import Image from "next/image";
@@ -46,21 +46,36 @@ function HomePage({}: Props) {
   const [sendMessage, { isLoading: isSendingMessage }] = useSendChatMessageMutation();
   const [saveConversation] = useSaveConversationMutation();
   
-  console.log('Chats data:', chats);
-  console.log('Chats loading:', isLoadingChats);
-  console.log('Chats error:', chatsError);
-  console.log('Active chat:', activeChat);
-  console.log('Messages data:', messagesData);
-  console.log('Messages loading:', isLoadingMessages);
-  console.log('Messages error:', messagesError);
-
-  // Use real messages combined with optimistic messages
-  const messages = [...(messagesData?.messages || []), ...optimisticMessages];
-  console.log('[MESSAGE STREAM TEST] 📋 Combined messages:', {
-    realMessages: messagesData?.messages?.length || 0,
-    optimisticMessages: optimisticMessages.length,
-    totalMessages: messages.length
-  });
+  // Use real messages combined with optimistic messages (memoized, with deduplication)
+  const messages = useMemo(() => {
+    const rawRealMessages = messagesData?.messages || [];
+    
+    // First, deduplicate real messages by content and identifier
+    const realMessages = rawRealMessages.filter((msg, index, arr) => {
+      // Keep first occurrence of each unique message
+      return arr.findIndex(m => 
+        m.content === msg.content && 
+        m.role === msg.role &&
+        Math.abs(new Date(m.createdAt || 0).getTime() - new Date(msg.createdAt || 0).getTime()) < 2000 // Within 2 seconds
+      ) === index;
+    });
+    
+    // If we have real messages with content, filter out temp optimistic messages
+    if (realMessages.length > 0 && realMessages.some(msg => msg.content)) {
+      // Filter out temp optimistic messages that might be duplicated by real messages
+      const filteredOptimistic = optimisticMessages.filter(opt => 
+        !opt.id.startsWith('temp-') || 
+        !realMessages.some(real => 
+          real.content === opt.content && 
+          real.role === opt.role &&
+          Math.abs(new Date(real.createdAt || 0).getTime() - new Date(opt.createdAt || 0).getTime()) < 5000 // Within 5 seconds
+        )
+      );
+      return [...realMessages, ...filteredOptimistic];
+    }
+    
+    return [...realMessages, ...optimisticMessages];
+  }, [messagesData?.messages, optimisticMessages]);
 
   const handleSignOut = async () => {
     try {
@@ -204,7 +219,6 @@ function HomePage({}: Props) {
 
             // Real-time UI update like Flutter emit
             setOptimisticMessages([userMessage, aiMessage]);
-            console.log('[MESSAGE STREAM TEST] 🔄 UI updated with chunk');
 
             if (isDone) {
               console.log('[MESSAGE STREAM TEST] ✅ Stream completed with [DONE-UP]');
@@ -326,7 +340,7 @@ function HomePage({}: Props) {
     }
   };
 
-  const handleLikeDislike = async (messageId: string, type: 'like' | 'dislike') => {
+  const handleLikeDislike = useCallback(async (messageId: string, type: 'like' | 'dislike') => {
     try {
       // Optimistically update the UI
       const currentStatus = messageLikes[messageId];
@@ -364,7 +378,7 @@ function HomePage({}: Props) {
       console.error('Error rating message:', error);
       toast.error('Rating kaydedilemedi');
     }
-  };
+  }, [messageLikes]);
 
   useEffect(() => {
     console.log('[MESSAGE STREAM TEST] 🔄 HomePage component mounted/remounted');
@@ -400,21 +414,8 @@ function HomePage({}: Props) {
     setOptimisticMessages([]);
   }, [activeChat]);
 
-  // Clear optimistic messages when real messages are loaded with content
-  useEffect(() => {
-    if (messagesData?.messages && optimisticMessages.length > 0) {
-      const realMessages = messagesData.messages;
-      const hasContentMessages = realMessages.some(msg => msg.content);
-      
-      if (hasContentMessages) {
-        console.log('[MESSAGE STREAM TEST] 🔄 Real messages with content detected, clearing optimistic messages');
-        // Small delay to ensure UI update is smooth
-        setTimeout(() => {
-          setOptimisticMessages([]);
-        }, 500);
-      }
-    }
-  }, [messagesData?.messages, optimisticMessages.length]);
+  // Note: Optimistic messages are now handled via deduplication in useMemo above
+  // No need for separate clearing logic that causes flickering
 
   if (loadingUser || isLoadingChats) return (
     <div className="min-h-screen flex items-center justify-center bg-icon-slate-white">
@@ -659,22 +660,7 @@ function HomePage({}: Props) {
                           : 'bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black'
                       }`}>
                         <MessageRenderer 
-                          content={(() => {
-                            // Debug: Always log message structure
-                            console.log('[MESSAGE DEBUG] 🔍 Full message object:', message);
-                            console.log('[MESSAGE DEBUG] 📝 Message keys:', Object.keys(message));
-                            console.log('[MESSAGE DEBUG] 🎯 All possible content fields:', {
-                              text: message.text,
-                              content: message.content,
-                              message: (message as any).message,
-                              body: (message as any).body,
-                              data: (message as any).data
-                            });
-                            
-                            const content = message.content || message.text || (message as any).message || (message as any).body || 'Mesaj içeriği yok';
-                            console.log('[MESSAGE DEBUG] ✅ Final content:', content);
-                            return content;
-                          })()}
+                          content={message.content || message.text || (message as any).message || (message as any).body || 'Mesaj içeriği yok'}
                           sender={isUser ? 'user' : 'ai'}
                           messageType={message.type}
                         />
