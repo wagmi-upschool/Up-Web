@@ -1,5 +1,7 @@
 version: 1
 frontend:
+  framework: nextjs
+  platform: node
   phases:
     preBuild:
       commands:
