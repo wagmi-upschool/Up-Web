@@ -3,7 +3,7 @@
 import { getCurrentUser, signOut, fetchAuthSession } from "aws-amplify/auth";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import LottieSpinner from "../global/loader/lottie-spinner";
-import { Search, Send, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, LogOut } from "lucide-react";
+import { Send, ThumbsUp, ThumbsDown, Copy, MoreHorizontal, LogOut } from "lucide-react";
 import Image from "next/image";
 import { useGetChatsQuery, useGetChatMessagesQuery, useSendChatMessageMutation, useSaveConversationMutation } from "@/state/api";
 import { ChatMessage } from "@/types/type";
@@ -35,7 +35,6 @@ function HomePage({}: Props) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [messageLikes, setMessageLikes] = useState<{[messageId: string]: 'like' | 'dislike' | null}>({});
   
   const { data: chats = [], isLoading: isLoadingChats, error: chatsError } = useGetChatsQuery();
@@ -475,17 +474,6 @@ function HomePage({}: Props) {
             <h1 className="text-xl font-normal text-title-black font-righteous">Sohbetlerim</h1>
           </div>
           
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-passive-icon" />
-            <input
-              type="text"
-              placeholder="Ara"
-              className="w-full bg-message-box-bg border border-message-box-border rounded-lg pl-10 pr-4 py-2 text-sm font-poppins font-medium text-text-body-black placeholder-text-description-gray focus:outline-none focus:ring-2 focus:ring-primary"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
         </div>
 
         {/* Chat List */}
@@ -515,8 +503,6 @@ function HomePage({}: Props) {
                 const excludedTypes = ['accountability', 'flashcard', 'boolean-tester', 'fill-in-blanks'];
                 if (excludedTypes.includes(chat.type || '')) return false;
                 
-                // Search filter
-                if (searchTerm && !chat.title?.toLowerCase().includes(searchTerm.toLowerCase())) return false;
                 
                 // Also check assistant type for the same excluded types
                 if (excludedTypes.some(type => 
@@ -569,7 +555,7 @@ function HomePage({}: Props) {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col" style={{backgroundImage: 'url(/bg.png)', backgroundSize: 'cover', backgroundPosition: 'center'}}>
+      <div className="flex-1 flex flex-col" style={{backgroundImage: 'url(/bg.svg)', backgroundSize: 'cover', backgroundPosition: 'center'}}>
         {/* Chat Header */}
         <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
           <div className="flex items-center justify-between">
