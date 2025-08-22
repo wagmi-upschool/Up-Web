@@ -3,35 +3,35 @@ frontend:
   phases:
     preBuild:
       commands:
-        - echo "📦 Starting preBuild phase..."
+        - 'echo "📦 Starting preBuild phase..."'
         - cd client
-        - echo "📂 Current directory: $(pwd)"
-        - echo "🔧 Node version: $(node --version)"
-        - echo "📋 NPM version: $(npm --version)"
-        - echo "📥 Installing dependencies with npm ci..."
+        - 'echo "📂 Current directory: $(pwd)"'
+        - 'echo "🔧 Node version: $(node --version)"'
+        - 'echo "📋 NPM version: $(npm --version)"'
+        - 'echo "📥 Installing dependencies with npm ci..."'
         - npm ci --verbose
-        - echo "✅ Dependencies installed successfully"
-        - echo "📊 Installed packages:"
+        - 'echo "✅ Dependencies installed successfully"'
+        - 'echo "📊 Installed packages:"'
         - npm list --depth=0
     build:
       commands:
-        - echo "🏗️ Starting build phase..."
+        - 'echo "🏗️ Starting build phase..."'
         - cd client
-        - echo "📂 Current directory: $(pwd)"
-        - echo "🌍 Setting up environment variables..."
-        - echo "NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL" >> .env.local
-        - echo "NEXT_PUBLIC_COGNITO_USER_POOL_ID=$NEXT_PUBLIC_COGNITO_USER_POOL_ID" >> .env.local
-        - echo "NEXT_PUBLIC_COGNITO_USER_CLIENT_ID=$NEXT_PUBLIC_COGNITO_USER_CLIENT_ID" >> .env.local
-        - echo "REMOTE_URL=$REMOTE_URL" >> .env.local
-        - echo "STREAM_URL=$STREAM_URL" >> .env.local
-        - echo "🔍 Debug - Environment variables created:"
+        - 'echo "📂 Current directory: $(pwd)"'
+        - 'echo "🌍 Setting up environment variables..."'
+        - 'echo "NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL" >> .env.local'
+        - 'echo "NEXT_PUBLIC_COGNITO_USER_POOL_ID=$NEXT_PUBLIC_COGNITO_USER_POOL_ID" >> .env.local'
+        - 'echo "NEXT_PUBLIC_COGNITO_USER_CLIENT_ID=$NEXT_PUBLIC_COGNITO_USER_CLIENT_ID" >> .env.local'
+        - 'echo "REMOTE_URL=$REMOTE_URL" >> .env.local'
+        - 'echo "STREAM_URL=$STREAM_URL" >> .env.local'
+        - 'echo "🔍 Debug - Environment variables created:"'
         - cat .env.local
-        - echo "🚀 Starting Next.js build with verbose logging..."
+        - 'echo "🚀 Starting Next.js build with verbose logging..."'
         - npm run build --verbose
-        - echo "✅ Build completed successfully"
-        - echo "📦 Build output summary:"
+        - 'echo "✅ Build completed successfully"'
+        - 'echo "📦 Build output summary:"'
         - ls -la .next/
-        - echo "📊 Build size analysis:"
+        - 'echo "📊 Build size analysis:"'
         - du -sh .next/*
   artifacts:
     baseDirectory: client/.next
