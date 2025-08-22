@@ -1,171 +1,30 @@
-<div align="center">
+This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-<img src="https://png.pngtree.com/png-vector/20220706/ourmid/pngtree-project-management-png-image_5687733.png" alt="logo" width="250" />
+## Getting Started
 
-# 🗂️ Project Management App (Full Stack + AWS)
-
-This is a **Project Management Dashboard** built using modern web technologies. It includes a powerful frontend, a backend server, and secure cloud integration with AWS. Perfect for managing tasks, tracking projects, and working with teams.
-
-</div>
-
----
-
-### 🚀 Live Demo
-
-👉 [View the App Live](https://pm-app-tan.vercel.app/)
-
----
-
-### 📚 Table of Contents
-
-* [About](#about)
-* [Features](#features)
-* [Tech Stack](#tech-stack)
-* [Screenshots](#screenshots)
-* [Getting Started](#getting-started)
-
-  * [Requirements](#requirements)
-  * [Installation](#installation)
-  * [Running Locally](#running-locally)
-  * [Environment Variables](#environment-variables)
-* [Deployment](#deployment)
-* [Contact](#contact)
-
----
-
-## 📌 About
-
-This app is a **full-stack project management tool**. It helps teams stay organized with features like task tracking, user authentication, cloud hosting, and more.
-
----
-
-## ✨ Features
-
-✅ Create and manage projects
-✅ Add tasks and assign team members
-✅ User authentication (with AWS Cognito)
-✅ Cloud functions using AWS Lambda
-✅ Beautiful UI with charts and data tables
-
----
-
-## 🛠 Tech Stack
-
-### Frontend
-
-* Next.js
-* TypeScript
-* React.js
-* Tailwind CSS
-* Material UI Data Grid
-
-### Backend
-
-* Node.js
-* Express.js
-* PostgreSQL
-* Prisma ORM
-
-### Cloud & DevOps
-
-* AWS Lambda
-* AWS Cognito
-* Vercel (Deployment)
-
----
-
-## 📷 Screenshots
-
-> Here’s a preview of the dashboard (Click to view):
-
-<div align="center">
-<a href="https://pm-app-tan.vercel.app/"><img src="https://github.com/user-attachments/assets/6e7f768d-d7a0-4b63-bc08-a1419efad1b0" alt="screenshot" width="600"/></a>
-</div>
-
----
-
-## 🧰 Getting Started
-
-### ✅ Requirements
-
-Before you start, make sure you have:
-
-* [Node.js](https://nodejs.org/en/) installed
-* An [AWS account](https://aws.amazon.com/free/)
-* A [Clerk account](https://clerk.com/) for user auth (optional but recommended)
-
----
-
-### 📦 Installation
-
-Clone the project:
-
-```bash
-git clone https://github.com/SashenJayathilaka/Project-Management-App.git
-cd Project-Management-App
-```
-
-Install the dependencies:
-
-```bash
-npm install
-```
-
----
-
-### 🧪 Running Locally
-
-To start the app locally:
+First, run the development server:
 
 ```bash
 npm run dev
 ```
 
-Then open your browser and go to:
-👉 [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
----
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-### 🔐 Environment Variables
+This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
-Create a `.env` file in the root directory and add the required keys.
+## Learn More
 
-Example:
+To learn more about Next.js, take a look at the following resources:
 
-```env
-DATABASE_URL=your_postgres_db_url
-AWS_REGION=your_aws_region
-COGNITO_USER_POOL_ID=your_cognito_pool_id
-COGNITO_CLIENT_ID=your_cognito_client_id
-```
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
----
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
-## 🚀 Deployment
+## Deploy on Vercel
 
-### Deploy with Vercel
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-The easiest way to deploy is using **Vercel**:
-
-1. Go to [https://vercel.com/new](https://vercel.com/new)
-2. Import your GitHub repository
-3. Add environment variables in the Vercel dashboard
-4. Deploy and enjoy!
-
-You can also deploy manually using other platforms like AWS, Netlify, or Docker.
-
----
-
-## 📬 Contact
-
-**Developer**: Sashen Jayathilaka
-📧 Email: [sashenjayathilaka95@gmail.com](mailto:sashenjayathilaka95@gmail.com)
-🐦 Twitter: [@SashenHasinduJ](https://twitter.com/SashenHasinduJ)
-
-🔗 Project Repository: [GitHub Link](https://github.com/SashenJayathilaka/Project-Management-App.git)
-
----
-
-<div align="center">
-⭐️ If you found this project helpful, feel free to star it!
-</div>
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
