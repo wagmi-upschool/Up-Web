@@ -472,7 +472,7 @@ function HomePage({}: Props) {
         {/* Sidebar Header */}
         <div className="p-6 border-b border-message-box-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-normal text-title-black font-righteous">Upper Sohbetler</h1>
+            <h1 className="text-xl font-normal text-title-black font-righteous">Sohbetlerim</h1>
           </div>
           
           {/* Search Bar */}
