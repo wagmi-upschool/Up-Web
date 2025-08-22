@@ -1,10 +1,10 @@
 version: 1
 frontend:
+  baseDirectory: client
   phases:
     preBuild:
       commands:
         - 'echo "📦 Starting preBuild phase..."'
-        - cd client
         - 'echo "📂 Current directory: $(pwd)"'
         - 'echo "🔧 Node version: $(node --version)"'
         - 'echo "📋 NPM version: $(npm --version)"'
@@ -16,7 +16,6 @@ frontend:
     build:
       commands:
         - 'echo "🏗️ Starting build phase..."'
-        - cd client
         - 'echo "📂 Current directory: $(pwd)"'
         - 'echo "🌍 Setting up environment variables..."'
         - 'echo "NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL" >> .env.local'
@@ -34,10 +33,10 @@ frontend:
         - 'echo "📊 Build size analysis:"'
         - du -sh .next/*
   artifacts:
-    baseDirectory: client/.next
+    baseDirectory: .next
     files:
       - "**/*"
   cache:
     paths:
-      - client/node_modules/**/*
-      - client/.next/cache/**/*
+      - node_modules/**/*
+      - .next/cache/**/*
