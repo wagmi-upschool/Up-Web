@@ -15,7 +15,7 @@ frontend:
         - echo "STREAM_URL=$STREAM_URL" >> .env.local
         - echo "Debug - Environment variables created:"
         - cat .env.local
-        - npm run build
+        - npm run build --verbose
   artifacts:
     baseDirectory: client/.next
     files:
