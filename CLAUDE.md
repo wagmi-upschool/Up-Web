@@ -17,18 +17,17 @@ This is **Up Web** - a web-based PoC chat application designed for enterprise de
 
 ### Development
 ```bash
-cd client && npm run dev        # Start development server on port 3000
-cd client && npm run build      # Build for production  
-cd client && npm run start      # Start production server
-cd client && npm run lint       # Run ESLint checks
+npm run dev        # Start development server on port 3000
+npm run build      # Build for production  
+npm run start      # Start production server
+npm run lint       # Run ESLint checks
 ```
 
 ### Working Directory Structure
-- **Main Project Root**: `/Users/yusuf/Software/Projects/Web-Development/Up-Web/`
-- **Client Application**: `/Users/yusuf/Software/Projects/Web-Development/Up-Web/client/`
+- **Project Root**: `/Users/yusuf/Software/Projects/Web-Development/Up-Web/` (Next.js app root)
 - **Additional FE Directory**: `/Users/yusuf/Software/Projects/Web-Development/up-fe/` (secondary workspace)
 
-All development work should be done in the `client/` directory unless explicitly working with deployment configs in the root.
+All development work is done directly in the project root.
 
 ## Architecture Overview
 
@@ -47,8 +46,8 @@ The application uses a **dual API approach**:
    - Authentication via Amplify tokens + special headers
 
 ### State Management
-- **Redux Store** (`/client/state/`): Centralized state with RTK Query
-- **API Layer** (`/client/state/api.ts`): Defines all API endpoints and caching
+- **Redux Store** (`/state/`): Centralized state with RTK Query
+- **API Layer** (`/state/api.ts`): Defines all API endpoints and caching
 - **Two Base Query Configs**:
   - `baseQuery`: For remote backend APIs
   - `localApiQuery`: For local proxy APIs with enhanced auth headers
@@ -78,10 +77,10 @@ POST /tasks                             # Create task
    - `x-user-id`: User identifier
 
 ### Component Architecture
-- **Page Components**: `/client/app/*/page.tsx` (Next.js 14 app router)
-- **Reusable Components**: `/client/components/*/index.tsx` 
+- **Page Components**: `/app/*/page.tsx` (Next.js 14 app router)
+- **Reusable Components**: `/components/*/index.tsx` 
 - **Component Organization**: Each component in its own directory with index.tsx
-- **Global Components**: `/client/components/global/*` (auth, loaders, wrappers)
+- **Global Components**: `/components/global/*` (auth, loaders, wrappers)
 
 ### Chat System Specifics
 - **Message Rendering**: `MessageRenderer.tsx` handles text, JSON, and markdown
@@ -114,14 +113,14 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000   # For local API testing
 ## Development Patterns
 
 ### API Endpoint Creation
-When creating new API routes in `/client/app/api/*`:
+When creating new API routes in `/app/api/*`:
 1. Follow existing auth header pattern from `/api/chats/[chatId]/send/route.ts`
 2. Use consistent error handling and logging format
 3. Proxy to `REMOTE_URL` when integrating with mobile backend
-4. Include proper TypeScript interfaces in `/client/types/type.ts`
+4. Include proper TypeScript interfaces in `/types/type.ts`
 
 ### Component Development
-1. Create components in `/client/components/[feature-name]/index.tsx`
+1. Create components in `/components/[feature-name]/index.tsx`
 2. Use existing design system from PRD.md (Poppins font, specific color palette)
 3. Follow existing responsive patterns (sidebar + main content layout)
 4. Integrate with Redux state using RTK Query hooks
@@ -143,13 +142,12 @@ When creating new API routes in `/client/app/api/*`:
 
 ### AWS Amplify Deployment
 - Build configuration: `amplify.yml` in project root
-- Builds from `/client` directory
+- Builds from project root directory
 - Environment variables set in Amplify console
 - Artifacts: `.next` output with caching optimization
 
 ### Build Process
 ```bash
-cd client
 npm ci                           # Clean install dependencies
 echo "VARS..." >> .env.local     # Environment variable injection  
 npm run build                    # Next.js production build
@@ -159,15 +157,15 @@ npm run build                    # Next.js production build
 
 ### Configuration
 - `/amplify.yml` - AWS Amplify build configuration
-- `/client/next.config.mjs` - Next.js configuration with S3 image domains
-- `/client/middleware.ts` - Route protection middleware
-- `/client/src/amplifyconfiguration.json` - AWS Amplify/Cognito configuration
+- `/next.config.mjs` - Next.js configuration with S3 image domains
+- `/middleware.ts` - Route protection middleware
+- `/src/amplifyconfiguration.json` - AWS Amplify/Cognito configuration
 
 ### Core Application
-- `/client/state/api.ts` - Main API configuration and endpoints
-- `/client/components/messages/MessageRenderer.tsx` - Chat message rendering
-- `/client/app/api/chats/[chatId]/` - Chat API proxy endpoints
-- `/client/types/type.ts` - TypeScript interface definitions
+- `/state/api.ts` - Main API configuration and endpoints
+- `/components/messages/MessageRenderer.tsx` - Chat message rendering
+- `/app/api/chats/[chatId]/` - Chat API proxy endpoints
+- `/types/type.ts` - TypeScript interface definitions
 
 ### Design System
 - Design specifications and color palette defined in `/PRD.md` sections 4.4-4.7

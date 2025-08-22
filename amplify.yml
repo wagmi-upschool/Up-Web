@@ -1,6 +1,5 @@
 version: 1
 frontend:
-  baseDirectory: client
   phases:
     preBuild:
       commands:
