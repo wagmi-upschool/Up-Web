@@ -6,10 +6,14 @@ frontend:
       commands:
         - 'echo "📦 Starting preBuild phase..."'
         - 'echo "📂 Current directory: $(pwd)"'
+        - 'echo "📁 Directory contents:"'
+        - ls -la
+        - 'echo "🔍 Checking for package files:"'
+        - ls -la package*.json || echo "No package files found"
         - 'echo "🔧 Node version: $(node --version)"'
         - 'echo "📋 NPM version: $(npm --version)"'
         - 'echo "📥 Installing dependencies with npm ci..."'
-        - npm ci --verbose
+        - npm ci --verbose || (echo "⚠️ npm ci failed, falling back to npm install..." && npm install --verbose)
         - 'echo "✅ Dependencies installed successfully"'
         - 'echo "📊 Installed packages:"'
         - npm list --depth=0
