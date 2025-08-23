@@ -37,6 +37,10 @@ frontend:
         - ls -la .next/
         - 'echo "📊 Build size analysis:"'
         - du -sh .next/*
+
+    postBuild:
+      commands:
+        - 'echo "🎉 Post-build phase completed."'
         - npm run start
 
   artifacts:
