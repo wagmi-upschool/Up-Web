@@ -14,10 +14,8 @@ frontend:
         - 'echo "🔧 Node version: $(node --version)"'
         - 'echo "📋 NPM version: $(npm --version)"'
         - 'echo "📥 Installing dependencies with npm ci..."'
-        - npm ci --verbose || (echo "⚠️ npm ci failed, falling back to npm install..." && npm install --verbose)
+        - npm ci || (echo "⚠️ npm ci failed, falling back to npm install..." && npm install)
         - 'echo "✅ Dependencies installed successfully"'
-        - 'echo "📊 Installed packages:"'
-        - npm list --depth=0
     build:
       commands:
         - 'echo "🏗️ Starting build phase..."'
@@ -30,8 +28,8 @@ frontend:
         - 'echo "STREAM_URL=$STREAM_URL" >> .env.local'
         - 'echo "🔍 Debug - Environment variables created:"'
         - cat .env.local
-        - 'echo "🚀 Starting Next.js build with verbose logging..."'
-        - npm run build --verbose
+        - 'echo "🚀 Starting Next.js build..."'
+        - npm run build
         - 'echo "✅ Build completed successfully"'
         - 'echo "📦 Build output summary:"'
         - ls -la .next/
@@ -41,12 +39,17 @@ frontend:
     postBuild:
       commands:
         - 'echo "🎉 Post-build phase completed."'
+        - 'echo "🚀 Starting Next.js production server..."'
         - npm run start
 
   artifacts:
-    baseDirectory: .next
+    baseDirectory: .
     files:
-      - "**/*"
+      - ".next/**/*"
+      - "public/**/*"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.mjs"
   cache:
     paths:
       - node_modules/**/*
