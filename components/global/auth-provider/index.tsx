@@ -34,6 +34,8 @@ Amplify.configure({
       userPoolClientId: process.env.NEXT_PUBLIC_COGNITO_USER_CLIENT_ID!,
     },
   },
+}, {
+  ssr: true
 });
 
 function AuthProvider({ children }: Props) {

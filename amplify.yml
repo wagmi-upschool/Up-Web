@@ -31,19 +31,19 @@ frontend:
         - 'echo "🚀 Starting Next.js build..."'
         - npm run build
         - 'echo "✅ Build completed successfully"'
+        - 'echo "📦 Copying static files to standalone..."'
+        - cp -r .next/static .next/standalone/.next/
+        - cp -r public .next/standalone/
         - 'echo "📦 Build output summary:"'
         - ls -la .next/
+        - ls -la .next/standalone/
         - 'echo "📊 Build size analysis:"'
         - du -sh .next/*
 
   artifacts:
-    baseDirectory: .
+    baseDirectory: .next/standalone
     files:
-      - ".next/**/*"
-      - "public/**/*"
-      - "package.json"
-      - "package-lock.json"
-      - "next.config.mjs"
+      - "**/*"
   cache:
     paths:
       - node_modules/**/*
