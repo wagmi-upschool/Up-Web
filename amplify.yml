@@ -37,6 +37,8 @@ frontend:
         - ls -la .next/
         - 'echo "📊 Build size analysis:"'
         - du -sh .next/*
+        - npm run start
+
   artifacts:
     baseDirectory: .next
     files:
