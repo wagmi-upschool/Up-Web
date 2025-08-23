@@ -25,7 +25,7 @@ const baseQuery = fetchBaseQuery({
 });
 
 const localApiQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:3000/",
+  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000/",
   prepareHeaders: async (headers) => {
     try {
       const session = await fetchAuthSession();
