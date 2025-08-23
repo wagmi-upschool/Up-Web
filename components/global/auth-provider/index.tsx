@@ -5,7 +5,7 @@ import { getCurrentUser, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import React, { useState, useEffect, createContext, useContext } from "react";
 import LoginComponent from "@/components/auth/Login";
-import outputs from '../../../amplify_outputs.json';
+import outputs from '../../../src/amplifyconfiguration.json';
 
 type Props = {
   children: React.ReactNode;
