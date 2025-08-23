@@ -27,7 +27,7 @@ frontend:
         - 'echo "REMOTE_URL=$REMOTE_URL" >> .env'
         - 'echo "STREAM_URL=$STREAM_URL" >> .env'
         - 'echo "🔍 Debug - Environment variables created:"'
-        - cat .env.local
+        - cat .env
         - 'echo "🚀 Starting Next.js build..."'
         - npm run build
         - 'echo "✅ Build completed successfully"'
