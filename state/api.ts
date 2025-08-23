@@ -133,11 +133,12 @@ export const api = createApi({
       query: (query) => `search?query=${query}`,
     }),
     getChats: build.query<Chat[], void>({
-      query: () => "api/chats",
+      query: () => "/api/chats",
       providesTags: ["Chats"],
+      keepUnusedDataFor: 60, // Cache for 60 seconds
     }),
     getChatMessages: build.query<{ messages: ChatMessage[] }, { chatId: string; limit?: string }>({
-      query: ({ chatId, limit = "20" }) => `api/chats/${chatId}/messages?limit=${limit}`,
+      query: ({ chatId, limit = "20" }) => `/api/chats/${chatId}/messages?limit=${limit}`,
       providesTags: (result, error, { chatId }) => [
         { type: 'Messages', id: chatId },
         'Messages'
@@ -145,14 +146,14 @@ export const api = createApi({
     }),
     deleteChat: build.mutation<void, string>({
       query: (chatId) => ({
-        url: `api/chats/${chatId}`,
+        url: `/api/chats/${chatId}`,
         method: "DELETE",
       }),
       invalidatesTags: ["Chats"],
     }),
     sendChatMessage: build.mutation<any, { chatId: string; message: string; assistantId: string }>({
       query: ({ chatId, message, assistantId }) => ({
-        url: `api/chats/${chatId}/send`,
+        url: `/api/chats/${chatId}/send`,
         method: "POST",
         body: { message, assistantId },
       }),
@@ -168,7 +169,7 @@ export const api = createApi({
       assistantGroupId?: string; 
     }>({
       query: ({ chatId, messages, assistantId, assistantGroupId }) => ({
-        url: `api/chats/${chatId}/save`,
+        url: `/api/chats/${chatId}/save`,
         method: "POST",
         body: { messages, assistantId, assistantGroupId },
       }),
@@ -191,7 +192,7 @@ export const api = createApi({
       conversationId?: string;
     }>({
       query: ({ chatId, ...body }) => ({
-        url: `api/chats/${chatId}/conversation-save`,
+        url: `/api/chats/${chatId}/conversation-save`,
         method: "POST",
         body,
       }),
