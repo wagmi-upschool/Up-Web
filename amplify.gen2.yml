@@ -1,0 +1,27 @@
+version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - npm ci
+        - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - 'echo "📦 Starting Gen 2 preBuild phase..."'
+        - npm ci
+    build:
+      commands:
+        - 'echo "🏗️ Starting Gen 2 build phase..."'
+        - 'echo "🌍 Setting up environment variables..."'
+        - 'echo "REMOTE_URL=$REMOTE_URL" >> .env'
+        - 'echo "STREAM_URL=$STREAM_URL" >> .env'
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*

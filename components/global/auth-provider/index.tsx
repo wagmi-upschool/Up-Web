@@ -5,6 +5,7 @@ import { getCurrentUser, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import React, { useState, useEffect, createContext, useContext } from "react";
 import LoginComponent from "@/components/auth/Login";
+import outputs from '../../../amplify_outputs.json';
 
 type Props = {
   children: React.ReactNode;
@@ -27,15 +28,9 @@ export const useAuth = () => {
   return context;
 };
 
-Amplify.configure({
-  Auth: {
-    Cognito: {
-      userPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID!,
-      userPoolClientId: process.env.NEXT_PUBLIC_COGNITO_USER_CLIENT_ID!,
-    },
-  },
-}, {
-  ssr: true
+// Configure Amplify with Gen 2 outputs
+Amplify.configure(outputs, {
+  ssr: true // Enable SSR support
 });
 
 function AuthProvider({ children }: Props) {

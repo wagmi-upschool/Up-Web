@@ -1,0 +1,134 @@
+[11:38:09.377] Running build in Washington, D.C., USA (East) – iad1
+[11:38:09.378] Build machine configuration: 2 cores, 8 GB
+[11:38:09.394] Cloning github.com/wagmi-upschool/Up-Web (Branch: master, Commit: 75540bd)
+[11:38:09.530] Previous build caches not available
+[11:38:10.101] Cloning completed: 706.000ms
+[11:38:10.428] Running "vercel build"
+[11:38:10.827] Vercel CLI 46.0.2
+[11:38:11.155] Warning: Detected "engines": { "node": ">=18.17.0" } in your `package.json` that will automatically upgrade when a new major Node.js Version is released. Learn More: http://vercel.link/node-version
+[11:38:11.172] Installing dependencies...
+[11:38:14.471] npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+[11:38:15.805] npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+[11:38:17.706] npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+[11:38:17.832] npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+[11:38:18.861] npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+[11:38:25.483] npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+[11:38:35.546] 
+[11:38:35.547] added 897 packages in 24s
+[11:38:35.547] 
+[11:38:35.548] 252 packages are looking for funding
+[11:38:35.548]   run `npm fund` for details
+[11:38:35.616] Detected Next.js version: 14.2.7
+[11:38:35.624] Running "npm run build"
+[11:38:35.735] 
+[11:38:35.736] > client@0.1.0 build
+[11:38:35.736] > next build
+[11:38:35.736] 
+[11:38:36.300] Attention: Next.js now collects completely anonymous telemetry regarding usage.
+[11:38:36.302] This information is used to shape Next.js' roadmap and prioritize features.
+[11:38:36.302] You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+[11:38:36.303] https://nextjs.org/telemetry
+[11:38:36.303] 
+[11:38:36.356]   ▲ Next.js 14.2.7
+[11:38:36.357] 
+[11:38:36.424]    Creating an optimized production build ...
+[11:39:03.729] request to https://fonts.gstatic.com/s/poppins/v23/pxiEyp8kv8JHgFVrJJbecnFHGPezSQ.woff2 failed, reason: 
+[11:39:03.730] 
+[11:39:03.730] Retrying 1/3...
+[11:39:03.731] request to https://fonts.gstatic.com/s/poppins/v23/pxiEyp8kv8JHgFVrJJnecnFHGPezSQ.woff2 failed, reason: 
+[11:39:03.731] 
+[11:39:03.731] Retrying 1/3...
+[11:39:03.732] request to https://fonts.gstatic.com/s/poppins/v23/pxiEyp8kv8JHgFVrJJfecnFHGPc.woff2 failed, reason: 
+[11:39:03.732] 
+[11:39:03.732] Retrying 1/3...
+[11:39:03.733] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLGT9Z11lFd2JQEl8qw.woff2 failed, reason: 
+[11:39:03.733] 
+[11:39:03.733] Retrying 1/3...
+[11:39:03.734] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLGT9Z1JlFd2JQEl8qw.woff2 failed, reason: 
+[11:39:03.734] 
+[11:39:03.734] Retrying 1/3...
+[11:39:03.735] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLGT9Z1xlFd2JQEk.woff2 failed, reason: 
+[11:39:03.735] 
+[11:39:03.735] Retrying 1/3...
+[11:39:03.736] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLEj6Z11lFd2JQEl8qw.woff2 failed, reason: 
+[11:39:03.736] 
+[11:39:03.737] Retrying 1/3...
+[11:39:03.737] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLEj6Z1JlFd2JQEl8qw.woff2 failed, reason: 
+[11:39:03.737] 
+[11:39:03.738] Retrying 1/3...
+[11:39:03.738] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLEj6Z1xlFd2JQEk.woff2 failed, reason: 
+[11:39:03.739] 
+[11:39:03.739] Retrying 1/3...
+[11:39:03.741] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLCz7Z11lFd2JQEl8qw.woff2 failed, reason: 
+[11:39:03.742] 
+[11:39:03.742] Retrying 1/3...
+[11:39:03.742] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLCz7Z1JlFd2JQEl8qw.woff2 failed, reason: 
+[11:39:03.743] 
+[11:39:03.743] Retrying 1/3...
+[11:39:03.743] request to https://fonts.gstatic.com/s/poppins/v23/pxiByp8kv8JHgFVrLCz7Z1xlFd2JQEk.woff2 failed, reason: 
+[11:39:03.743] 
+[11:39:03.744] Retrying 1/3...
+[11:39:13.656] Browserslist: caniuse-lite is outdated. Please run:
+[11:39:13.656]   npx update-browserslist-db@latest
+[11:39:13.656]   Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[11:39:16.643]  ✓ Compiled successfully
+[11:39:16.644]    Linting and checking validity of types ...
+[11:39:25.429]    Collecting page data ...
+[11:39:28.239]    Generating static pages (0/21) ...
+[11:39:28.538] GET /api/admin/assistant/get called
+[11:39:28.572] GET /api/admin/assistant/getGroups called
+[11:39:28.575]    Generating static pages (5/21) 
+[11:39:28.583] GET /api/chats called
+[11:39:28.583] Environment REMOTE_URL: undefined
+[11:39:28.984]    Generating static pages (10/21) 
+[11:39:29.377]    Generating static pages (15/21) 
+[11:39:29.721]  ✓ Generating static pages (21/21)
+[11:39:30.071]    Finalizing page optimization ...
+[11:39:30.072]    Collecting build traces ...
+[11:39:40.494] 
+[11:39:40.501] Route (app)                                Size     First Load JS
+[11:39:40.501] ┌ ○ /                                      280 B          87.6 kB
+[11:39:40.502] ├ ○ /_not-found                            875 B          88.2 kB
+[11:39:40.502] ├ ƒ /api/admin/assistant/add               0 B                0 B
+[11:39:40.503] ├ ƒ /api/admin/assistant/get               0 B                0 B
+[11:39:40.503] ├ ƒ /api/admin/assistant/getGroups         0 B                0 B
+[11:39:40.503] ├ ƒ /api/chats                             0 B                0 B
+[11:39:40.504] ├ ƒ /api/chats/[chatId]                    0 B                0 B
+[11:39:40.504] ├ ƒ /api/chats/[chatId]/conversation-save  0 B                0 B
+[11:39:40.504] ├ ƒ /api/chats/[chatId]/messages           0 B                0 B
+[11:39:40.504] ├ ƒ /api/chats/[chatId]/save               0 B                0 B
+[11:39:40.505] ├ ƒ /api/chats/[chatId]/send               0 B                0 B
+[11:39:40.505] ├ ○ /home                                  103 kB          332 kB
+[11:39:40.505] ├ ○ /login                                 3.01 kB         146 kB
+[11:39:40.505] ├ ○ /priority/backlog                      160 B           341 kB
+[11:39:40.506] ├ ○ /priority/high                         159 B           341 kB
+[11:39:40.506] ├ ○ /priority/low                          161 B           341 kB
+[11:39:40.506] ├ ○ /priority/medium                       161 B           341 kB
+[11:39:40.506] ├ ○ /priority/urgent                       160 B           341 kB
+[11:39:40.507] ├ ƒ /projects/[id]                         20.8 kB         368 kB
+[11:39:40.507] ├ ○ /search                                4.5 kB          143 kB
+[11:39:40.507] ├ ○ /settings                              9.09 kB         283 kB
+[11:39:40.507] ├ ○ /teams                                 1.78 kB         327 kB
+[11:39:40.508] ├ ○ /timeline                              3.54 kB         145 kB
+[11:39:40.508] └ ○ /users                                 1.93 kB         332 kB
+[11:39:40.508] + First Load JS shared by all              87.4 kB
+[11:39:40.509]   ├ chunks/23-74904345543596a1.js          31.7 kB
+[11:39:40.509]   ├ chunks/fd9d1056-e9765d93d1c32680.js    53.6 kB
+[11:39:40.509]   └ other shared chunks (total)            1.98 kB
+[11:39:40.509] 
+[11:39:40.510] 
+[11:39:40.510] ƒ Middleware                               27.2 kB
+[11:39:40.510] 
+[11:39:40.513] ○  (Static)   prerendered as static content
+[11:39:40.513] ƒ  (Dynamic)  server-rendered on demand
+[11:39:40.513] 
+[11:39:40.687] Traced Next.js server files in: 86.048ms
+[11:39:40.803] Created all serverless functions in: 115.799ms
+[11:39:40.864] Collected static files (public/, static/, .next/static): 8.971ms
+[11:39:41.041] Build Completed in /vercel/output [1m]
+[11:39:41.218] Deploying outputs...
+[11:39:51.848] Deployment completed
+[11:39:52.802] Creating build cache...
+[11:40:13.901] Created build cache: 21.085s
+[11:40:13.902] Uploading build cache [192.10 MB]
+[11:40:16.237] Build cache uploaded: 2.350s

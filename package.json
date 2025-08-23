@@ -10,9 +10,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "amplify:deploy": "npx ampx sandbox",
+    "amplify:generate": "npx ampx generate graphql-client-code --format typescript --model-introspection --out ./src/graphql/"
   },
   "dependencies": {
+    "@aws-amplify/backend": "^1.16.1",
+    "@aws-amplify/backend-cli": "^1.8.0",
     "@aws-amplify/ui-react": "^6.9.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
@@ -20,7 +24,9 @@
     "@mui/x-data-grid": "^7.23.5",
     "@reduxjs/toolkit": "^2.5.0",
     "aws-amplify": "^6.12.1",
+    "aws-cdk-lib": "^2.212.0",
     "axios": "^1.7.9",
+    "constructs": "^10.4.2",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "gantt-task-react": "^0.3.9",
@@ -55,6 +61,6 @@
     "prettier-plugin-tailwindcss": "^0.6.9",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5.9.2"
   }
 }
