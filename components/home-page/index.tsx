@@ -21,6 +21,7 @@ import {
 import { ChatMessage } from "@/types/type";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 import toast from "react-hot-toast";
+import { v4 as uuidv4 } from "uuid";
 
 type Props = {};
 
@@ -76,25 +77,51 @@ function HomePage({}: Props) {
     useSendChatMessageMutation();
   const [saveConversation] = useSaveConversationMutation();
 
-  // Use real messages combined with optimistic messages (memoized, with deduplication)
+  // Use real messages combined with optimistic messages (memoized, with proper deduplication)
   const messages = useMemo(() => {
     const rawRealMessages = messagesData?.messages || [];
 
-    // First, deduplicate real messages by content and identifier
+    console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
+      id: m.id,
+      identifier: m.identifier,
+      role: m.role,
+      content: m.content?.substring(0, 50)
+    })));
+
+    // First, deduplicate real messages by id/identifier and content
     const realMessages = rawRealMessages.filter((msg, index, arr) => {
-      // Keep first occurrence of each unique message
-      return (
-        arr.findIndex(
-          (m) =>
-            m.content === msg.content &&
+      // Keep first occurrence based on unique identifier or content+role combination
+      const firstIndex = arr.findIndex(
+        (m) =>
+          // Match by ID/identifier first
+          (m.id && msg.id && m.id === msg.id) ||
+          (m.identifier && msg.identifier && m.identifier === msg.identifier) ||
+          // Fallback to content+role+timestamp for similar messages
+          (m.content === msg.content &&
             m.role === msg.role &&
             Math.abs(
               new Date(m.createdAt || 0).getTime() -
                 new Date(msg.createdAt || 0).getTime()
-            ) < 2000 // Within 2 seconds
-        ) === index
+            ) < 2000)
       );
+      
+      if (firstIndex !== index) {
+        console.log('[DEBUG] Filtering duplicate:', {
+          original: { id: arr[firstIndex].id, identifier: arr[firstIndex].identifier },
+          duplicate: { id: msg.id, identifier: msg.identifier },
+          index, firstIndex
+        });
+      }
+      
+      return firstIndex === index;
     });
+
+    console.log('[DEBUG] After deduplication:', realMessages.map(m => ({
+      id: m.id,
+      identifier: m.identifier,
+      role: m.role,
+      content: m.content?.substring(0, 50)
+    })));
 
     // If we have real messages with content, filter out temp optimistic messages
     if (realMessages.length > 0 && realMessages.some((msg) => msg.content)) {
@@ -112,7 +139,16 @@ function HomePage({}: Props) {
               ) < 5000 // Within 5 seconds
           )
       );
-      return [...realMessages, ...filteredOptimistic];
+      
+      const finalMessages = [...realMessages, ...filteredOptimistic];
+      console.log('[DEBUG] Final messages:', finalMessages.map(m => ({
+        id: m.id,
+        identifier: m.identifier,
+        role: m.role,
+        content: m.content?.substring(0, 50)
+      })));
+      
+      return finalMessages;
     }
 
     return [...realMessages, ...optimisticMessages];
@@ -165,9 +201,14 @@ function HomePage({}: Props) {
     const messageText = currentMessage;
     const timestamp = formatMobileDateTime();
 
+    // Generate UUIDs for messages
+    const userMessageId = uuidv4();
+    const aiMessageId = uuidv4();
+
     // Add optimistic user message immediately
     const userMessage: ChatMessage = {
-      id: `temp-user-${Date.now()}`,
+      id: userMessageId,
+      identifier: userMessageId,
       text: messageText,
       content: messageText,
       sender: "user",
@@ -177,9 +218,9 @@ function HomePage({}: Props) {
     };
 
     // Add typing indicator for AI response
-    const typingMessageId = `temp-typing-${Date.now()}`;
     const typingMessage: ChatMessage = {
-      id: typingMessageId,
+      id: aiMessageId,
+      identifier: aiMessageId,
       text: "...",
       content: "...",
       sender: "ai",
@@ -244,7 +285,8 @@ function HomePage({}: Props) {
 
       if (reader) {
         let aiMessage: ChatMessage = {
-          id: `ai-response-${Date.now()}`,
+          id: aiMessageId,
+          identifier: aiMessageId,
           text: "",
           content: "",
           sender: "ai",
@@ -334,9 +376,10 @@ function HomePage({}: Props) {
           // Get current user for userId
           const user = await getCurrentUser();
 
-          // Prepare ONLY the new messages (user + AI response) - existing messages don't have content
+          // Prepare ONLY the new messages (user + AI response) with same UUIDs
           const newUserMessage: ChatMessage = {
-            id: `user-${Date.now()}`,
+            id: userMessageId,
+            identifier: userMessageId,
             text: messageText,
             content: messageText,
             role: "user",
@@ -347,7 +390,8 @@ function HomePage({}: Props) {
           };
 
           const newAiMessage: ChatMessage = {
-            id: `ai-${Date.now()}`,
+            id: aiMessageId,
+            identifier: aiMessageId,
             text: aiResponseContent,
             content: aiResponseContent,
             role: "assistant",
@@ -377,6 +421,13 @@ function HomePage({}: Props) {
             }
           );
 
+          console.log("[MESSAGE STREAM TEST] 💾 Sending messages to save with IDs:", messagesToSave.map(m => ({
+            id: m.id,
+            identifier: m.identifier,
+            role: m.role,
+            content: m.content?.substring(0, 50)
+          })));
+
           // Use conversation-save endpoint (Flutter-style)
           const saveResult = await saveConversation({
             chatId: activeChat,
@@ -390,8 +441,9 @@ function HomePage({}: Props) {
               aiResponseContent.substring(0, 100) +
               (aiResponseContent.length > 100 ? "..." : ""),
             messages: messagesToSave.map((msg) => ({
-              // Now we have only 2 messages with actual content
+              // Send both id and identifier to backend
               id: msg.id,
+              identifier: msg.identifier,
               content: msg.text || msg.content || "", // Use content field directly
               role: msg.role,
               sender: msg.sender,
@@ -415,6 +467,9 @@ function HomePage({}: Props) {
               "[MESSAGE STREAM TEST] 📄 Save result:",
               saveResult.data
             );
+
+            // No need to update optimistic messages since we use same UUIDs
+            console.log("[MESSAGE STREAM TEST] ✅ Messages saved with consistent UUIDs");
           } else {
             console.error(
               "[MESSAGE STREAM TEST] ❌ Failed to save conversation:",
@@ -456,6 +511,17 @@ function HomePage({}: Props) {
         console.log('Rating messageId:', messageId, 'type:', type);
         console.log('Message object received:', messageObj);
         
+        // Use identifier or id for backend API call
+        const backendMessageId = messageObj?.identifier || messageObj?.id;
+        console.log('Backend messageId:', backendMessageId);
+        
+        // Skip rating if no valid backend ID
+        if (!backendMessageId) {
+          console.log('No backend messageId available:', backendMessageId);
+          toast.error('Mesaj ID\'si bulunamadı');
+          return;
+        }
+        
         // Use the conversationId from the message object, or fall back to activeChat
         const conversationId = messageObj?.conversationId || activeChat;
         console.log('Using conversationId:', conversationId);
@@ -477,7 +543,7 @@ function HomePage({}: Props) {
 
         if (accessToken && idToken && user.userId) {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BASE_URL}/api/messages/${messageId}/rate`,
+            `${process.env.NEXT_PUBLIC_BASE_URL}/api/messages/${backendMessageId}/rate`,
             {
               method: "POST",
               headers: {
@@ -495,6 +561,8 @@ function HomePage({}: Props) {
           );
 
           if (!response.ok) {
+            const errorData = await response.text();
+            console.error('Rating API error:', errorData);
             // Revert on error
             setMessageLikes((prev) => ({
               ...prev,
@@ -516,7 +584,7 @@ function HomePage({}: Props) {
         toast.error("Rating kaydedilemedi");
       }
     },
-    [messageLikes]
+    [messageLikes, activeChat]
   );
 
   useEffect(() => {
@@ -810,9 +878,22 @@ function HomePage({}: Props) {
               {messages.map((message, index) => {
                 const isUser =
                   message.sender === "user" || message.role === "user";
+                // Generate unique key using multiple identifiers
+                const messageKey = message.id || 
+                                 message.identifier || 
+                                 `${message.role}-${index}-${message.content?.substring(0, 50) || 'no-content'}-${message.createdAt}`;
+                
+                // Debug key conflicts
+                console.log(`[DEBUG] Message ${index} key:`, messageKey, {
+                  id: message.id,
+                  identifier: message.identifier,
+                  role: message.role,
+                  content: message.content?.substring(0, 30)
+                });
+                
                 return (
                   <div
-                    key={message.id || `message-${index}`}
+                    key={messageKey}
                     className={`${
                       isUser
                         ? "flex flex-col justify-center items-end pl-[300px] gap-2 w-full"

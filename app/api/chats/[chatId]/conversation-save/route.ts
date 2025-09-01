@@ -42,6 +42,13 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             title
         });
 
+        console.log('[MESSAGE STREAM TEST] 📝 Messages received for save:', messages.map((msg: any) => ({
+            id: msg.id,
+            identifier: msg.identifier,
+            role: msg.role,
+            content: msg.content?.substring(0, 50)
+        })));
+
         // Prepare request body exactly like Flutter
         const flutterStyleBody = {
             assistantId,
@@ -54,6 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             title,
             messages: messages.map((msg: any) => ({
                 id: msg.id,
+                identifier: msg.identifier || msg.id, // Include identifier field for backend
                 content: msg.content, // Use content field directly
                 role: msg.role,
                 createdAt: msg.createdAt,

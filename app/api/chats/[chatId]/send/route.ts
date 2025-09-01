@@ -53,44 +53,54 @@ export async function POST(
       );
     }
 
-    console.log("Sending message:", { message, assistantId, chatId });
+    console.log("[CHAT REQ] Sending message:", { message, assistantId, chatId });
 
-    // Prepare the request data (like Flutter)
+    // Prepare the request data (matching AWS Lambda format)
     const requestData = {
-      query: message,
+      message: message,
+      messageHistory: [], // Will be populated from conversation history
       assistantId: assistantId,
       conversationId: chatId,
-      stage: process.env.REMOTE_URL?.includes("myenv") ? "myenv" : "upwagmitec",
     };
 
-    // Use the same URL as up-fe (which works!)
-    const BASE_URL = "https://ai-api.wagmidev.com";
-    const url = `${BASE_URL}/user/${userId}/conversation/${chatId}/chat/stream`;
+    // Use STREAM_URL from environment (Lambda URL expects no additional path)
+    const STREAM_URL = process.env.STREAM_URL || "https://yxctstyidhdjvs5cvt57zewzlm0yownl.lambda-url.us-east-1.on.aws/";
+    const url = STREAM_URL; // Lambda function handles routing internally
 
-    console.log("Streaming from URL:", url);
-    console.log("Request data:", requestData);
+    console.log("[CHAT REQ] Streaming URL:", url);
+    console.log("[CHAT REQ] Request headers:", {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idTokenHeader?.substring(0, 20)}...`,
+    });
+    console.log("[CHAT REQ] Request body:", JSON.stringify(requestData, null, 2));
 
-    // Use same authentication as up-fe (no auth header)
+    // Use authentication headers required by AWS Lambda
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${idTokenHeader}`, // AWS Lambda expects this format
       },
       body: JSON.stringify(requestData),
     });
 
-    console.log("Stream response status:", response.status);
-    console.log(
-      "[MESSAGE STREAM TEST] 📡 Backend stream response status:",
-      response.status,
-    );
+    console.log("[CHAT RESPONSE] Stream response status:", response.status);
+    console.log("[CHAT RESPONSE] Response headers:", Object.fromEntries(response.headers.entries()));
+    console.log("[CHAT RESPONSE] Response ok:", response.ok);
 
     if (!response.ok) {
-      console.error("Stream API error:", response.status, response.statusText);
+      const errorText = await response.text();
+      console.error("[CHAT RESPONSE] Stream API error:", {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText,
+        url: url
+      });
       return NextResponse.json(
         {
           status: response.status.toString(),
           message: `Stream API error: ${response.statusText}`,
+          details: errorText
         },
         { status: response.status },
       );
@@ -113,10 +123,12 @@ export async function POST(
 
               // Decode and forward the chunk
               const chunk = decoder.decode(value, { stream: true });
-              console.log(
-                "[MESSAGE STREAM TEST] 🔄 Lambda chunk received:",
-                chunk.substring(0, 100) + (chunk.length > 100 ? "..." : ""),
-              );
+              console.log("[CHAT RESPONSE] Lambda chunk received:", {
+                chunkLength: chunk.length,
+                chunkPreview: chunk.substring(0, 100) + (chunk.length > 100 ? "..." : ""),
+                containsDone: chunk.includes('[DONE-UP]'),
+                url: url
+              });
               controller.enqueue(new TextEncoder().encode(chunk));
               return pump();
             });
@@ -130,7 +142,7 @@ export async function POST(
           "Content-Type": "text/plain; charset=utf-8",
           "Transfer-Encoding": "chunked",
           "Cache-Control": "no-cache",
-          Connection: "keep-alive",
+          "Connection": "keep-alive",
         },
       });
     }
