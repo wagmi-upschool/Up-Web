@@ -856,8 +856,8 @@ function HomePage({}: Props) {
                         />
                       </div>
 
-                      {/* Action buttons - Only for AI messages that are GPT suitable but not widgets */}
-                      {!isUser && (message as any).isGptSuitable && message.type !== 'widget' && (
+                      {/* Action buttons - Only for AI messages but not widgets */}
+                      {!isUser && message.type !== 'widget' && (
                         <div className="flex items-center gap-2 mt-2 ml-2">
                           <button
                             onClick={() => {
