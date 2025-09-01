@@ -3,7 +3,7 @@ import React from "react";
 
 function LoginStatic() {
     return (
-        <div className="relative hidden h-full flex-col bg-zinc-900 p-10 text-white lg:flex dark:border-r">
+        <div className="relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r">
             <div className="relative z-20 flex items-center text-lg font-medium">
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
