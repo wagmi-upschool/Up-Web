@@ -16,13 +16,13 @@ function LoginComponent({}: Props) {
           <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
             <div className="flex flex-col space-y-2 text-center">
               <h1 className="text-2xl font-normal font-righteous text-title-black">
-                Giriş Yap
+                Her gün daha iyi bir sen için UP AI ile sohbete buradan devam!
               </h1>
               <p className="text-sm font-poppins text-gray-600">
-                Up mobil uygulamanızdan kullanıcı adı ve şifrenizi girin
+                UP kullanıcı bilgilerinle giriş yap.
               </p>
               <p className="text-xs font-poppins text-gray-500">
-                Şifre değişikliği mobil uygulama üzerinden yapılabilir
+                Şifre değişikliği işlemini mobil uygulama üzerinden yapabilirsin.
               </p>
             </div>
             <UserAuthForm />

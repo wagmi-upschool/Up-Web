@@ -75,6 +75,8 @@ export type TaskTypeItems = "task" | "milestone" | "project";
 
 export interface ChatMessage {
   id: string;
+  identifier?: string; // Unique message identifier from backend
+  conversationId?: string; // Conversation ID for backend API calls
   text?: string;
   content?: string; // Lambda'dan gelen field
   sender: 'user' | 'ai';
@@ -83,6 +85,8 @@ export interface ChatMessage {
   createdAt?: string;
   assistantId?: string;
   type?: string; // typing, widget, etc.
+  likeStatus?: boolean | number; // Like status from backend
+  isGptSuitable?: boolean; // Whether message supports like/dislike actions
 }
 
 export interface Chat {

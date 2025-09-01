@@ -206,8 +206,36 @@ export async function GET(req: NextRequest) {
         
         console.log(`Assistant data fetched: ${assistantsMap.size}, Group data fetched: ${groupsMap.size}`);
         
-        // Transform Lambda data to frontend format with merged assistant and group data
-        const transformedChats = allConversations.map((chat: any) => {
+        // Filter out reflectionJournal type conversations before transformation
+        const filteredConversations = allConversations.filter((chat: any) => {
+            const assistant = assistantsMap.get(chat.assistantId);
+            
+            // Filter out reflectionJournal type chats
+            if (chat.type === "reflectionJournal") return false;
+            if (assistant?.type === "reflectionJournal") return false;
+            
+            // Filter out by assistant ID, title, or other identifiers
+            const isReflectionJournal = 
+                (chat.assistantId || '').toLowerCase().includes('reflectionjournal') ||
+                (chat.title || '').toLowerCase().includes('günlük') ||
+                (chat.title || '').toLowerCase().includes('journal') ||
+                (chat.title || '').toLowerCase().includes('farkındalık') ||
+                (assistant?.name || '').toLowerCase().includes('günlük') ||
+                (assistant?.name || '').toLowerCase().includes('journal') ||
+                (assistant?.name || '').toLowerCase().includes('farkındalık');
+                
+            if (isReflectionJournal) return false;
+            
+            // Filter out other excluded types
+            const excludedTypes = ["accountability", "flashcard", "boolean-tester", "fill-in-blanks"];
+            if (excludedTypes.includes(chat.type || "")) return false;
+            if (excludedTypes.includes(assistant?.type || "")) return false;
+            
+            return true;
+        });
+
+        // Transform filtered Lambda data to frontend format with merged assistant and group data
+        const transformedChats = filteredConversations.map((chat: any) => {
             const assistant = assistantsMap.get(chat.assistantId);
             const group = groupsMap.get(chat.assistantGroupId);
             

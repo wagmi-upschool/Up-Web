@@ -118,10 +118,31 @@ function HomePage({}: Props) {
     return [...realMessages, ...optimisticMessages];
   }, [messagesData?.messages, optimisticMessages]);
 
+  // Clear optimistic messages when switching chats
+  useEffect(() => {
+    setOptimisticMessages([]);
+  }, [activeChat]);
+
   // Auto scroll when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages, optimisticMessages, isAiResponding]);
+
+  // Load existing like statuses from backend messages
+  useEffect(() => {
+    if (messages.length > 0) {
+      const newMessageLikes: { [messageId: string]: "like" | "dislike" | null } = {};
+      messages.forEach((message) => {
+        const messageId = message.identifier || message.id;
+        if (message.likeStatus === true || message.likeStatus === 1) {
+          newMessageLikes[messageId] = "like";
+        } else if (message.likeStatus === false || message.likeStatus === 0) {
+          newMessageLikes[messageId] = "dislike";
+        }
+      });
+      setMessageLikes((prev) => ({ ...prev, ...newMessageLikes }));
+    }
+  }, [messages]);
 
   const handleSignOut = async () => {
     try {
@@ -430,8 +451,20 @@ function HomePage({}: Props) {
   };
 
   const handleLikeDislike = useCallback(
-    async (messageId: string, type: "like" | "dislike") => {
+    async (messageId: string, type: "like" | "dislike", messageObj?: any) => {
       try {
+        console.log('Rating messageId:', messageId, 'type:', type);
+        console.log('Message object received:', messageObj);
+        
+        // Use the conversationId from the message object, or fall back to activeChat
+        const conversationId = messageObj?.conversationId || activeChat;
+        console.log('Using conversationId:', conversationId);
+        
+        if (!conversationId) {
+          console.error('No conversationId available');
+          return;
+        }
+
         // Optimistically update the UI
         const currentStatus = messageLikes[messageId];
         const newStatus = currentStatus === type ? null : type;
@@ -454,8 +487,9 @@ function HomePage({}: Props) {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                rating:
-                  newStatus === "like" ? 1 : newStatus === "dislike" ? -1 : 0,
+                conversationId: conversationId,
+                rating: newStatus === "like" ? true : newStatus === "dislike" ? false : null,
+                isRemoveAction: newStatus === null,
               }),
             }
           );
@@ -599,19 +633,23 @@ function HomePage({}: Props) {
           <div className="space-y-4">
             {chats
               .filter((chat) => {
-                // Filter out reflectionJournal type chats (check both chat.type and assistant type)
+                // Filter out reflectionJournal type chats (check chat.type, assistantType, and assistant type)
                 if (chat.type === "reflectionJournal") return false;
+                
+                // Check assistantType field specifically
+                if ((chat as any).assistantType === "reflectionJournal") return false;
 
                 // Also check if the assistant itself is of reflectionJournal type
-                // This requires checking the assistant data, but we can infer from assistantId or other properties
-                const reflectionJournalAssistants = ["reflectionJournal"];
+                const reflectionJournalAssistants = ["reflectionJournal", "farkındalık", "günlük"];
                 if (
                   reflectionJournalAssistants.some(
                     (type) =>
                       chat.assistantId?.includes(type) ||
                       chat.title?.toLowerCase().includes("günlük") ||
                       chat.title?.toLowerCase().includes("journal") ||
-                      chat.description?.toLowerCase().includes("günlük")
+                      chat.title?.toLowerCase().includes("farkındalık") ||
+                      chat.description?.toLowerCase().includes("günlük") ||
+                      chat.description?.toLowerCase().includes("farkındalık")
                   )
                 )
                   return false;
@@ -641,7 +679,10 @@ function HomePage({}: Props) {
               .map((chat) => (
                 <div
                   key={chat.id}
-                  onClick={() => setActiveChat(chat.id)}
+                  onClick={() => {
+                    setActiveChat(chat.id);
+                    setOptimisticMessages([]); // Clear messages when switching chats
+                  }}
                   className={`p-4 rounded-lg cursor-pointer transition-colors ${
                     activeChat === chat.id
                       ? "bg-message-box-bg shadow-md border-b-4 border-primary"
@@ -685,13 +726,16 @@ function HomePage({}: Props) {
 
       {/* Main Chat Area */}
       <div
-        className="flex-1 flex flex-col"
+        className="flex-1 flex flex-col relative"
         style={{
-          backgroundImage: "url(/bg.svg)",
+          backgroundImage: "url(/bg.png)",
           backgroundSize: "cover",
           backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
         }}
       >
+        <div className="absolute inset-0 bg-white opacity-50"></div>
+        <div className="relative z-10 flex flex-col h-full">
         {/* Chat Header */}
         <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
           <div className="flex items-center justify-between">
@@ -718,7 +762,7 @@ function HomePage({}: Props) {
                         className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        Sign Out
+                        Çıkış Yap
                       </button>
                     </div>
                   </div>
@@ -812,16 +856,16 @@ function HomePage({}: Props) {
                         />
                       </div>
 
-                      {/* Action buttons - Only for AI messages */}
-                      {!isUser && (
+                      {/* Action buttons - Only for AI messages that are GPT suitable but not widgets */}
+                      {!isUser && (message as any).isGptSuitable && message.type !== 'widget' && (
                         <div className="flex items-center gap-2 mt-2 ml-2">
                           <button
-                            onClick={() =>
-                              handleLikeDislike(message.id, "like")
-                            }
+                            onClick={() => {
+                              handleLikeDislike(message.identifier || message.id, "like", message);
+                            }}
                             className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
                           >
-                            {messageLikes[message.id] === "like" ? (
+                            {messageLikes[message.identifier || message.id] === "like" ? (
                               <Image
                                 src="/liked.svg"
                                 alt="Liked"
@@ -834,12 +878,12 @@ function HomePage({}: Props) {
                             )}
                           </button>
                           <button
-                            onClick={() =>
-                              handleLikeDislike(message.id, "dislike")
-                            }
+                            onClick={() => {
+                              handleLikeDislike(message.identifier || message.id, "dislike", message);
+                            }}
                             className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
                           >
-                            {messageLikes[message.id] === "dislike" ? (
+                            {messageLikes[message.identifier || message.id] === "dislike" ? (
                               <Image
                                 src="/disliked.svg"
                                 alt="Disliked"
@@ -907,6 +951,7 @@ function HomePage({}: Props) {
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

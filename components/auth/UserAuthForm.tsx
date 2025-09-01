@@ -41,7 +41,8 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
             }
         } catch (error: any) {
             console.error('Error signing in:', error);
-            toast.error(error.message || "Giriş başarısız");
+            const errorMessage = error.message === "User does not exist." ? "Kullanıcı kayıtlı değil." : (error.message || "Giriş başarısız");
+            toast.error(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -64,7 +65,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                         <input
                             onChange={(event) => onChangeEvent(event, "email")}
                             id="email"
-                            placeholder="kullanıcı adı"
+                            placeholder="E-posta Adresi"
                             value={formValue.email}
                             type="text"
                             autoCapitalize="none"
@@ -82,7 +83,7 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                             onChange={(event) => onChangeEvent(event, "password")}
                             id="password"
                             value={formValue.password}
-                            placeholder="şifre"
+                            placeholder="Şifre"
                             type="password"
                             autoCapitalize="none"
                             autoComplete="current-password"
