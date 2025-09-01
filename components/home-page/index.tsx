@@ -61,10 +61,45 @@ function HomePage({}: Props) {
   };
 
   const {
-    data: chats = [],
+    data: chatsData = [],
     isLoading: isLoadingChats,
     error: chatsError,
   } = useGetChatsQuery();
+
+  // Deduplicate chats by id and title
+  const chats = useMemo(() => {
+    console.log('[CHAT DEBUG] Raw chats from API:', chatsData.map(c => ({
+      id: c.id,
+      title: c.title,
+      assistantId: c.assistantId
+    })));
+
+    const deduplicatedChats = chatsData.filter((chat, index, arr) => {
+      // Keep first occurrence of each unique chat
+      const firstIndex = arr.findIndex(c => 
+        c.id === chat.id || 
+        (c.title === chat.title && c.assistantId === chat.assistantId)
+      );
+      
+      if (firstIndex !== index) {
+        console.log('[CHAT DEBUG] Filtering duplicate chat:', {
+          original: { id: arr[firstIndex].id, title: arr[firstIndex].title },
+          duplicate: { id: chat.id, title: chat.title },
+          index, firstIndex
+        });
+      }
+      
+      return firstIndex === index;
+    });
+
+    console.log('[CHAT DEBUG] After deduplication:', deduplicatedChats.map(c => ({
+      id: c.id,
+      title: c.title,
+      assistantId: c.assistantId
+    })));
+
+    return deduplicatedChats;
+  }, [chatsData]);
   const {
     data: messagesData,
     isLoading: isLoadingMessages,
