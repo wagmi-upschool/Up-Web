@@ -49,6 +49,12 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             content: msg.content?.substring(0, 50)
         })));
 
+        // Verify all messages have identifiers
+        const messagesWithoutIdentifier = messages.filter((msg: any) => !msg.identifier);
+        if (messagesWithoutIdentifier.length > 0) {
+            console.warn('[MESSAGE STREAM TEST] ⚠️ Messages without identifier:', messagesWithoutIdentifier.length);
+        }
+
         // Prepare request body exactly like Flutter
         const flutterStyleBody = {
             assistantId,
@@ -71,7 +77,12 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             conversationId
         };
 
-        console.log('[MESSAGE STREAM TEST] 💾 Sending to backend:', JSON.stringify(flutterStyleBody, null, 2));
+        console.log('[MESSAGE STREAM TEST] 💾 Sending messages to backend with identifiers:', flutterStyleBody.messages.map((msg: any) => ({
+            id: msg.id,
+            identifier: msg.identifier,
+            role: msg.role,
+            content: msg.content?.substring(0, 30)
+        })));
 
         // Use idToken like Flutter does
         const tokenToUse = idTokenHeader || authHeader.replace('Bearer ', '');

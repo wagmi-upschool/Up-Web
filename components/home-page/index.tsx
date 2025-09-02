@@ -112,7 +112,7 @@ function HomePage({}: Props) {
     useSendChatMessageMutation();
   const [saveConversation] = useSaveConversationMutation();
 
-  // Use real messages combined with optimistic messages (memoized, with proper deduplication)
+  // Smart message merging: replace optimistic messages with real ones when identifiers match
   const messages = useMemo(() => {
     const rawRealMessages = messagesData?.messages || [];
 
@@ -123,70 +123,74 @@ function HomePage({}: Props) {
       content: m.content?.substring(0, 50)
     })));
 
-    // First, deduplicate real messages by id/identifier and content
+    // Deduplicate real messages by identifier/id
     const realMessages = rawRealMessages.filter((msg, index, arr) => {
-      // Keep first occurrence based on unique identifier or content+role combination
       const firstIndex = arr.findIndex(
         (m) =>
-          // Match by ID/identifier first
-          (m.id && msg.id && m.id === msg.id) ||
           (m.identifier && msg.identifier && m.identifier === msg.identifier) ||
-          // Fallback to content+role+timestamp for similar messages
-          (m.content === msg.content &&
-            m.role === msg.role &&
-            Math.abs(
-              new Date(m.createdAt || 0).getTime() -
-                new Date(msg.createdAt || 0).getTime()
-            ) < 2000)
+          (m.id && msg.id && m.id === msg.id)
       );
-      
-      if (firstIndex !== index) {
-        console.log('[DEBUG] Filtering duplicate:', {
-          original: { id: arr[firstIndex].id, identifier: arr[firstIndex].identifier },
-          duplicate: { id: msg.id, identifier: msg.identifier },
-          index, firstIndex
-        });
-      }
-      
       return firstIndex === index;
     });
 
-    console.log('[DEBUG] After deduplication:', realMessages.map(m => ({
+    console.log('[DEBUG] Deduplicated real messages:', realMessages.map(m => ({
       id: m.id,
       identifier: m.identifier,
       role: m.role,
       content: m.content?.substring(0, 50)
     })));
 
-    // If we have real messages with content, filter out temp optimistic messages
-    if (realMessages.length > 0 && realMessages.some((msg) => msg.content)) {
-      // Filter out temp optimistic messages that might be duplicated by real messages
-      const filteredOptimistic = optimisticMessages.filter(
-        (opt) =>
-          !opt.id.startsWith("temp-") ||
-          !realMessages.some(
-            (real) =>
-              real.content === opt.content &&
-              real.role === opt.role &&
-              Math.abs(
-                new Date(real.createdAt || 0).getTime() -
-                  new Date(opt.createdAt || 0).getTime()
-              ) < 5000 // Within 5 seconds
-          )
-      );
-      
-      const finalMessages = [...realMessages, ...filteredOptimistic];
-      console.log('[DEBUG] Final messages:', finalMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        content: m.content?.substring(0, 50)
-      })));
-      
-      return finalMessages;
-    }
+    // Create a Set of real message identifiers for quick lookup
+    const realMessageIdentifiers = new Set(
+      realMessages
+        .map(msg => msg.identifier || msg.id)
+        .filter(Boolean)
+    );
 
-    return [...realMessages, ...optimisticMessages];
+    console.log('[DEBUG] Real message identifiers:', Array.from(realMessageIdentifiers));
+
+    // Filter optimistic messages: keep only those not yet saved to backend
+    const pendingOptimisticMessages = optimisticMessages.filter(opt => {
+      const optIdentifier = opt.identifier || opt.id;
+      const isAlreadySaved = realMessageIdentifiers.has(optIdentifier);
+      
+      if (isAlreadySaved) {
+        console.log('[DEBUG] Optimistic message replaced by real message:', {
+          identifier: optIdentifier,
+          role: opt.role,
+          content: opt.content?.substring(0, 30)
+        });
+      }
+      
+      return !isAlreadySaved;
+    });
+
+    console.log('[DEBUG] Pending optimistic messages:', pendingOptimisticMessages.map(m => ({
+      id: m.id,
+      identifier: m.identifier,
+      role: m.role,
+      content: m.content?.substring(0, 30)
+    })));
+
+    // Combine real messages with pending optimistic messages
+    const finalMessages = [...realMessages, ...pendingOptimisticMessages];
+    
+    // Sort by creation time to maintain proper order
+    finalMessages.sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeA - timeB;
+    });
+
+    console.log('[DEBUG] Final merged messages:', finalMessages.map(m => ({
+      id: m.id,
+      identifier: m.identifier,
+      role: m.role,
+      isOptimistic: pendingOptimisticMessages.includes(m),
+      content: m.content?.substring(0, 30)
+    })));
+
+    return finalMessages;
   }, [messagesData?.messages, optimisticMessages]);
 
   // Clear optimistic messages when switching chats
@@ -503,8 +507,10 @@ function HomePage({}: Props) {
               saveResult.data
             );
 
-            // No need to update optimistic messages since we use same UUIDs
-            console.log("[MESSAGE STREAM TEST] ✅ Messages saved with consistent UUIDs");
+            // RTK Query will automatically refetch and merge with optimistic messages
+            console.log("[MESSAGE STREAM TEST] 🔄 RTK Query will refetch and seamlessly replace optimistic messages");
+            
+            // Optimistic messages will be replaced by real messages when they arrive
           } else {
             console.error(
               "[MESSAGE STREAM TEST] ❌ Failed to save conversation:",
