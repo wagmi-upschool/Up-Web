@@ -44,6 +44,7 @@ function HomePage({}: Props) {
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
   const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [isTransitioningChat, setIsTransitioningChat] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>(
@@ -71,8 +72,31 @@ function HomePage({}: Props) {
     console.log('[CHAT DEBUG] Raw chats from API:', chatsData.map(c => ({
       id: c.id,
       title: c.title,
-      assistantId: c.assistantId
+      assistantId: c.assistantId,
+      type: c.type,
+      assistantType: (c as any).assistantType,
+      assistantGroupId: c.assistantGroupId,
+      description: c.description
     })));
+
+    // Specifically log journal-like chats for debugging
+    const journalChats = chatsData.filter(c => 
+      c.title?.toLowerCase().includes('günlük') || 
+      c.title?.toLowerCase().includes('journal') ||
+      c.title?.toLowerCase().includes('harika')
+    );
+    if (journalChats.length > 0) {
+      console.log('[CHAT DEBUG] 🔍 Found potential journal chats:', journalChats.map(c => ({
+        id: c.id,
+        title: c.title,
+        type: c.type,
+        assistantType: (c as any).assistantType,
+        assistantId: c.assistantId,
+        assistantGroupId: c.assistantGroupId,
+        description: c.description,
+        fullObject: c
+      })));
+    }
 
     const deduplicatedChats = chatsData.filter((chat, index, arr) => {
       // Keep first occurrence of each unique chat
@@ -116,12 +140,14 @@ function HomePage({}: Props) {
   const messages = useMemo(() => {
     const rawRealMessages = messagesData?.messages || [];
 
-    console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
-      id: m.id,
-      identifier: m.identifier,
-      role: m.role,
-      content: m.content?.substring(0, 50)
-    })));
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
+        id: m.id,
+        identifier: m.identifier,
+        role: m.role,
+        content: m.content?.substring(0, 50)
+      })));
+    }
 
     // Deduplicate real messages by identifier/id
     const realMessages = rawRealMessages.filter((msg, index, arr) => {
@@ -133,13 +159,6 @@ function HomePage({}: Props) {
       return firstIndex === index;
     });
 
-    console.log('[DEBUG] Deduplicated real messages:', realMessages.map(m => ({
-      id: m.id,
-      identifier: m.identifier,
-      role: m.role,
-      content: m.content?.substring(0, 50)
-    })));
-
     // Create a Set of real message identifiers for quick lookup
     const realMessageIdentifiers = new Set(
       realMessages
@@ -147,14 +166,23 @@ function HomePage({}: Props) {
         .filter(Boolean)
     );
 
-    console.log('[DEBUG] Real message identifiers:', Array.from(realMessageIdentifiers));
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[DEBUG] Deduplicated real messages:', realMessages.map(m => ({
+        id: m.id,
+        identifier: m.identifier,
+        role: m.role,
+        content: m.content?.substring(0, 50)
+      })));
+      
+      console.log('[DEBUG] Real message identifiers:', Array.from(realMessageIdentifiers));
+    }
 
     // Filter optimistic messages: keep only those not yet saved to backend
     const pendingOptimisticMessages = optimisticMessages.filter(opt => {
       const optIdentifier = opt.identifier || opt.id;
       const isAlreadySaved = realMessageIdentifiers.has(optIdentifier);
       
-      if (isAlreadySaved) {
+      if (isAlreadySaved && process.env.NODE_ENV === 'development') {
         console.log('[DEBUG] Optimistic message replaced by real message:', {
           identifier: optIdentifier,
           role: opt.role,
@@ -164,13 +192,6 @@ function HomePage({}: Props) {
       
       return !isAlreadySaved;
     });
-
-    console.log('[DEBUG] Pending optimistic messages:', pendingOptimisticMessages.map(m => ({
-      id: m.id,
-      identifier: m.identifier,
-      role: m.role,
-      content: m.content?.substring(0, 30)
-    })));
 
     // Combine real messages with pending optimistic messages
     const finalMessages = [...realMessages, ...pendingOptimisticMessages];
@@ -182,13 +203,22 @@ function HomePage({}: Props) {
       return timeA - timeB;
     });
 
-    console.log('[DEBUG] Final merged messages:', finalMessages.map(m => ({
-      id: m.id,
-      identifier: m.identifier,
-      role: m.role,
-      isOptimistic: pendingOptimisticMessages.includes(m),
-      content: m.content?.substring(0, 30)
-    })));
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[DEBUG] Pending optimistic messages:', pendingOptimisticMessages.map(m => ({
+        id: m.id,
+        identifier: m.identifier,
+        role: m.role,
+        content: m.content?.substring(0, 30)
+      })));
+
+      console.log('[DEBUG] Final merged messages:', finalMessages.map(m => ({
+        id: m.id,
+        identifier: m.identifier,
+        role: m.role,
+        isOptimistic: pendingOptimisticMessages.includes(m),
+        content: m.content?.substring(0, 30)
+      })));
+    }
 
     return finalMessages;
   }, [messagesData?.messages, optimisticMessages]);
@@ -742,26 +772,50 @@ function HomePage({}: Props) {
           <div className="space-y-4">
             {chats
               .filter((chat) => {
-                // Filter out reflectionJournal type chats (check chat.type, assistantType, and assistant type)
-                if (chat.type === "reflectionJournal") return false;
+                // Enhanced filtering for reflection journal type chats
+                const lowerTitle = chat.title?.toLowerCase() || '';
+                const lowerDesc = chat.description?.toLowerCase() || '';
+                const lowerAssistantId = chat.assistantId?.toLowerCase() || '';
+                const chatType = chat.type?.toLowerCase() || '';
+                const assistantType = ((chat as any).assistantType || '').toLowerCase();
+                
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`[FILTER DEBUG] Checking chat: "${chat.title}" - type: "${chatType}", assistantType: "${assistantType}"`);
+                }
+
+                // Filter out reflectionJournal type chats (multiple variations)
+                if (chatType === "reflectionjournal" || chatType === "reflection-journal" || chatType === "journal") return false;
                 
                 // Check assistantType field specifically
-                if ((chat as any).assistantType === "reflectionJournal") return false;
+                if (assistantType === "reflectionjournal" || assistantType === "reflection-journal" || assistantType === "journal") return false;
 
-                // Also check if the assistant itself is of reflectionJournal type
-                const reflectionJournalAssistants = ["reflectionJournal", "farkındalık", "günlük"];
-                if (
-                  reflectionJournalAssistants.some(
-                    (type) =>
-                      chat.assistantId?.includes(type) ||
-                      chat.title?.toLowerCase().includes("günlük") ||
-                      chat.title?.toLowerCase().includes("journal") ||
-                      chat.title?.toLowerCase().includes("farkındalık") ||
-                      chat.description?.toLowerCase().includes("günlük") ||
-                      chat.description?.toLowerCase().includes("farkındalık")
-                  )
-                )
+                // Comprehensive journal detection - check for any journal-related keywords
+                const journalKeywords = [
+                  "günlük", "journal", "farkındalık", "reflection",
+                  "harika şeyler", "şeyler günlüğü", "reflektion",
+                  "diary", "dagbok" // Additional variations
+                ];
+                
+                const hasJournalKeyword = journalKeywords.some(keyword =>
+                  lowerTitle.includes(keyword) ||
+                  lowerDesc.includes(keyword) ||
+                  lowerAssistantId.includes(keyword)
+                );
+                
+                if (hasJournalKeyword) {
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`[FILTER DEBUG] 🚫 Filtering out journal chat: "${chat.title}" - matched keyword`);
+                  }
                   return false;
+                }
+
+                // Specific check for assistant IDs that might indicate journal type
+                if (lowerAssistantId.includes("journal") || lowerAssistantId.includes("reflection")) {
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`[FILTER DEBUG] 🚫 Filtering out by assistantId: "${chat.assistantId}"`);
+                  }
+                  return false;
+                }
 
                 // Filter out specific chat types and assistant types
                 const excludedTypes = [
@@ -785,50 +839,60 @@ function HomePage({}: Props) {
 
                 return true;
               })
-              .map((chat) => (
-                <div
-                  key={chat.id}
-                  onClick={() => {
-                    setActiveChat(chat.id);
-                    setOptimisticMessages([]); // Clear messages when switching chats
-                  }}
-                  className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                    activeChat === chat.id
-                      ? "bg-message-box-bg shadow-md border-b-4 border-primary"
-                      : "bg-message-box-bg shadow-sm hover:shadow-md"
-                  } ${chat.hasNewMessage ? "shadow-lg" : ""}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-icon-slate-white rounded-lg flex items-center justify-center overflow-hidden">
-                      {chat.icon && chat.icon.startsWith("http") ? (
-                        <Image
-                          src={chat.icon}
-                          alt={chat.title}
-                          width={40}
-                          height={40}
-                          className="object-cover rounded-lg"
-                        />
-                      ) : (
-                        <span className="text-lg">{chat.icon || "💬"}</span>
+              .map((chat) => {
+                const isActive = activeChat === chat.id;
+                return (
+                  <div
+                    key={`chat-${chat.id}-${isActive ? 'active' : 'inactive'}`}
+                    onClick={() => {
+                      if (activeChat !== chat.id) {
+                        setIsTransitioningChat(true);
+                        setActiveChat(chat.id);
+                        // Defer clearing optimistic messages to avoid blocking UI
+                        setTimeout(() => {
+                          setOptimisticMessages([]);
+                          setIsTransitioningChat(false);
+                        }, 100);
+                      }
+                    }}
+                    className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ease-in-out ${
+                      isActive
+                        ? "bg-message-box-bg shadow-md border-b-4 border-primary transform"
+                        : "bg-message-box-bg shadow-sm hover:shadow-md"
+                    } ${chat.hasNewMessage ? "shadow-lg" : ""}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-icon-slate-white rounded-lg flex items-center justify-center overflow-hidden">
+                        {chat.icon && chat.icon.startsWith("http") ? (
+                          <Image
+                            src={chat.icon}
+                            alt={chat.title}
+                            width={40}
+                            height={40}
+                            className="object-cover rounded-lg"
+                          />
+                        ) : (
+                          <span className="text-lg">{chat.icon || "💬"}</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-poppins font-semibold text-sm text-text-black">
+                          {chat.title}
+                        </h3>
+                        <p className="font-poppins text-xs font-medium text-text-description-gray mt-1 line-clamp-2 overflow-hidden">
+                          {chat.description}
+                        </p>
+                      </div>
+                      {chat.hasNewMessage && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-red-200 rounded"></div>
+                          <MoreHorizontal className="w-4 h-4 text-orange-500" />
+                        </div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-poppins font-semibold text-sm text-text-black">
-                        {chat.title}
-                      </h3>
-                      <p className="font-poppins text-xs font-medium text-text-description-gray mt-1 line-clamp-2 overflow-hidden">
-                        {chat.description}
-                      </p>
-                    </div>
-                    {chat.hasNewMessage && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-red-200 rounded"></div>
-                        <MoreHorizontal className="w-4 h-4 text-orange-500" />
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
       </div>
@@ -882,7 +946,7 @@ function HomePage({}: Props) {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out">
           {!activeChat ? (
             <div className="flex items-center justify-center h-full text-center">
               <div>
@@ -894,12 +958,12 @@ function HomePage({}: Props) {
                 </p>
               </div>
             </div>
-          ) : isLoadingMessages ? (
+          ) : isLoadingMessages || isTransitioningChat ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <LottieSpinner size={120} />
                 <p className="text-text-description-gray text-sm mt-3">
-                  Mesajlar yükleniyor...
+                  {isTransitioningChat ? "Sohbet değiştiriliyor..." : "Mesajlar yükleniyor..."}
                 </p>
               </div>
             </div>
@@ -924,18 +988,19 @@ function HomePage({}: Props) {
                                  message.identifier || 
                                  `${message.role}-${index}-${message.content?.substring(0, 50) || 'no-content'}-${message.createdAt}`;
                 
-                // Debug key conflicts
-                console.log(`[DEBUG] Message ${index} key:`, messageKey, {
-                  id: message.id,
-                  identifier: message.identifier,
-                  role: message.role,
-                  content: message.content?.substring(0, 30)
-                });
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`[DEBUG] Message ${index} key:`, messageKey, {
+                    id: message.id,
+                    identifier: message.identifier,
+                    role: message.role,
+                    content: message.content?.substring(0, 30)
+                  });
+                }
                 
                 return (
                   <div
                     key={messageKey}
-                    className={`${
+                    className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${
                       isUser
                         ? "flex flex-col justify-center items-end pl-[300px] gap-2 w-full"
                         : "flex items-start gap-3"
