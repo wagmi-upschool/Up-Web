@@ -33,8 +33,7 @@ function LoginComponent({}: Props) {
               <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                 <div className="flex flex-col space-y-2 text-center">
                   <h1 className="text-2xl font-normal font-righteous text-title-black">
-                    Her gün daha iyi bir sen için UP AI ile sohbete buradan
-                    devam!
+                    Her gün daha iyi bir sen için UP ile sohbete buradan devam!
                   </h1>
                   <p className="text-sm font-poppins text-gray-600">
                     UP kullanıcı bilgilerinle giriş yap.
