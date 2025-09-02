@@ -641,13 +641,13 @@ function HomePage({}: Props) {
             }));
             toast.error("Rating kaydedilemedi");
           } else {
-            toast.success(
-              newStatus === "like"
-                ? "Beğenildi"
-                : newStatus === "dislike"
-                  ? "Beğenilmedi"
-                  : "Rating kaldırıldı"
-            );
+            if (newStatus === "like") {
+              toast.success("Beğenildi", { icon: "👍" });
+            } else if (newStatus === "dislike") {
+              toast.success("Beğenilmedi", { icon: "👎" });
+            } else {
+              toast.success("Rating kaldırıldı");
+            }
           }
         }
       } catch (error) {
