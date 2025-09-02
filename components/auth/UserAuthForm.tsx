@@ -37,12 +37,12 @@ export function UserAuthForm({ className, ...props }: UserAuthFormProps) {
                 toast.error("Yeni şifre gerekli");
                 // Handle new password required
             } else {
-                toast.error("Lütfen kullanıcı bilgilerinizi kontrol edin");
+                toast.error("Kullanıcı bilgisi yanlış girildi");
             }
         } catch (error: any) {
             console.error('Error signing in:', error);
-            const errorMessage = error.message === "User does not exist." ? "Kullanıcı kayıtlı değil." : (error.message || "Giriş başarısız");
-            toast.error(errorMessage);
+            // Use Turkish message for all authentication errors
+            toast.error("Kullanıcı bilgisi yanlış girildi");
         } finally {
             setIsLoading(false);
         }
