@@ -2,6 +2,8 @@ version: 1
 frontend:
   framework: nextjs
   platform: node
+  runtime:
+    node: "18.17.0"
   phases:
     preBuild:
       commands:
