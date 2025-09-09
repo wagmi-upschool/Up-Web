@@ -378,14 +378,17 @@ const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => {
             {/* Dropdown for this blank (if exists) */}
             {index < settings.length &&
               settings[index] &&
-              settings[index].length > 0 && (
+              settings[index].length > 0 &&
+              settings[index][0] &&
+              !settings[index][0].writeOwn &&
+              settings[index][0].value !== "" && (
                 <div className="relative">
                   <div
                     onClick={() => toggleDropdown(index)}
-                    className={`flex h-8 items-center justify-between overflow-hidden rounded-lg bg-white px-4 py-2 outline outline-1 outline-offset-[-1px] outline-neutral-200 ${
+                    className={`flex h-8 items-center justify-between overflow-hidden rounded-lg px-4 py-2 outline outline-1 outline-offset-[-1px] ${
                       selectedOptions[index] || userOptions[index]
-                        ? "cursor-default"
-                        : "cursor-pointer hover:bg-gray-50"
+                        ? "cursor-default bg-gray-50 outline-neutral-300"
+                        : "cursor-pointer bg-white outline-neutral-200 hover:bg-gray-50"
                     }`}
                   >
                     <div
@@ -402,6 +405,8 @@ const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => {
                     <div
                       className={`relative h-4 w-4 overflow-hidden transition-transform ${
                         dropdownStates[index] ? "rotate-180" : ""
+                      } ${
+                        selectedOptions[index] || userOptions[index] ? "opacity-30" : "opacity-100"
                       }`}
                     >
                       <Image
