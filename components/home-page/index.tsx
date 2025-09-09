@@ -40,6 +40,13 @@ const formatMobileDateTime = (date?: Date | string): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
 };
 
+// Helper function to check if a chat is reflection journal type
+const isReflectionJournalChat = (chat: any): boolean => {
+  return (
+    chat.type === "reflectionJournal" 
+  );
+};
+
 function HomePage({}: Props) {
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
@@ -69,58 +76,16 @@ function HomePage({}: Props) {
 
   // Deduplicate chats by id and title
   const chats = useMemo(() => {
-    console.log('[CHAT DEBUG] Raw chats from API:', chatsData.map(c => ({
-      id: c.id,
-      title: c.title,
-      assistantId: c.assistantId,
-      type: c.type,
-      assistantType: (c as any).assistantType,
-      assistantGroupId: c.assistantGroupId,
-      description: c.description
-    })));
-
-    // Specifically log journal-like chats for debugging
-    const journalChats = chatsData.filter(c => 
-      c.title?.toLowerCase().includes('günlük') || 
-      c.title?.toLowerCase().includes('journal') ||
-      c.title?.toLowerCase().includes('harika')
-    );
-    if (journalChats.length > 0) {
-      console.log('[CHAT DEBUG] 🔍 Found potential journal chats:', journalChats.map(c => ({
-        id: c.id,
-        title: c.title,
-        type: c.type,
-        assistantType: (c as any).assistantType,
-        assistantId: c.assistantId,
-        assistantGroupId: c.assistantGroupId,
-        description: c.description,
-        fullObject: c
-      })));
-    }
-
     const deduplicatedChats = chatsData.filter((chat, index, arr) => {
       // Keep first occurrence of each unique chat
-      const firstIndex = arr.findIndex(c => 
-        c.id === chat.id || 
-        (c.title === chat.title && c.assistantId === chat.assistantId)
+      const firstIndex = arr.findIndex(
+        (c) =>
+          c.id === chat.id ||
+          (c.title === chat.title && c.assistantId === chat.assistantId)
       );
-      
-      if (firstIndex !== index) {
-        console.log('[CHAT DEBUG] Filtering duplicate chat:', {
-          original: { id: arr[firstIndex].id, title: arr[firstIndex].title },
-          duplicate: { id: chat.id, title: chat.title },
-          index, firstIndex
-        });
-      }
-      
+
       return firstIndex === index;
     });
-
-    console.log('[CHAT DEBUG] After deduplication:', deduplicatedChats.map(c => ({
-      id: c.id,
-      title: c.title,
-      assistantId: c.assistantId
-    })));
 
     return deduplicatedChats;
   }, [chatsData]);
@@ -140,14 +105,14 @@ function HomePage({}: Props) {
   const messages = useMemo(() => {
     const rawRealMessages = messagesData?.messages || [];
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        content: m.content?.substring(0, 50)
-      })));
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
+    //     id: m.id,
+    //     identifier: m.identifier,
+    //     role: m.role,
+    //     content: m.content?.substring(0, 50)
+    //   })));
+    // }
 
     // Deduplicate real messages by identifier/id
     const realMessages = rawRealMessages.filter((msg, index, arr) => {
@@ -161,41 +126,45 @@ function HomePage({}: Props) {
 
     // Create a Set of real message identifiers for quick lookup
     const realMessageIdentifiers = new Set(
-      realMessages
-        .map(msg => msg.identifier || msg.id)
-        .filter(Boolean)
+      realMessages.map((msg) => msg.identifier || msg.id).filter(Boolean)
     );
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Deduplicated real messages:', realMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        content: m.content?.substring(0, 50)
-      })));
-      
-      console.log('[DEBUG] Real message identifiers:', Array.from(realMessageIdentifiers));
-    }
+    // if (process.env.NODE_ENV === "development") {
+    //   console.log(
+    //     "[DEBUG] Deduplicated real messages:",
+    //     realMessages.map((m) => ({
+    //       id: m.id,
+    //       identifier: m.identifier,
+    //       role: m.role,
+    //       content: m.content?.substring(0, 50),
+    //     }))
+    //   );
+
+    //   console.log(
+    //     "[DEBUG] Real message identifiers:",
+    //     Array.from(realMessageIdentifiers)
+    //   );
+    // }
 
     // Filter optimistic messages: keep only those not yet saved to backend
-    const pendingOptimisticMessages = optimisticMessages.filter(opt => {
+    const pendingOptimisticMessages = optimisticMessages.filter((opt) => {
       const optIdentifier = opt.identifier || opt.id;
       const isAlreadySaved = realMessageIdentifiers.has(optIdentifier);
-      
-      if (isAlreadySaved && process.env.NODE_ENV === 'development') {
-        console.log('[DEBUG] Optimistic message replaced by real message:', {
-          identifier: optIdentifier,
-          role: opt.role,
-          content: opt.content?.substring(0, 30)
-        });
-      }
-      
+
+      // if (isAlreadySaved && process.env.NODE_ENV === "development") {
+      //   console.log("[DEBUG] Optimistic message replaced by real message:", {
+      //     identifier: optIdentifier,
+      //     role: opt.role,
+      //     content: opt.content?.substring(0, 30),
+      //   });
+      // }
+
       return !isAlreadySaved;
     });
 
     // Combine real messages with pending optimistic messages
     const finalMessages = [...realMessages, ...pendingOptimisticMessages];
-    
+
     // Sort by creation time to maintain proper order
     finalMessages.sort((a, b) => {
       const timeA = new Date(a.createdAt || 0).getTime();
@@ -203,21 +172,26 @@ function HomePage({}: Props) {
       return timeA - timeB;
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Pending optimistic messages:', pendingOptimisticMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        content: m.content?.substring(0, 30)
-      })));
-
-      console.log('[DEBUG] Final merged messages:', finalMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        isOptimistic: pendingOptimisticMessages.includes(m),
-        content: m.content?.substring(0, 30)
-      })));
+    if (process.env.NODE_ENV === "development") {
+      // console.log(
+      //   "[DEBUG] Pending optimistic messages:",
+      //   pendingOptimisticMessages.map((m) => ({
+      //     id: m.id,
+      //     identifier: m.identifier,
+      //     role: m.role,
+      //     content: m.content?.substring(0, 30),
+      //   }))
+      // );
+      // console.log(
+      //   "[DEBUG] Final merged messages:",
+      //   finalMessages.map((m) => ({
+      //     id: m.id,
+      //     identifier: m.identifier,
+      //     role: m.role,
+      //     isOptimistic: pendingOptimisticMessages.includes(m),
+      //     content: m.content?.substring(0, 30),
+      //   }))
+      // );
     }
 
     return finalMessages;
@@ -236,7 +210,9 @@ function HomePage({}: Props) {
   // Load existing like statuses from backend messages
   useEffect(() => {
     if (messages.length > 0) {
-      const newMessageLikes: { [messageId: string]: "like" | "dislike" | null } = {};
+      const newMessageLikes: {
+        [messageId: string]: "like" | "dislike" | null;
+      } = {};
       messages.forEach((message) => {
         const messageId = message.identifier || message.id;
         if (message.likeStatus === true || message.likeStatus === 1) {
@@ -490,12 +466,15 @@ function HomePage({}: Props) {
             }
           );
 
-          console.log("[MESSAGE STREAM TEST] 💾 Sending messages to save with IDs:", messagesToSave.map(m => ({
-            id: m.id,
-            identifier: m.identifier,
-            role: m.role,
-            content: m.content?.substring(0, 50)
-          })));
+          console.log(
+            "[MESSAGE STREAM TEST] 💾 Sending messages to save with IDs:",
+            messagesToSave.map((m) => ({
+              id: m.id,
+              identifier: m.identifier,
+              role: m.role,
+              content: m.content?.substring(0, 50),
+            }))
+          );
 
           // Use conversation-save endpoint (Flutter-style)
           const saveResult = await saveConversation({
@@ -538,8 +517,10 @@ function HomePage({}: Props) {
             );
 
             // RTK Query will automatically refetch and merge with optimistic messages
-            console.log("[MESSAGE STREAM TEST] 🔄 RTK Query will refetch and seamlessly replace optimistic messages");
-            
+            console.log(
+              "[MESSAGE STREAM TEST] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
+            );
+
             // Optimistic messages will be replaced by real messages when they arrive
           } else {
             console.error(
@@ -579,26 +560,26 @@ function HomePage({}: Props) {
   const handleLikeDislike = useCallback(
     async (messageId: string, type: "like" | "dislike", messageObj?: any) => {
       try {
-        console.log('Rating messageId:', messageId, 'type:', type);
-        console.log('Message object received:', messageObj);
-        
+        console.log("Rating messageId:", messageId, "type:", type);
+        console.log("Message object received:", messageObj);
+
         // Use identifier or id for backend API call
         const backendMessageId = messageObj?.identifier || messageObj?.id;
-        console.log('Backend messageId:', backendMessageId);
-        
+        console.log("Backend messageId:", backendMessageId);
+
         // Skip rating if no valid backend ID
         if (!backendMessageId) {
-          console.log('No backend messageId available:', backendMessageId);
-          toast.error('Mesaj ID\'si bulunamadı');
+          console.log("No backend messageId available:", backendMessageId);
+          toast.error("Mesaj ID'si bulunamadı");
           return;
         }
-        
+
         // Use the conversationId from the message object, or fall back to activeChat
         const conversationId = messageObj?.conversationId || activeChat;
-        console.log('Using conversationId:', conversationId);
-        
+        console.log("Using conversationId:", conversationId);
+
         if (!conversationId) {
-          console.error('No conversationId available');
+          console.error("No conversationId available");
           return;
         }
 
@@ -625,7 +606,12 @@ function HomePage({}: Props) {
               },
               body: JSON.stringify({
                 conversationId: conversationId,
-                rating: newStatus === "like" ? true : newStatus === "dislike" ? false : null,
+                rating:
+                  newStatus === "like"
+                    ? true
+                    : newStatus === "dislike"
+                      ? false
+                      : null,
                 isRemoveAction: newStatus === null,
               }),
             }
@@ -633,7 +619,7 @@ function HomePage({}: Props) {
 
           if (!response.ok) {
             const errorData = await response.text();
-            console.error('Rating API error:', errorData);
+            console.error("Rating API error:", errorData);
             // Revert on error
             setMessageLikes((prev) => ({
               ...prev,
@@ -772,58 +758,15 @@ function HomePage({}: Props) {
           <div className="space-y-4">
             {chats
               .filter((chat) => {
-                // Enhanced filtering for reflection journal type chats
-                const lowerTitle = chat.title?.toLowerCase() || '';
-                const lowerDesc = chat.description?.toLowerCase() || '';
-                const lowerAssistantId = chat.assistantId?.toLowerCase() || '';
-                const chatType = chat.type?.toLowerCase() || '';
-                const assistantType = ((chat as any).assistantType || '').toLowerCase();
-                
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[FILTER DEBUG] Checking chat: "${chat.title}" - type: "${chatType}", assistantType: "${assistantType}"`);
-                }
-
-                // Filter out reflectionJournal type chats (multiple variations)
-                if (chatType === "reflectionjournal" || chatType === "reflection-journal" || chatType === "journal") return false;
-                
-                // Check assistantType field specifically
-                if (assistantType === "reflectionjournal" || assistantType === "reflection-journal" || assistantType === "journal") return false;
-
-                // Comprehensive journal detection - check for any journal-related keywords
-                const journalKeywords = [
-                  "günlük", "journal", "farkındalık", "reflection",
-                  "harika şeyler", "şeyler günlüğü", "reflektion",
-                  "diary", "dagbok" // Additional variations
-                ];
-                
-                const hasJournalKeyword = journalKeywords.some(keyword =>
-                  lowerTitle.includes(keyword) ||
-                  lowerDesc.includes(keyword) ||
-                  lowerAssistantId.includes(keyword)
-                );
-                
-                if (hasJournalKeyword) {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(`[FILTER DEBUG] 🚫 Filtering out journal chat: "${chat.title}" - matched keyword`);
-                  }
-                  return false;
-                }
-
-                // Specific check for assistant IDs that might indicate journal type
-                if (lowerAssistantId.includes("journal") || lowerAssistantId.includes("reflection")) {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(`[FILTER DEBUG] 🚫 Filtering out by assistantId: "${chat.assistantId}"`);
-                  }
-                  return false;
-                }
-
-                // Filter out specific chat types and assistant types
+                // Filter out specific chat types and assistant types (keep non-journal filtering)
                 const excludedTypes = [
                   "accountability",
                   "flashcard",
                   "boolean-tester",
                   "fill-in-blanks",
                 ];
+                
+                
                 if (excludedTypes.includes(chat.type || "")) return false;
 
                 // Also check assistant type for the same excluded types
@@ -841,9 +784,10 @@ function HomePage({}: Props) {
               })
               .map((chat) => {
                 const isActive = activeChat === chat.id;
+                
                 return (
                   <div
-                    key={`chat-${chat.id}-${isActive ? 'active' : 'inactive'}`}
+                    key={`chat-${chat.id}-${isActive ? "active" : "inactive"}`}
                     onClick={() => {
                       if (activeChat !== chat.id) {
                         setIsTransitioningChat(true);
@@ -901,7 +845,9 @@ function HomePage({}: Props) {
       <div
         className="flex-1 flex flex-col relative"
         style={{
-          backgroundImage: "url(/bg.png)",
+          backgroundImage: activeChat && chats.find((chat) => chat.id === activeChat) && isReflectionJournalChat(chats.find((chat) => chat.id === activeChat)!)
+            ? "url(/journal/journal-bg.png)"
+            : "url(/bg.png)",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -909,236 +855,384 @@ function HomePage({}: Props) {
       >
         <div className="absolute inset-0 bg-white opacity-50"></div>
         <div className="relative z-10 flex flex-col h-full">
-        {/* Chat Header */}
-        <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
-          <div className="flex items-center justify-between">
-            <h2 className="text-neutral-900 text-base font-semibold font-poppins leading-snug">
-              {activeChat
-                ? chats.find((chat) => chat.id === activeChat)?.title ||
-                  "Sohbet"
-                : "Bir sohbet seçin"}
-            </h2>
-            <div className="flex items-center gap-2">
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  className="p-2 hover:bg-icon-slate-white rounded"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                >
-                  <MoreHorizontal className="w-5 h-5 text-passive-icon" />
-                </button>
+          {/* Chat Header */}
+          <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
+            <div className="flex items-center justify-between">
+              <h2 className="text-neutral-900 text-base font-semibold font-poppins leading-snug">
+                {activeChat
+                  ? chats.find((chat) => chat.id === activeChat)?.title ||
+                    "Sohbet"
+                  : "Bir sohbet seçin"}
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    className="p-2 hover:bg-icon-slate-white rounded"
+                    onClick={() => setShowDropdown(!showDropdown)}
+                  >
+                    <MoreHorizontal className="w-5 h-5 text-passive-icon" />
+                  </button>
 
-                {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-message-box-bg border border-message-box-border rounded-lg shadow-lg z-50">
-                    <div className="py-1">
-                      <button
-                        onClick={handleSignOut}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-message-box-bg border border-message-box-border rounded-lg shadow-lg z-50">
+                      <div className="py-1">
+                        <button
+                          onClick={handleSignOut}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Çıkış Yap
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out">
+            {!activeChat ? (
+              <div className="flex items-center justify-center h-full text-center">
+                <div>
+                  <h3 className="text-lg font-medium text-text-black mb-2">
+                    Bir sohbet seçin
+                  </h3>
+                  <p className="text-text-description-gray">
+                    Mesajları görüntülemek için sol taraftan bir sohbet seçin
+                  </p>
+                </div>
+              </div>
+            ) : isLoadingMessages || isTransitioningChat ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <LottieSpinner size={120} />
+                  <p className="text-text-description-gray text-sm mt-3">
+                    {isTransitioningChat
+                      ? "Sohbet değiştiriliyor..."
+                      : "Mesajlar yükleniyor..."}
+                  </p>
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-center">
+                <div>
+                  {activeChat && chats.find((chat) => chat.id === activeChat) && isReflectionJournalChat(chats.find((chat) => chat.id === activeChat)!) ? (
+                    /* Journal Empty State */
+                    <>
+                      <div className="mb-4">
+                        <Image
+                          src="/journal/up_no_look.svg"
+                          alt="Journal Avatar"
+                          width={44}
+                          height={44}
+                          className="mx-auto opacity-80"
+                        />
+                      </div>
+                      <p className="text-text-body-black/60 font-poppins text-sm">
+                        Günlüğünüzü yazmaya başlayın...
+                      </p>
+                    </>
+                  ) : (
+                    /* Regular Empty State */
+                    <>
+                      <h3 className="text-lg font-medium text-text-black mb-2">
+                        Henüz mesaj yok
+                      </h3>
+                      <p className="text-text-description-gray">
+                        Bu sohbette henüz mesaj bulunmuyor
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 max-w-4xl mx-auto">
+                {messages.map((message, index) => {
+                  const isUser =
+                    message.sender === "user" || message.role === "user";
+                  // Generate unique key using multiple identifiers
+                  const messageKey =
+                    message.id ||
+                    message.identifier ||
+                    `${message.role}-${index}-${message.content?.substring(0, 50) || "no-content"}-${message.createdAt}`;
+
+                  // if (process.env.NODE_ENV === "development") {
+                  //   console.log(`[DEBUG] Message ${index} key:`, messageKey, {
+                  //     id: message.id,
+                  //     identifier: message.identifier,
+                  //     role: message.role,
+                  //     content: message.content?.substring(0, 30),
+                  //   });
+                  // }
+
+                  // Check if this is an Ayrac or JournalDate widget that should be rendered centered
+                  const isAyracWidget = message.type === "widget" && 
+                    (message.content?.includes('"widgetType":"Ayrac"') || 
+                     message.content?.includes('"widgetType": "Ayrac"'));
+                  
+                  const isJournalDateWidget = message.type === "widget" && 
+                    (message.content?.includes('"widgetType":"JournalDate"') || 
+                     message.content?.includes('"widgetType": "JournalDate"'));
+
+                  if (isAyracWidget || isJournalDateWidget) {
+                    // Render Ayrac/JournalDate widget centered without bubble - use viewport width to break out completely
+                    return (
+                      <div
+                        key={messageKey}
+                        className="animate-in fade-in slide-in-from-bottom-2 duration-300 py-4 relative"
+                        style={{ 
+                          width: '100vw',
+                          marginLeft: 'calc(-50vw + 50%)',
+                          marginRight: 'calc(-50vw + 50%)'
+                        }}
                       >
-                        <LogOut className="w-4 h-4" />
-                        Çıkış Yap
+                        <div className="flex justify-center w-full">
+                          <MessageRenderer
+                            content={
+                              message.content ||
+                              message.text ||
+                              (message as any).message ||
+                              (message as any).body ||
+                              "Mesaj içeriği yok"
+                            }
+                            sender={isUser ? "user" : "ai"}
+                            messageType={message.type}
+                          />
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={messageKey}
+                      className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+                        isUser
+                          ? "flex flex-col justify-center items-end pl-[300px] gap-2 w-full"
+                          : "flex items-start gap-3"
+                      }`}
+                    >
+                      {/* Avatar - Only show for AI messages */}
+                      {!isUser && (
+                        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
+                          <Image
+                            src="/up_face.svg"
+                            alt="UP Face"
+                            width={40}
+                            height={40}
+                            className="object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {/* Message Content */}
+                      <div
+                        className={`${isUser ? "w-auto" : "flex-1 max-w-[80%]"}`}
+                      >
+                        <div
+                          className={`p-4 ${
+                            // Check if this is a journal chat to apply different styling
+                            (() => {
+                              const currentChat = activeChat && chats.find((chat) => chat.id === activeChat);
+                              const isJournalChat = currentChat && isReflectionJournalChat(currentChat);
+                              
+                              if (isUser) {
+                                return isJournalChat
+                                  ? "bg-[#8B5CF6] rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] text-white"
+                                  : "bg-blue-600 rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] text-white";
+                              } else {
+                                return isJournalChat
+                                  ? "bg-[#F3E8FF]/80 border border-[#DDD6FE]/50 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black"
+                                  : "bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black";
+                              }
+                            })()
+                          }`}
+                        >
+                          <MessageRenderer
+                            content={
+                              message.content ||
+                              message.text ||
+                              (message as any).message ||
+                              (message as any).body ||
+                              "Mesaj içeriği yok"
+                            }
+                            sender={isUser ? "user" : "ai"}
+                            messageType={message.type}
+                          />
+                        </div>
+
+                        {/* Action buttons - Only for AI messages but not widgets */}
+                        {!isUser && message.type !== "widget" && (
+                          <div className="flex items-center gap-2 mt-2 ml-2">
+                            <button
+                              onClick={() => {
+                                handleLikeDislike(
+                                  message.identifier || message.id,
+                                  "like",
+                                  message
+                                );
+                              }}
+                              className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                            >
+                              {messageLikes[
+                                message.identifier || message.id
+                              ] === "like" ? (
+                                <Image
+                                  src="/liked.svg"
+                                  alt="Liked"
+                                  width={16}
+                                  height={16}
+                                  className="w-4 h-4"
+                                />
+                              ) : (
+                                <ThumbsUp className="w-4 h-4 text-passive-icon" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleLikeDislike(
+                                  message.identifier || message.id,
+                                  "dislike",
+                                  message
+                                );
+                              }}
+                              className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                            >
+                              {messageLikes[
+                                message.identifier || message.id
+                              ] === "dislike" ? (
+                                <Image
+                                  src="/disliked.svg"
+                                  alt="Disliked"
+                                  width={16}
+                                  height={16}
+                                  className="w-4 h-4"
+                                />
+                              ) : (
+                                <ThumbsDown className="w-4 h-4 text-passive-icon" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                const content =
+                                  message.content ||
+                                  message.text ||
+                                  (message as any).message ||
+                                  (message as any).body ||
+                                  "";
+                                navigator.clipboard.writeText(content);
+                                toast.success("Mesaj kopyalandı");
+                              }}
+                              className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                            >
+                              <Copy className="w-4 h-4 text-passive-icon" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+
+          {/* Message Input */}
+          {activeChat && chats.find((chat) => chat.id === activeChat) && isReflectionJournalChat(chats.find((chat) => chat.id === activeChat)!) ? (
+            /* Journal Style Input */
+            <div className="px-8 pb-6">
+              <div className="max-w-4xl mx-auto">
+                <div 
+                  data-property-1="journel" 
+                  className="w-full p-4 bg-white/60 shadow-[0px_-5px_8px_0px_rgba(239,193,179,0.30)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl"
+                >
+                  <div data-property-1="günlük" className="w-11 h-11 relative flex-shrink-0">
+                    <Image
+                      src="/journal/up_no_look.svg"
+                      alt="Journal Icon"
+                      width={44}
+                      height={44}
+                      className="object-contain"
+                    />
+                  </div>
+                  
+                  <div 
+                    data-l-icon="false" 
+                    data-property-1="Default" 
+                    data-r-icon="true" 
+                    className="flex-1 h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex flex-col justify-center items-start gap-1 overflow-hidden"
+                  >
+                    <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
+                      <div className="flex-1 flex justify-start items-center gap-2">
+                        <input
+                          type="text"
+                          value={currentMessage}
+                          onChange={(e) => setCurrentMessage(e.target.value)}
+                          onKeyDown={handleKeyPress}
+                          placeholder="Buraya yazabilirsin"
+                          disabled={isSendingMessage || !activeChat}
+                          className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
+                        />
+                      </div>
+                      
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={isSendingMessage || !activeChat || !currentMessage.trim()}
+                        className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
+                      >
+                        {isSendingMessage ? (
+                          <div className="w-3 h-3 border border-neutral-800 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Image
+                            src="/journal/tuy.svg"
+                            alt="Send"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                          />
+                        )}
                       </button>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out">
-          {!activeChat ? (
-            <div className="flex items-center justify-center h-full text-center">
-              <div>
-                <h3 className="text-lg font-medium text-text-black mb-2">
-                  Bir sohbet seçin
-                </h3>
-                <p className="text-text-description-gray">
-                  Mesajları görüntülemek için sol taraftan bir sohbet seçin
-                </p>
-              </div>
-            </div>
-          ) : isLoadingMessages || isTransitioningChat ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <LottieSpinner size={120} />
-                <p className="text-text-description-gray text-sm mt-3">
-                  {isTransitioningChat ? "Sohbet değiştiriliyor..." : "Mesajlar yükleniyor..."}
-                </p>
-              </div>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-center">
-              <div>
-                <h3 className="text-lg font-medium text-text-black mb-2">
-                  Henüz mesaj yok
-                </h3>
-                <p className="text-text-description-gray">
-                  Bu sohbette henüz mesaj bulunmuyor
-                </p>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="space-y-4 max-w-4xl mx-auto">
-              {messages.map((message, index) => {
-                const isUser =
-                  message.sender === "user" || message.role === "user";
-                // Generate unique key using multiple identifiers
-                const messageKey = message.id || 
-                                 message.identifier || 
-                                 `${message.role}-${index}-${message.content?.substring(0, 50) || 'no-content'}-${message.createdAt}`;
-                
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[DEBUG] Message ${index} key:`, messageKey, {
-                    id: message.id,
-                    identifier: message.identifier,
-                    role: message.role,
-                    content: message.content?.substring(0, 30)
-                  });
-                }
-                
-                return (
-                  <div
-                    key={messageKey}
-                    className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-                      isUser
-                        ? "flex flex-col justify-center items-end pl-[300px] gap-2 w-full"
-                        : "flex items-start gap-3"
-                    }`}
-                  >
-                    {/* Avatar - Only show for AI messages */}
-                    {!isUser && (
-                      <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
-                        <Image
-                          src="/up_face.svg"
-                          alt="UP Face"
-                          width={40}
-                          height={40}
-                          className="object-contain"
-                        />
-                      </div>
-                    )}
-
-                    {/* Message Content */}
-                    <div
-                      className={`${isUser ? "w-auto" : "flex-1 max-w-[80%]"}`}
-                    >
-                      <div
-                        className={`p-4 ${
-                          isUser
-                            ? "bg-blue-600 rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] text-white"
-                            : "bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black"
-                        }`}
-                      >
-                        <MessageRenderer
-                          content={
-                            message.content ||
-                            message.text ||
-                            (message as any).message ||
-                            (message as any).body ||
-                            "Mesaj içeriği yok"
-                          }
-                          sender={isUser ? "user" : "ai"}
-                          messageType={message.type}
-                        />
-                      </div>
-
-                      {/* Action buttons - Only for AI messages but not widgets */}
-                      {!isUser && message.type !== 'widget' && (
-                        <div className="flex items-center gap-2 mt-2 ml-2">
-                          <button
-                            onClick={() => {
-                              handleLikeDislike(message.identifier || message.id, "like", message);
-                            }}
-                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
-                          >
-                            {messageLikes[message.identifier || message.id] === "like" ? (
-                              <Image
-                                src="/liked.svg"
-                                alt="Liked"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                              />
-                            ) : (
-                              <ThumbsUp className="w-4 h-4 text-passive-icon" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => {
-                              handleLikeDislike(message.identifier || message.id, "dislike", message);
-                            }}
-                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
-                          >
-                            {messageLikes[message.identifier || message.id] === "dislike" ? (
-                              <Image
-                                src="/disliked.svg"
-                                alt="Disliked"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                              />
-                            ) : (
-                              <ThumbsDown className="w-4 h-4 text-passive-icon" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => {
-                              const content =
-                                message.content ||
-                                message.text ||
-                                (message as any).message ||
-                                (message as any).body ||
-                                "";
-                              navigator.clipboard.writeText(content);
-                              toast.success("Mesaj kopyalandı");
-                            }}
-                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
-                          >
-                            <Copy className="w-4 h-4 text-passive-icon" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
+            /* Regular Input */
+            <div className="w-full bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex flex-col justify-start items-start gap-2 p-4">
+              <div className="self-stretch h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex flex-col justify-center items-start gap-1 overflow-hidden">
+                <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
+                  <div className="flex justify-start items-center gap-2 flex-1">
+                    <input
+                      type="text"
+                      placeholder="Buraya yazabilirsin"
+                      value={currentMessage}
+                      onChange={(e) => setCurrentMessage(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      disabled={isSendingMessage || !activeChat}
+                      className="flex-1 bg-transparent text-black text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400 disabled:opacity-50"
+                    />
                   </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={
+                      isSendingMessage || !activeChat || !currentMessage.trim()
+                    }
+                    className="w-4 h-4 relative overflow-hidden flex items-center justify-center disabled:opacity-50 hover:opacity-70 transition-opacity"
+                  >
+                    {isSendingMessage ? (
+                      <div className="w-4 h-4 border border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Send className="w-4 h-4 text-neutral-500" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
-        </div>
-
-        {/* Message Input */}
-        <div className="w-full bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex flex-col justify-start items-start gap-2 p-4">
-          <div className="self-stretch h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex flex-col justify-center items-start gap-1 overflow-hidden">
-            <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
-              <div className="flex justify-start items-center gap-2 flex-1">
-                <input
-                  type="text"
-                  placeholder="Buraya yazabilirsin"
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  disabled={isSendingMessage || !activeChat}
-                  className="flex-1 bg-transparent text-black text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400 disabled:opacity-50"
-                />
-              </div>
-              <button
-                onClick={handleSendMessage}
-                disabled={
-                  isSendingMessage || !activeChat || !currentMessage.trim()
-                }
-                className="w-4 h-4 relative overflow-hidden flex items-center justify-center disabled:opacity-50 hover:opacity-70 transition-opacity"
-              >
-                {isSendingMessage ? (
-                  <div className="w-4 h-4 border border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Send className="w-4 h-4 text-neutral-500" />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
         </div>
       </div>
     </div>
