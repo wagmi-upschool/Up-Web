@@ -42,9 +42,7 @@ const formatMobileDateTime = (date?: Date | string): string => {
 
 // Helper function to check if a chat is reflection journal type
 const isReflectionJournalChat = (chat: any): boolean => {
-  return (
-    chat.type === "reflectionJournal" 
-  );
+  return chat.type === "reflectionJournal";
 };
 
 function HomePage({}: Props) {
@@ -53,6 +51,7 @@ function HomePage({}: Props) {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [isTransitioningChat, setIsTransitioningChat] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isJournalMode, setIsJournalMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>(
     []
@@ -234,6 +233,15 @@ function HomePage({}: Props) {
     }
   };
 
+  const handleSendMessageWithText = async (messageText: string) => {
+    // Set the message and then call the existing handleSendMessage logic
+    setCurrentMessage(messageText);
+    // Use a small delay to ensure state is updated before calling handleSendMessage
+    setTimeout(() => {
+      handleSendMessage();
+    }, 50);
+  };
+
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || !activeChat) return;
 
@@ -257,12 +265,57 @@ function HomePage({}: Props) {
       text: messageText,
       content: messageText,
       sender: "user",
-      role: "user",
+      role: isReflectionJournalChat(currentActiveChat) && isJournalMode ? "journal" : "user",
       createdAt: timestamp,
       assistantId: currentActiveChat.assistantId,
     };
 
-    // Add typing indicator for AI response
+    // Journal mode - save only, no AI response
+    if (isReflectionJournalChat(currentActiveChat) && isJournalMode) {
+      // Add optimistic message immediately with persist flag
+      const persistentUserMessage = {
+        ...userMessage,
+        _isPersistent: true, // Flag to prevent premature removal
+      };
+      
+      setOptimisticMessages((prev) => [...prev, persistentUserMessage]);
+      setCurrentMessage(""); // Clear input immediately
+      
+      try {
+        console.log("💾 Saving journal message:", persistentUserMessage);
+        
+        // Save journal message using conversation save
+        const saveResult = await saveConversation({
+          chatId: activeChat,
+          messages: [userMessage],
+          assistantId: currentActiveChat.assistantId,
+          assistantGroupId: currentActiveChat.assistantGroupId,
+          type: "journal",
+          userId: (await getCurrentUser()).userId,
+          localDateTime: timestamp,
+          title: currentActiveChat.title,
+          conversationId: activeChat,
+        });
+        
+        setTimeout(scrollToBottom, 100);
+        console.log("✅ Journal message saved successfully", saveResult);
+        
+        // Keep the optimistic message visible for a bit longer to ensure user sees it
+        setTimeout(() => {
+          console.log("🔄 Journal save complete, message should persist via deduplication");
+        }, 2000);
+        
+      } catch (error) {
+        console.error("❌ Error saving journal message:", error);
+        toast.error("Günlük mesajı kaydedilemedi");
+        
+        // Remove optimistic message on error
+        setOptimisticMessages((prev) => prev.filter(msg => msg.id !== userMessageId));
+      }
+      return; // Early return - no AI response
+    }
+
+    // Add typing indicator for AI response (normal mode only)
     const typingMessage: ChatMessage = {
       id: aiMessageId,
       identifier: aiMessageId,
@@ -310,14 +363,35 @@ function HomePage({}: Props) {
       }
 
       // Start streaming response
-      const response = await fetch(`/api/chats/${activeChat}/send`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          message: messageText,
-          assistantId: currentActiveChat.assistantId,
-        }),
-      });
+      let response;
+      
+      if (isReflectionJournalChat(currentActiveChat)) {
+        // Reflection journal uses different endpoint
+        const userId = user.userId || "test123";
+        const conversationId = activeChat;
+        
+        response = await fetch(`${process.env.NEXT_PUBLIC_STREAM_URL || process.env.STREAM_URL}/user/${userId}/conversation/${conversationId}/reflection/stream`, {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: messageText,
+            assistantId: currentActiveChat.assistantId,
+          }),
+        });
+      } else {
+        // Regular chats use local API
+        response = await fetch(`/api/chats/${activeChat}/send`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            message: messageText,
+            assistantId: currentActiveChat.assistantId,
+          }),
+        });
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -557,6 +631,81 @@ function HomePage({}: Props) {
     }
   };
 
+  const handleToggleUp = async () => {
+    if (!activeChat) return;
+
+    // Only work in reflection journal chats
+    const currentChat = chats.find((chat) => chat.id === activeChat);
+    if (!currentChat || !isReflectionJournalChat(currentChat)) return;
+
+    try {
+      const newJournalMode = !isJournalMode;
+      const timestamp = new Date().toISOString();
+
+      if (newJournalMode) {
+        // Switching TO journal mode - add opening ayrac and date
+        const openAyracWidget = {
+          id: `ayrac-open-${Date.now()}`,
+          identifier: `ayrac-open-${Date.now()}`,
+          content: JSON.stringify({
+            widgetType: "Ayrac",
+            isOpen: true,
+          }),
+          role: "user" as const,
+          type: "widget" as const,
+          createdAt: timestamp,
+          sender: "user" as const,
+        };
+
+        const currentDate = new Date().toLocaleDateString("tr-TR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+
+        const dateWidget = {
+          id: `date-${Date.now()}`,
+          identifier: `date-${Date.now()}`,
+          content: JSON.stringify({
+            widgetType: "JournalDate",
+            date: currentDate,
+          }),
+          role: "user" as const,
+          type: "widget" as const,
+          createdAt: timestamp,
+          sender: "user" as const,
+        };
+
+        setOptimisticMessages((prev) => [...prev, openAyracWidget, dateWidget]);
+      } else {
+        // Switching OUT of journal mode - add closing ayrac
+        const closeAyracWidget = {
+          id: `ayrac-close-${Date.now()}`,
+          identifier: `ayrac-close-${Date.now()}`,
+          content: JSON.stringify({
+            widgetType: "Ayrac",
+            isOpen: false,
+          }),
+          role: "user" as const,
+          type: "widget" as const,
+          createdAt: timestamp,
+          sender: "user" as const,
+        };
+
+        setOptimisticMessages((prev) => [...prev, closeAyracWidget]);
+      }
+
+      // Toggle the journal mode
+      setIsJournalMode(newJournalMode);
+
+      // Scroll to bottom to show new widgets
+      setTimeout(scrollToBottom, 100);
+    } catch (error) {
+      console.error("Error toggling UP mode:", error);
+      toast.error("Bir hata oluştu");
+    }
+  };
+
   const handleLikeDislike = useCallback(
     async (messageId: string, type: "like" | "dislike", messageObj?: any) => {
       try {
@@ -678,9 +827,10 @@ function HomePage({}: Props) {
     };
   }, []);
 
-  // Clear optimistic messages when switching chats
+  // Clear optimistic messages and reset journal mode when switching chats
   useEffect(() => {
     setOptimisticMessages([]);
+    setIsJournalMode(false);
   }, [activeChat]);
 
   // Note: Optimistic messages are now handled via deduplication in useMemo above
@@ -765,8 +915,7 @@ function HomePage({}: Props) {
                   "boolean-tester",
                   "fill-in-blanks",
                 ];
-                
-                
+
                 if (excludedTypes.includes(chat.type || "")) return false;
 
                 // Also check assistant type for the same excluded types
@@ -784,7 +933,7 @@ function HomePage({}: Props) {
               })
               .map((chat) => {
                 const isActive = activeChat === chat.id;
-                
+
                 return (
                   <div
                     key={`chat-${chat.id}-${isActive ? "active" : "inactive"}`}
@@ -845,9 +994,14 @@ function HomePage({}: Props) {
       <div
         className="flex-1 flex flex-col relative"
         style={{
-          backgroundImage: activeChat && chats.find((chat) => chat.id === activeChat) && isReflectionJournalChat(chats.find((chat) => chat.id === activeChat)!)
-            ? "url(/journal/journal-bg.png)"
-            : "url(/bg.png)",
+          backgroundImage:
+            activeChat &&
+            chats.find((chat) => chat.id === activeChat) &&
+            isReflectionJournalChat(
+              chats.find((chat) => chat.id === activeChat)!
+            )
+              ? "url(/journal/journal-bg.png)"
+              : "url(/bg.png)",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -918,7 +1072,11 @@ function HomePage({}: Props) {
             ) : messages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-center">
                 <div>
-                  {activeChat && chats.find((chat) => chat.id === activeChat) && isReflectionJournalChat(chats.find((chat) => chat.id === activeChat)!) ? (
+                  {activeChat &&
+                  chats.find((chat) => chat.id === activeChat) &&
+                  isReflectionJournalChat(
+                    chats.find((chat) => chat.id === activeChat)!
+                  ) ? (
                     /* Journal Empty State */
                     <>
                       <div className="mb-4">
@@ -950,8 +1108,18 @@ function HomePage({}: Props) {
             ) : (
               <div className="space-y-4 max-w-4xl mx-auto">
                 {messages.map((message, index) => {
+                  // Console log for debugging
+                  console.log(`[MESSAGE DEBUG] Index ${index}:`, {
+                    role: message.role,
+                    content: message.content?.substring(0, 100),
+                    sender: message.sender,
+                    type: message.type,
+                  });
+
                   const isUser =
-                    message.sender === "user" || message.role === "user";
+                    message.sender === "user" ||
+                    message.role === "user" ||
+                    message.role === "journal";
                   // Generate unique key using multiple identifiers
                   const messageKey =
                     message.id ||
@@ -968,13 +1136,15 @@ function HomePage({}: Props) {
                   // }
 
                   // Check if this is an Ayrac or JournalDate widget that should be rendered centered
-                  const isAyracWidget = message.type === "widget" && 
-                    (message.content?.includes('"widgetType":"Ayrac"') || 
-                     message.content?.includes('"widgetType": "Ayrac"'));
-                  
-                  const isJournalDateWidget = message.type === "widget" && 
-                    (message.content?.includes('"widgetType":"JournalDate"') || 
-                     message.content?.includes('"widgetType": "JournalDate"'));
+                  const isAyracWidget =
+                    message.type === "widget" &&
+                    (message.content?.includes('"widgetType":"Ayrac"') ||
+                      message.content?.includes('"widgetType": "Ayrac"'));
+
+                  const isJournalDateWidget =
+                    message.type === "widget" &&
+                    (message.content?.includes('"widgetType":"JournalDate"') ||
+                      message.content?.includes('"widgetType": "JournalDate"'));
 
                   if (isAyracWidget || isJournalDateWidget) {
                     // Render Ayrac/JournalDate widget centered without bubble - use viewport width to break out completely
@@ -982,10 +1152,10 @@ function HomePage({}: Props) {
                       <div
                         key={messageKey}
                         className="animate-in fade-in slide-in-from-bottom-2 duration-300 py-4 relative"
-                        style={{ 
-                          width: '100vw',
-                          marginLeft: 'calc(-50vw + 50%)',
-                          marginRight: 'calc(-50vw + 50%)'
+                        style={{
+                          width: "100vw",
+                          marginLeft: "calc(-50vw + 50%)",
+                          marginRight: "calc(-50vw + 50%)",
                         }}
                       >
                         <div className="flex justify-center w-full">
@@ -999,6 +1169,7 @@ function HomePage({}: Props) {
                             }
                             sender={isUser ? "user" : "ai"}
                             messageType={message.type}
+                            role={message.role}
                           />
                         </div>
                       </div>
@@ -1032,20 +1203,22 @@ function HomePage({}: Props) {
                         className={`${isUser ? "w-auto" : "flex-1 max-w-[80%]"}`}
                       >
                         <div
-                          className={`p-4 ${
-                            // Check if this is a journal chat to apply different styling
+                          className={`${
+                            // Check if this is a journal chat and message type to apply different styling
                             (() => {
-                              const currentChat = activeChat && chats.find((chat) => chat.id === activeChat);
-                              const isJournalChat = currentChat && isReflectionJournalChat(currentChat);
-                              
-                              if (isUser) {
-                                return isJournalChat
-                                  ? "bg-[#8B5CF6] rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] text-white"
-                                  : "bg-blue-600 rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] text-white";
+                              // Message styling based on role only
+                              if (message.role === "user") {
+                                // User messages: blue background, white text
+                                return "p-4 bg-blue-600 rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] !text-white";
+                              } else if (message.role === "journal") {
+                                // Journal messages: yellowish background, black text
+                                return "p-4 bg-[#FFF1E6] rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] !text-black border border-[#FED7AA]";
+                              } else if (message.role === "assistant") {
+                                // Assistant messages: whitish background, black text
+                                return "p-4 bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl !text-black";
                               } else {
-                                return isJournalChat
-                                  ? "bg-[#F3E8FF]/80 border border-[#DDD6FE]/50 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black"
-                                  : "bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black";
+                                // Default fallback
+                                return "p-4 bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-slate-900";
                               }
                             })()
                           }`}
@@ -1060,6 +1233,7 @@ function HomePage({}: Props) {
                             }
                             sender={isUser ? "user" : "ai"}
                             messageType={message.type}
+                            role={message.role}
                           />
                         </div>
 
@@ -1140,29 +1314,126 @@ function HomePage({}: Props) {
             )}
           </div>
 
+          {/* Journal Action Buttons - Floating on the right */}
+          {activeChat &&
+            chats.find((chat) => chat.id === activeChat) &&
+            isReflectionJournalChat(
+              chats.find((chat) => chat.id === activeChat)!
+            ) && !isJournalMode && (
+              <div className="fixed right-8 bottom-32 flex flex-col gap-3 z-10">
+                <button
+                  onClick={async () => {
+                    if (isSendingMessage || !activeChat) return;
+                    const message = "Konuları özetle";
+                    setCurrentMessage(message);
+                    // Send message immediately
+                    await handleSendMessageWithText(message);
+                  }}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <span className="text-amber-500 text-sm">✨</span>
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Konuları Özetle
+                  </div>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (isSendingMessage || !activeChat) return;
+                    const message = "Yazılanları maddelendir";
+                    setCurrentMessage(message);
+                    // Send message immediately
+                    await handleSendMessageWithText(message);
+                  }}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <span className="text-amber-500 text-sm">✨</span>
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Yazılanları Maddelendir
+                  </div>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (isSendingMessage || !activeChat) return;
+                    const message = "Biraz motivasyon";
+                    setCurrentMessage(message);
+                    // Send message immediately
+                    await handleSendMessageWithText(message);
+                  }}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <span className="text-amber-500 text-sm">✨</span>
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Biraz Motivasyon
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleToggleUp}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Çekilebilirsin UP
+                  </div>
+                </button>
+              </div>
+            )}
+
           {/* Message Input */}
-          {activeChat && chats.find((chat) => chat.id === activeChat) && isReflectionJournalChat(chats.find((chat) => chat.id === activeChat)!) ? (
+          {activeChat &&
+          chats.find((chat) => chat.id === activeChat) &&
+          isReflectionJournalChat(
+            chats.find((chat) => chat.id === activeChat)!
+          ) ? (
             /* Journal Style Input */
             <div className="px-8 pb-6">
               <div className="max-w-4xl mx-auto">
-                <div 
-                  data-property-1="journel" 
+                <div
+                  data-property-1="journel"
                   className="w-full p-4 bg-white/60 shadow-[0px_-5px_8px_0px_rgba(239,193,179,0.30)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl"
                 >
-                  <div data-property-1="günlük" className="w-11 h-11 relative flex-shrink-0">
+                  <div
+                    data-property-1="günlük"
+                    className="w-11 h-11 relative flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                    onClick={handleToggleUp}
+                  >
                     <Image
-                      src="/journal/up_no_look.svg"
-                      alt="Journal Icon"
+                      src={isJournalMode ? "/journal/up_no_look.svg" : "/up_face.svg"}
+                      alt={isJournalMode ? "Journal Mode" : "UP Face"}
                       width={44}
                       height={44}
                       className="object-contain"
                     />
                   </div>
-                  
-                  <div 
-                    data-l-icon="false" 
-                    data-property-1="Default" 
-                    data-r-icon="true" 
+
+                  <div
+                    data-l-icon="false"
+                    data-property-1="Default"
+                    data-r-icon="true"
                     className="flex-1 h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex flex-col justify-center items-start gap-1 overflow-hidden"
                   >
                     <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
@@ -1177,10 +1448,14 @@ function HomePage({}: Props) {
                           className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
                         />
                       </div>
-                      
+
                       <button
                         onClick={handleSendMessage}
-                        disabled={isSendingMessage || !activeChat || !currentMessage.trim()}
+                        disabled={
+                          isSendingMessage ||
+                          !activeChat ||
+                          !currentMessage.trim()
+                        }
                         className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
                       >
                         {isSendingMessage ? (

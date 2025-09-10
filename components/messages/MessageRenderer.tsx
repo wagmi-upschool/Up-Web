@@ -625,8 +625,8 @@ const TypingIndicator: React.FC = () => (
 
 // Main MessageRenderer component
 const MessageRenderer: React.FC<
-  MessageRendererProps & { messageType?: string }
-> = ({ content, sender, messageType }) => {
+  MessageRendererProps & { messageType?: string; role?: string }
+> = ({ content, sender, messageType, role }) => {
   const isUser = sender === "user";
 
   // Show typing indicator for typing messages
@@ -687,9 +687,15 @@ const MessageRenderer: React.FC<
   }
 
   // Regular text message with Markdown support
+  const getTextColor = () => {
+    if (role === "journal") return "!text-black";
+    if (isUser) return "!text-white";
+    return "text-text-body-black";
+  };
+
   return (
     <div
-      className={`prose prose-sm max-w-none font-poppins ${isUser ? "!text-white" : "text-text-body-black"}`}
+      className={`prose prose-sm max-w-none font-poppins ${getTextColor()}`}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
@@ -698,42 +704,78 @@ const MessageRenderer: React.FC<
           // Custom components for better styling
           p: ({ children }) => (
             <p
-              className={`${isUser ? "font-normal !text-white" : "font-medium text-text-body-black"} mb-2 font-poppins text-sm leading-tight last:mb-0`}
+              className={`${
+                role === "journal" 
+                  ? "font-medium !text-black" 
+                  : isUser 
+                    ? "font-normal !text-white" 
+                    : "font-medium text-text-body-black"
+              } mb-2 font-poppins text-sm leading-tight last:mb-0`}
             >
               {children}
             </p>
           ),
           h1: ({ children }) => (
             <h1
-              className={`${isUser ? "!text-white" : "text-title-black"} mb-3 font-righteous text-lg font-bold`}
+              className={`${
+                role === "journal" 
+                  ? "!text-black" 
+                  : isUser 
+                    ? "!text-white" 
+                    : "text-title-black"
+              } mb-3 font-righteous text-lg font-bold`}
             >
               {children}
             </h1>
           ),
           h2: ({ children }) => (
             <h2
-              className={`${isUser ? "!text-white" : "text-title-black"} mb-2 font-righteous text-base font-semibold`}
+              className={`${
+                role === "journal" 
+                  ? "!text-black" 
+                  : isUser 
+                    ? "!text-white" 
+                    : "text-title-black"
+              } mb-2 font-righteous text-base font-semibold`}
             >
               {children}
             </h2>
           ),
           h3: ({ children }) => (
             <h3
-              className={`${isUser ? "!text-white" : "text-title-black"} mb-2 text-sm font-semibold`}
+              className={`${
+                role === "journal" 
+                  ? "!text-black" 
+                  : isUser 
+                    ? "!text-white" 
+                    : "text-title-black"
+              } mb-2 text-sm font-semibold`}
             >
               {children}
             </h3>
           ),
           strong: ({ children }) => (
             <strong
-              className={`font-bold ${isUser ? "!text-white" : "text-title-black"}`}
+              className={`font-bold ${
+                role === "journal" 
+                  ? "!text-black" 
+                  : isUser 
+                    ? "!text-white" 
+                    : "text-title-black"
+              }`}
             >
               {children}
             </strong>
           ),
           em: ({ children }) => (
             <em
-              className={`italic ${isUser ? "!text-white" : "text-text-body-black"}`}
+              className={`italic ${
+                role === "journal" 
+                  ? "!text-black" 
+                  : isUser 
+                    ? "!text-white" 
+                    : "text-text-body-black"
+              }`}
             >
               {children}
             </em>
@@ -758,7 +800,13 @@ const MessageRenderer: React.FC<
           ),
           li: ({ children }) => (
             <li
-              className={`flex items-start gap-2 text-sm ${isUser ? "!text-white" : "text-text-body-black"}`}
+              className={`flex items-start gap-2 text-sm ${
+                role === "journal" 
+                  ? "!text-black" 
+                  : isUser 
+                    ? "!text-white" 
+                    : "text-text-body-black"
+              }`}
             >
               <Image
                 src="/star.svg"

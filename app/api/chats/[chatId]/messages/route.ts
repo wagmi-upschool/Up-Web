@@ -70,7 +70,7 @@ export async function GET(
     }
 
     const rawData = await lambda.json();
-    // console.log("/api/chats/[chatId]/messages Raw Lambda response:", rawData);
+    console.log("/api/chats/[chatId]/messages Raw Lambda response:", rawData);
 
     // Handle nested body structure like in chats API
     let data;
@@ -83,8 +83,11 @@ export async function GET(
     }
 
     // console.log('Parsed response data:', data);
-    // console.log('[MESSAGE CONTENT DEBUG] First message from parsed data:', data.messages?.[0]);
-    // console.log('[MESSAGE CONTENT DEBUG] Content field exists:', !!data.messages?.[0]?.content);
+    data.messages.map((msg: any) => {
+      console.log(
+        `[MESSAGE STREAM TEST] Message ID: ${msg.type}, Created At: ${msg.content}`
+      );
+    });
 
     if (data && data.message === "Internal server error") {
       throw new Error("Failed to fetch messages");
