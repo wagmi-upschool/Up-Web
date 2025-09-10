@@ -299,9 +299,17 @@ export async function GET(req: NextRequest) {
       const group = groupsMap.get(chat.assistantGroupId);
 
       // chat.iconUrl already contains the assistant icon URL from the conversation data
+      // Special title logic for reflection journal
+      const getTitle = () => {
+        if (chat.type === "reflectionJournal") {
+          return chat.title || "Günlük";
+        }
+        return chat.title || assistant?.title || "Untitled Chat";
+      };
+
       return {
         id: chat.idUpdatedAt,
-        title: chat.title || assistant?.title || "Untitled Chat",
+        title: getTitle(),
         description: chat.lastMessage,
         icon: assistant?.src || chat.iconUrl,
         hasNewMessage: chat.unreadCount > 0,

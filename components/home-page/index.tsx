@@ -17,7 +17,9 @@ import {
   useGetChatMessagesQuery,
   useSendChatMessageMutation,
   useSaveConversationMutation,
+  api,
 } from "@/state/api";
+import { useDispatch } from "react-redux";
 import { ChatMessage } from "@/types/type";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 import toast from "react-hot-toast";
@@ -61,6 +63,7 @@ function HomePage({}: Props) {
   }>({});
   const [isAiResponding, setIsAiResponding] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const dispatch = useDispatch();
 
   // Auto scroll to bottom function
   const scrollToBottom = () => {
@@ -226,10 +229,42 @@ function HomePage({}: Props) {
 
   const handleSignOut = async () => {
     try {
+      console.log("🚪 Starting logout process...");
+      
+      // 1. Clear all RTK Query cache
+      dispatch(api.util.resetApiState());
+      console.log("✅ RTK Query cache cleared");
+      
+      // 2. Clear local component state
+      setActiveChat(null);
+      setCurrentMessage("");
+      setOptimisticMessages([]);
+      setMessageLikes({});
+      setIsAiResponding(false);
+      setIsJournalMode(false);
+      setIsTransitioningChat(false);
+      console.log("✅ Local state cleared");
+      
+      // 3. Sign out from Amplify
       await signOut();
+      console.log("✅ Amplify signout completed");
+      
       setShowDropdown(false);
+      
+      // 4. Optional: Clear any browser storage
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log("✅ Browser storage cleared");
+      } catch (storageError) {
+        console.warn("⚠️ Could not clear storage:", storageError);
+      }
+      
+      console.log("🎉 Logout completed successfully");
+      
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("❌ Error during logout:", error);
+      toast.error("Çıkış yapılırken bir hata oluştu");
     }
   };
 
