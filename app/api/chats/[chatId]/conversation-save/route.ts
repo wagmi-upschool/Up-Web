@@ -57,45 +57,67 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
 
         // Prepare request body exactly like Flutter
         const flutterStyleBody = {
-            assistantId,
-            assistantGroupId,
-            type,
+            messages: messages,
+            conversationId: conversationId || chatId,
             userId,
-            localDateTime,
-            iconUrl,
-            lastMessage,
-            title,
-            messages: messages.map((msg: any) => ({
-                id: msg.id,
-                identifier: msg.identifier || msg.id, // Include identifier field for backend
-                content: msg.content, // Use content field directly
+            localDateTime: localDateTime || new Date().toISOString(),
+            lastMessage: lastMessage || messages[messages.length - 1]?.content,
+            assistantId,
+            assistantGroupId
+        };
+
+        // Also prepare vectorData like Flutter (for vector/save endpoint)
+        const messagesJson = messages
+            .filter((msg: any) => msg.type !== "widget")
+            .map((msg: any) => ({
+                identifier: msg.identifier || msg.id,
+                content: msg.content,
                 role: msg.role,
                 createdAt: msg.createdAt,
                 assistantId: msg.assistantId,
                 type: msg.type
-            })),
-            conversationId
+            }));
+
+        const vectorData = {
+            ...flutterStyleBody,
+            messages: messagesJson
         };
 
-        console.log('[MESSAGE STREAM TEST] 💾 Sending messages to backend with identifiers:', flutterStyleBody.messages.map((msg: any) => ({
-            id: msg.id,
-            identifier: msg.identifier,
-            role: msg.role,
-            content: msg.content?.substring(0, 30)
-        })));
+        console.log('[MESSAGE STREAM TEST] 💾 Sending conversation save with Flutter format:', {
+            messagesCount: flutterStyleBody.messages.length,
+            conversationId: flutterStyleBody.conversationId,
+            lastMessage: flutterStyleBody.lastMessage?.substring(0, 30)
+        });
+        
+        console.log('[MESSAGE STREAM TEST] 💾 Sending vector save with JSON format:', {
+            messagesCount: vectorData.messages.length,
+            sampleMessage: vectorData.messages[0]
+        });
 
         // Use idToken like Flutter does
         const tokenToUse = idTokenHeader || authHeader.replace('Bearer ', '');
         
-        // Call the backend like Flutter
-        const backendResponse = await fetch(`${process.env.REMOTE_URL}/user/${userId}/conversation/save`, {
-            method: 'POST',
-            headers: {
-                'Authorization': tokenToUse,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(flutterStyleBody)
-        });
+        // Call both endpoints like Flutter does (Future.wait)
+        const [backendResponse, vectorResponse] = await Promise.all([
+            fetch(`${process.env.REMOTE_URL}/user/${userId}/conversation/save`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': tokenToUse,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(flutterStyleBody)
+            }),
+            fetch(`${process.env.REMOTE_URL}/user/${userId}/vector/save`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': tokenToUse,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(vectorData)
+            })
+        ]);
+        
+        console.log('[MESSAGE STREAM TEST] 🌐 Vector response status:', vectorResponse.status);
 
         console.log('[MESSAGE STREAM TEST] 🌐 Backend response status:', backendResponse.status);
 

@@ -53,7 +53,7 @@ function HomePage({}: Props) {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [isTransitioningChat, setIsTransitioningChat] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isJournalMode, setIsJournalMode] = useState(false);
+  const [isJournalMode, setIsJournalMode] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>(
     []
@@ -230,27 +230,27 @@ function HomePage({}: Props) {
   const handleSignOut = async () => {
     try {
       console.log("🚪 Starting logout process...");
-      
+
       // 1. Clear all RTK Query cache
       dispatch(api.util.resetApiState());
       console.log("✅ RTK Query cache cleared");
-      
+
       // 2. Clear local component state
       setActiveChat(null);
       setCurrentMessage("");
       setOptimisticMessages([]);
       setMessageLikes({});
       setIsAiResponding(false);
-      setIsJournalMode(false);
+      setIsJournalMode(true);
       setIsTransitioningChat(false);
       console.log("✅ Local state cleared");
-      
+
       // 3. Sign out from Amplify
       await signOut();
       console.log("✅ Amplify signout completed");
-      
+
       setShowDropdown(false);
-      
+
       // 4. Optional: Clear any browser storage
       try {
         localStorage.clear();
@@ -259,9 +259,8 @@ function HomePage({}: Props) {
       } catch (storageError) {
         console.warn("⚠️ Could not clear storage:", storageError);
       }
-      
+
       console.log("🎉 Logout completed successfully");
-      
     } catch (error) {
       console.error("❌ Error during logout:", error);
       toast.error("Çıkış yapılırken bir hata oluştu");
@@ -300,52 +299,172 @@ function HomePage({}: Props) {
       text: messageText,
       content: messageText,
       sender: "user",
-      role: isReflectionJournalChat(currentActiveChat) && isJournalMode ? "journal" : "user",
+      role: "user", // Always use 'user' role for journal messages
       createdAt: timestamp,
       assistantId: currentActiveChat.assistantId,
     };
 
-    // Journal mode - save only, no AI response
+    // Journal mode - use reflection stream endpoint
     if (isReflectionJournalChat(currentActiveChat) && isJournalMode) {
-      // Add optimistic message immediately with persist flag
-      const persistentUserMessage = {
-        ...userMessage,
-        _isPersistent: true, // Flag to prevent premature removal
-      };
-      
-      setOptimisticMessages((prev) => [...prev, persistentUserMessage]);
-      setCurrentMessage(""); // Clear input immediately
-      
+      setCurrentMessage("");
+      setIsAiResponding(true);
+
+      // Add optimistic user message immediately
+      setOptimisticMessages((prev) => [...prev, userMessage]);
+
       try {
-        console.log("💾 Saving journal message:", persistentUserMessage);
-        
-        // Save journal message using conversation save
+        console.log("🌊 Streaming journal reflection...");
+
+        const user = await getCurrentUser();
+        console.log("[JOURNAL STREAM] 🔍 Debug info:", {
+          userId: user.userId,
+          activeChat,
+          assistantId: currentActiveChat.assistantId,
+        });
+
+        // Use local API endpoint for reflection stream
+        const reflectionStreamUrl = `/api/chats/${activeChat}/reflection`;
+        console.log("[JOURNAL STREAM] 🌐 Stream URL:", reflectionStreamUrl);
+
+        const session = await fetchAuthSession();
+        const { accessToken, idToken } = session.tokens ?? {};
+
+        const response = await fetch(reflectionStreamUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+            "x-id-token": idToken?.toString() || "",
+            "x-user-id": user.userId,
+          },
+          body: JSON.stringify({
+            query: messageText,
+            assistantId: currentActiveChat.assistantId,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error("[JOURNAL STREAM] ❌ HTTP Error:", {
+            status: response.status,
+            statusText: response.statusText,
+            url: reflectionStreamUrl,
+          });
+          throw new Error(
+            `HTTP error! status: ${response.status} - ${response.statusText}`
+          );
+        }
+
+        if (!response.body) {
+          throw new Error("No response body for streaming");
+        }
+
+        // Add optimistic AI message immediately
+        let aiMessage: ChatMessage = {
+          id: aiMessageId,
+          identifier: aiMessageId,
+          text: "",
+          content: "",
+          sender: "ai",
+          role: "assistant",
+          createdAt: timestamp,
+          assistantId: currentActiveChat.assistantId,
+          type: "reflection",
+        };
+
+        setOptimisticMessages([userMessage, aiMessage]);
+
+        // Stream processing
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        console.log("[JOURNAL STREAM] 🌊 Starting stream processing...");
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+
+            // Process chunk and accumulate in buffer
+            buffer += chunk.replace("[DONE-UP]", "");
+            const isDone = chunk.includes("[DONE-UP]");
+
+            console.log(
+              "[JOURNAL STREAM] 📝 Chunk processed, buffer length:",
+              buffer.length
+            );
+
+            // Update AI message with accumulated buffer content
+            aiMessage = {
+              ...aiMessage,
+              text: buffer,
+              content: buffer,
+            };
+
+            // Real-time UI update
+            setOptimisticMessages([userMessage, aiMessage]);
+
+            if (isDone) {
+              console.log("[JOURNAL STREAM] ✅ Stream completed");
+              break;
+            }
+          }
+        } catch (streamError) {
+          console.error("[JOURNAL STREAM] ❌ Streaming error:", streamError);
+          throw streamError;
+        }
+
+        // Save conversation after successful streaming
+        const aiResponseContent = buffer;
+
+        console.log(
+          "[JOURNAL STREAM] 💾 Saving conversation after streaming...",
+          {
+            aiResponseLength: aiResponseContent.length,
+            userMessage: messageText.substring(0, 50),
+          }
+        );
+
+        // Save journal conversation using conversation save
         const saveResult = await saveConversation({
           chatId: activeChat,
-          messages: [userMessage],
+          messages: [userMessage, aiMessage],
           assistantId: currentActiveChat.assistantId,
           assistantGroupId: currentActiveChat.assistantGroupId,
           type: "journal",
-          userId: (await getCurrentUser()).userId,
+          userId: user.userId,
           localDateTime: timestamp,
           title: currentActiveChat.title,
+          lastMessage:
+            aiResponseContent.substring(0, 100) +
+            (aiResponseContent.length > 100 ? "..." : ""),
           conversationId: activeChat,
         });
-        
+
         setTimeout(scrollToBottom, 100);
         console.log("✅ Journal message saved successfully", saveResult);
-        
+
         // Keep the optimistic message visible for a bit longer to ensure user sees it
         setTimeout(() => {
-          console.log("🔄 Journal save complete, message should persist via deduplication");
+          console.log(
+            "🔄 Journal save complete, message should persist via deduplication"
+          );
         }, 2000);
-        
       } catch (error) {
-        console.error("❌ Error saving journal message:", error);
-        toast.error("Günlük mesajı kaydedilemedi");
-        
-        // Remove optimistic message on error
-        setOptimisticMessages((prev) => prev.filter(msg => msg.id !== userMessageId));
+        console.error("❌ Error in journal stream:", error);
+        toast.error("Günlük yansıtması başarısız oldu");
+
+        // Remove optimistic messages on error
+        setOptimisticMessages((prev) =>
+          prev.filter(
+            (msg) => msg.id !== userMessageId && msg.id !== aiMessageId
+          )
+        );
+      } finally {
+        setIsAiResponding(false);
       }
       return; // Early return - no AI response
     }
@@ -399,13 +518,10 @@ function HomePage({}: Props) {
 
       // Start streaming response
       let response;
-      
+
       if (isReflectionJournalChat(currentActiveChat)) {
-        // Reflection journal uses different endpoint
-        const userId = user.userId || "test123";
-        const conversationId = activeChat;
-        
-        response = await fetch(`${process.env.NEXT_PUBLIC_STREAM_URL || process.env.STREAM_URL}/user/${userId}/conversation/${conversationId}/reflection/stream`, {
+        // Reflection journal uses local API endpoint
+        response = await fetch(`/api/chats/${activeChat}/reflection`, {
           method: "POST",
           headers: {
             ...headers,
@@ -862,11 +978,33 @@ function HomePage({}: Props) {
     };
   }, []);
 
-  // Clear optimistic messages and reset journal mode when switching chats
+  // Clear optimistic messages when switching chats
   useEffect(() => {
     setOptimisticMessages([]);
-    setIsJournalMode(false);
+    setIsJournalMode(true); // Default to journal mode
   }, [activeChat]);
+
+  // Check for closed ayrac widget and disable journal mode when messages are loaded
+  useEffect(() => {
+    if (activeChat && messages.length > 0 && !isLoadingMessages) {
+      const hasClosedAyrac = messages.some((msg) => {
+        try {
+          if (msg.content && msg.type === "ayrac-widget") {
+            const data = JSON.parse(msg.content);
+            return data.isOpen === false;
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+        return false;
+      });
+
+      // Disable journal mode if there's a closed ayrac
+      if (hasClosedAyrac) {
+        setIsJournalMode(false);
+      }
+    }
+  }, [activeChat, messages, isLoadingMessages]);
 
   // Note: Optimistic messages are now handled via deduplication in useMemo above
   // No need for separate clearing logic that causes flickering
@@ -1354,7 +1492,8 @@ function HomePage({}: Props) {
             chats.find((chat) => chat.id === activeChat) &&
             isReflectionJournalChat(
               chats.find((chat) => chat.id === activeChat)!
-            ) && !isJournalMode && (
+            ) &&
+            !isJournalMode && (
               <div className="fixed right-8 bottom-32 flex flex-col gap-3 z-10">
                 <button
                   onClick={async () => {
@@ -1457,7 +1596,11 @@ function HomePage({}: Props) {
                     onClick={handleToggleUp}
                   >
                     <Image
-                      src={isJournalMode ? "/journal/up_no_look.svg" : "/up_face.svg"}
+                      src={
+                        isJournalMode
+                          ? "/journal/up_no_look.svg"
+                          : "/up_face.svg"
+                      }
                       alt={isJournalMode ? "Journal Mode" : "UP Face"}
                       width={44}
                       height={44}

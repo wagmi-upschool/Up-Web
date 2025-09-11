@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
     let previousToken: string | null = null; // Track previous token to detect loops
     let totalFetched = 0;
     const batchSize = 50; // Fetch in batches of 50
-    const MAX_CONVERSATIONS = 100; // Limit to first 100 conversations
-    const MAX_BATCHES = 2; // Maximum 2 batches to prevent infinite loop
+    const MAX_CONVERSATIONS = 500; // Limit to first 500 conversations
+    const MAX_BATCHES = 10; // Maximum 10 batches to prevent infinite loop
     let batchCount = 0;
 
     do {
