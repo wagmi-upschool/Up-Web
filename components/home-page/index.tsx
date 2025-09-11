@@ -42,9 +42,39 @@ const formatMobileDateTime = (date?: Date | string): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
 };
 
+// Helper function to format date for journal (DD.MM.YYYY)
+const formatJournalDate = (date?: Date | string): string => {
+  const d = date ? new Date(date) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${day}.${month}.${year}`;
+};
+
 // Helper function to check if a chat is reflection journal type
 const isReflectionJournalChat = (chat: any): boolean => {
-  return chat.type === "reflectionJournal";
+  // Primary check: type field
+  if (chat.type === "reflectionJournal") {
+    return true;
+  }
+
+  // Fallback check: assistant group ID for reflection journals
+  // Based on console logs, reflection journal chats use assistantGroupId: f2b835b2-139a-4ea4-a9a0-930d6baded6a
+  if (chat.assistantGroupId === "f2b835b2-139a-4ea4-a9a0-930d6baded6a") {
+    return true;
+  }
+
+  // Additional fallback: check title patterns for journal chats
+  const journalPatterns = ["Günlüğü", "Notlarım", "Journal", "Günlük"];
+  if (
+    chat.title &&
+    journalPatterns.some((pattern) => chat.title.includes(pattern))
+  ) {
+    return true;
+  }
+
+  return false;
 };
 
 function HomePage({}: Props) {
@@ -53,10 +83,13 @@ function HomePage({}: Props) {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [isTransitioningChat, setIsTransitioningChat] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [isJournalMode, setIsJournalMode] = useState(true);
+  const [isJournalMode, setIsJournalMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>(
     []
+  );
+  const [widgetsSavedForChats, setWidgetsSavedForChats] = useState<Set<string>>(
+    new Set()
   );
   const [messageLikes, setMessageLikes] = useState<{
     [messageId: string]: "like" | "dislike" | null;
@@ -99,7 +132,7 @@ function HomePage({}: Props) {
     { chatId: activeChat!, limit: "50" },
     { skip: !activeChat }
   );
-  const [sendMessage, { isLoading: isSendingMessage }] =
+  const [sendChatMessage, { isLoading: isSendingMessage }] =
     useSendChatMessageMutation();
   const [saveConversation] = useSaveConversationMutation();
 
@@ -241,7 +274,6 @@ function HomePage({}: Props) {
       setOptimisticMessages([]);
       setMessageLikes({});
       setIsAiResponding(false);
-      setIsJournalMode(true);
       setIsTransitioningChat(false);
       console.log("✅ Local state cleared");
 
@@ -299,174 +331,56 @@ function HomePage({}: Props) {
       text: messageText,
       content: messageText,
       sender: "user",
-      role: "user", // Always use 'user' role for journal messages
+      role:
+        isReflectionJournalChat(currentActiveChat) && isJournalMode
+          ? "journal"
+          : "user",
       createdAt: timestamp,
-      assistantId: currentActiveChat.assistantId,
+      assistantId: currentActiveChat.assistantId || "",
     };
 
-    // Journal mode - use reflection stream endpoint
+    // Journal mode - ONLY user message, NO AI response
     if (isReflectionJournalChat(currentActiveChat) && isJournalMode) {
       setCurrentMessage("");
-      setIsAiResponding(true);
 
-      // Add optimistic user message immediately
+      // Add ONLY user message to optimistic messages
       setOptimisticMessages((prev) => [...prev, userMessage]);
 
       try {
-        console.log("🌊 Streaming journal reflection...");
-
-        const user = await getCurrentUser();
-        console.log("[JOURNAL STREAM] 🔍 Debug info:", {
-          userId: user.userId,
-          activeChat,
-          assistantId: currentActiveChat.assistantId,
-        });
-
-        // Use local API endpoint for reflection stream
-        const reflectionStreamUrl = `/api/chats/${activeChat}/reflection`;
-        console.log("[JOURNAL STREAM] 🌐 Stream URL:", reflectionStreamUrl);
-
-        const session = await fetchAuthSession();
-        const { accessToken, idToken } = session.tokens ?? {};
-
-        const response = await fetch(reflectionStreamUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-            "x-id-token": idToken?.toString() || "",
-            "x-user-id": user.userId,
-          },
-          body: JSON.stringify({
-            query: messageText,
-            assistantId: currentActiveChat.assistantId,
-          }),
-        });
-
-        if (!response.ok) {
-          console.error("[JOURNAL STREAM] ❌ HTTP Error:", {
-            status: response.status,
-            statusText: response.statusText,
-            url: reflectionStreamUrl,
-          });
-          throw new Error(
-            `HTTP error! status: ${response.status} - ${response.statusText}`
-          );
-        }
-
-        if (!response.body) {
-          throw new Error("No response body for streaming");
-        }
-
-        // Add optimistic AI message immediately
-        let aiMessage: ChatMessage = {
-          id: aiMessageId,
-          identifier: aiMessageId,
-          text: "",
-          content: "",
-          sender: "ai",
-          role: "assistant",
-          createdAt: timestamp,
-          assistantId: currentActiveChat.assistantId,
-          type: "reflection",
-        };
-
-        setOptimisticMessages([userMessage, aiMessage]);
-
-        // Stream processing
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        console.log("[JOURNAL STREAM] 🌊 Starting stream processing...");
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-
-            // Process chunk and accumulate in buffer
-            buffer += chunk.replace("[DONE-UP]", "");
-            const isDone = chunk.includes("[DONE-UP]");
-
-            console.log(
-              "[JOURNAL STREAM] 📝 Chunk processed, buffer length:",
-              buffer.length
-            );
-
-            // Update AI message with accumulated buffer content
-            aiMessage = {
-              ...aiMessage,
-              text: buffer,
-              content: buffer,
-            };
-
-            // Real-time UI update
-            setOptimisticMessages([userMessage, aiMessage]);
-
-            if (isDone) {
-              console.log("[JOURNAL STREAM] ✅ Stream completed");
-              break;
-            }
-          }
-        } catch (streamError) {
-          console.error("[JOURNAL STREAM] ❌ Streaming error:", streamError);
-          throw streamError;
-        }
-
-        // Save conversation after successful streaming
-        const aiResponseContent = buffer;
-
         console.log(
-          "[JOURNAL STREAM] 💾 Saving conversation after streaming...",
-          {
-            aiResponseLength: aiResponseContent.length,
-            userMessage: messageText.substring(0, 50),
-          }
+          "📝 Journal mode: Saving user message only, no AI response"
         );
 
-        // Save journal conversation using conversation save
+        const user = await getCurrentUser();
+
+        // ONLY save user message via conversation save (NO AI response)
         const saveResult = await saveConversation({
           chatId: activeChat,
-          messages: [userMessage, aiMessage],
-          assistantId: currentActiveChat.assistantId,
+          messages: [userMessage],
+          assistantId: currentActiveChat.assistantId || "",
           assistantGroupId: currentActiveChat.assistantGroupId,
           type: "journal",
           userId: user.userId,
           localDateTime: timestamp,
           title: currentActiveChat.title,
           lastMessage:
-            aiResponseContent.substring(0, 100) +
-            (aiResponseContent.length > 100 ? "..." : ""),
+            messageText.substring(0, 100) +
+            (messageText.length > 100 ? "..." : ""),
           conversationId: activeChat,
         });
 
         setTimeout(scrollToBottom, 100);
-        console.log("✅ Journal message saved successfully", saveResult);
-
-        // Keep the optimistic message visible for a bit longer to ensure user sees it
-        setTimeout(() => {
-          console.log(
-            "🔄 Journal save complete, message should persist via deduplication"
-          );
-        }, 2000);
+        console.log("✅ Journal entry saved successfully", saveResult);
       } catch (error) {
-        console.error("❌ Error in journal stream:", error);
-        toast.error("Günlük yansıtması başarısız oldu");
+        console.error("❌ Error saving journal entry:", error);
+        toast.error("Günlük kaydı başarısız oldu");
 
-        // Remove optimistic messages on error
+        // Remove optimistic user message on error
         setOptimisticMessages((prev) =>
-          prev.filter(
-            (msg) => msg.id !== userMessageId && msg.id !== aiMessageId
-          )
+          prev.filter((msg) => msg.id !== userMessageId)
         );
-      } finally {
-        setIsAiResponding(false);
       }
-      return; // Early return - no AI response
+      return; // Early return
     }
 
     // Add typing indicator for AI response (normal mode only)
@@ -478,7 +392,7 @@ function HomePage({}: Props) {
       sender: "ai",
       role: "assistant",
       createdAt: timestamp,
-      assistantId: currentActiveChat.assistantId,
+      assistantId: currentActiveChat.assistantId || "",
       type: "typing",
     };
 
@@ -487,14 +401,13 @@ function HomePage({}: Props) {
     setIsAiResponding(true);
 
     try {
-      console.log("[MESSAGE STREAM TEST] 🚀 Sending message with streaming:", {
-        chatId: activeChat,
-        message: messageText,
-        assistantId: currentActiveChat.assistantId,
-      });
       console.log(
-        "[MESSAGE STREAM TEST] 📨 Optimistic messages set:",
-        optimisticMessages.length
+        "[NORMAL MODE] 🚀 Sending message (both message request + conversation save):",
+        {
+          chatId: activeChat,
+          message: messageText,
+          assistantId: currentActiveChat.assistantId || "",
+        }
       );
 
       // Get proper auth headers
@@ -516,7 +429,30 @@ function HomePage({}: Props) {
         headers["x-user-id"] = "test123";
       }
 
-      // Start streaming response
+      // Normal mode: BOTH message request AND conversation save
+      // Step 1: Send message request (using RTK Query)
+      console.log(
+        "[NORMAL MODE] 📤 Step 1: Sending message request via RTK Query..."
+      );
+      const messageResult = await sendChatMessage({
+        chatId: activeChat,
+        message: messageText,
+        assistantId: currentActiveChat.assistantId || "",
+      });
+
+      if ("error" in messageResult) {
+        console.error(
+          "[NORMAL MODE] ❌ Message request failed:",
+          messageResult.error
+        );
+        throw new Error("Message request failed");
+      }
+
+      console.log(
+        "[NORMAL MODE] ✅ Step 1 completed: Message request sent successfully"
+      );
+
+      // Step 2: Start streaming response
       let response;
 
       if (isReflectionJournalChat(currentActiveChat)) {
@@ -529,7 +465,7 @@ function HomePage({}: Props) {
           },
           body: JSON.stringify({
             query: messageText,
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
           }),
         });
       } else {
@@ -539,7 +475,7 @@ function HomePage({}: Props) {
           headers,
           body: JSON.stringify({
             message: messageText,
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
           }),
         });
       }
@@ -562,7 +498,7 @@ function HomePage({}: Props) {
           sender: "ai",
           role: "assistant",
           createdAt: formatMobileDateTime(),
-          assistantId: currentActiveChat.assistantId,
+          assistantId: currentActiveChat.assistantId || "",
         };
 
         // Process stream exactly like Flutter _processStream
@@ -637,10 +573,10 @@ function HomePage({}: Props) {
         // Stop AI responding indicator now that we have the response
         setIsAiResponding(false);
 
-        // Save the conversation using conversation-save endpoint (Flutter-style)
+        // Step 3: Save the conversation using conversation-save endpoint (completing normal mode)
         try {
           console.log(
-            "[MESSAGE STREAM TEST] 💾 Saving conversation via conversation-save endpoint..."
+            "[NORMAL MODE] 💾 Step 3: Saving conversation via conversation-save endpoint..."
           );
 
           // Get current user for userId
@@ -655,7 +591,7 @@ function HomePage({}: Props) {
             role: "user",
             sender: "user",
             createdAt: timestamp,
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
             type: "default",
           };
 
@@ -667,44 +603,17 @@ function HomePage({}: Props) {
             role: "assistant",
             sender: "ai",
             createdAt: formatMobileDateTime(),
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
             type: "default",
           };
 
           // Only send NEW messages since existing ones don't have content from API
           const messagesToSave: ChatMessage[] = [newUserMessage, newAiMessage];
 
-          console.log(
-            "[MESSAGE STREAM TEST] 📝 Preparing conversation-save request:",
-            {
-              messagesCount: messagesToSave.length,
-              assistantId: currentActiveChat.assistantId,
-              conversationId: activeChat,
-              userId: user.userId,
-              lastFewMessages: messagesToSave.slice(-3).map((m) => ({
-                id: m.id,
-                text: m.text,
-                content: m.content,
-                message: (m as any).message,
-                role: m.role,
-              })),
-            }
-          );
-
-          console.log(
-            "[MESSAGE STREAM TEST] 💾 Sending messages to save with IDs:",
-            messagesToSave.map((m) => ({
-              id: m.id,
-              identifier: m.identifier,
-              role: m.role,
-              content: m.content?.substring(0, 50),
-            }))
-          );
-
-          // Use conversation-save endpoint (Flutter-style)
+          // Use conversation-save endpoint (completing normal mode: message request + conversation save)
           const saveResult = await saveConversation({
             chatId: activeChat,
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
             assistantGroupId: currentActiveChat.assistantGroupId || "",
             type: "conversation",
             userId: user.userId,
@@ -731,47 +640,37 @@ function HomePage({}: Props) {
 
           if ("data" in saveResult) {
             console.log(
-              "[MESSAGE STREAM TEST] ✅ Conversation saved successfully via conversation-save endpoint"
+              "[NORMAL MODE] ✅ Step 3 completed: Conversation saved successfully"
             );
             console.log(
-              "[MESSAGE STREAM TEST] 🔄 RTK Query cache automatically invalidated"
-            );
-            console.log(
-              "[MESSAGE STREAM TEST] 📄 Save result:",
-              saveResult.data
+              "[NORMAL MODE] 🎉 Normal mode complete: Both message request AND conversation save finished"
             );
 
             // RTK Query will automatically refetch and merge with optimistic messages
             console.log(
-              "[MESSAGE STREAM TEST] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
+              "[NORMAL MODE] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
             );
-
-            // Optimistic messages will be replaced by real messages when they arrive
           } else {
             console.error(
-              "[MESSAGE STREAM TEST] ❌ Failed to save conversation:",
+              "[NORMAL MODE] ❌ Step 3 failed: Failed to save conversation:",
               saveResult.error
             );
           }
         } catch (saveError) {
           console.error(
-            "[MESSAGE STREAM TEST] ❌ Error saving conversation:",
+            "[NORMAL MODE] ❌ Step 3 error: Error saving conversation:",
             saveError
           );
         }
-
-        // Optimistic messages will be cleared automatically by useEffect when real messages load
-        console.log(
-          "[MESSAGE STREAM TEST] 💭 Optimistic messages will be cleared when real messages with content are detected"
-        );
       }
     } catch (error) {
-      console.error("[MESSAGE STREAM TEST] ❌ Failed to send message:", error);
+      console.error("[NORMAL MODE] ❌ Normal mode failed:", error);
       // Remove optimistic messages on error
       setOptimisticMessages([]);
       // Restore the message to input
       setCurrentMessage(messageText);
       setIsAiResponding(false);
+      toast.error("Mesaj gönderilemedi");
     }
   };
 
@@ -791,13 +690,17 @@ function HomePage({}: Props) {
 
     try {
       const newJournalMode = !isJournalMode;
-      const timestamp = new Date().toISOString();
+      const baseDateTime = new Date();
+      const timestamp = formatMobileDateTime(baseDateTime);
+
+      const widgetsToSave: ChatMessage[] = [];
 
       if (newJournalMode) {
-        // Switching TO journal mode - add opening ayrac and date
+        // Switching TO journal mode - add opening ayrac and date with unique timestamps
+        const ayracId = crypto.randomUUID();
         const openAyracWidget = {
-          id: `ayrac-open-${Date.now()}`,
-          identifier: `ayrac-open-${Date.now()}`,
+          id: ayracId,
+          identifier: ayracId,
           content: JSON.stringify({
             widgetType: "Ayrac",
             isOpen: true,
@@ -806,33 +709,35 @@ function HomePage({}: Props) {
           type: "widget" as const,
           createdAt: timestamp,
           sender: "user" as const,
+          assistantId: currentChat.assistantId || "",
         };
 
-        const currentDate = new Date().toLocaleDateString("tr-TR", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        });
-
+        const currentDate = formatJournalDate();
+        const dateId = crypto.randomUUID();
+        const dateTimestamp = formatMobileDateTime(new Date(baseDateTime.getTime() + 1));
+        
         const dateWidget = {
-          id: `date-${Date.now()}`,
-          identifier: `date-${Date.now()}`,
+          id: dateId,
+          identifier: dateId,
           content: JSON.stringify({
             widgetType: "JournalDate",
             date: currentDate,
           }),
           role: "user" as const,
           type: "widget" as const,
-          createdAt: timestamp,
+          createdAt: dateTimestamp,
           sender: "user" as const,
+          assistantId: currentChat.assistantId || "",
         };
 
+        widgetsToSave.push(openAyracWidget, dateWidget);
         setOptimisticMessages((prev) => [...prev, openAyracWidget, dateWidget]);
       } else {
         // Switching OUT of journal mode - add closing ayrac
+        const ayracId = crypto.randomUUID();
         const closeAyracWidget = {
-          id: `ayrac-close-${Date.now()}`,
-          identifier: `ayrac-close-${Date.now()}`,
+          id: ayracId,
+          identifier: ayracId,
           content: JSON.stringify({
             widgetType: "Ayrac",
             isOpen: false,
@@ -841,9 +746,44 @@ function HomePage({}: Props) {
           type: "widget" as const,
           createdAt: timestamp,
           sender: "user" as const,
+          assistantId: currentChat.assistantId || "",
         };
 
+        widgetsToSave.push(closeAyracWidget);
         setOptimisticMessages((prev) => [...prev, closeAyracWidget]);
+      }
+
+      // Save widgets to backend immediately
+      if (widgetsToSave.length > 0) {
+        console.log("🔧 BUTTON TOGGLE - Saving widgets:", widgetsToSave.map(w => ({ 
+          id: w.id, 
+          type: w.type, 
+          createdAt: w.createdAt,
+          content: w.content?.substring(0, 50) 
+        })));
+
+        try {
+          const user = await getCurrentUser();
+          const saveResult = await saveConversation({
+            chatId: activeChat,
+            messages: widgetsToSave,
+            assistantId: currentChat.assistantId || "",
+            assistantGroupId: currentChat.assistantGroupId || "",
+            type: "journal",
+            userId: user.userId,
+            localDateTime: timestamp,
+            title: currentChat.title,
+            lastMessage: newJournalMode ? "Günlük başlatıldı" : "Günlük sonlandırıldı",
+            conversationId: activeChat,
+          });
+
+          console.log("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
+          toast.success(newJournalMode ? "Günlük modu başlatıldı!" : "Günlük modu sonlandırıldı!");
+          
+        } catch (saveError) {
+          console.error("🔧 BUTTON TOGGLE - Error saving widgets:", saveError);
+          toast.error("Widget'lar kaydedilemedi");
+        }
       }
 
       // Toggle the journal mode
@@ -978,11 +918,220 @@ function HomePage({}: Props) {
     };
   }, []);
 
-  // Clear optimistic messages when switching chats
+  // Clear optimistic messages and add automatic widgets when switching chats
   useEffect(() => {
-    setOptimisticMessages([]);
-    setIsJournalMode(true); // Default to journal mode
-  }, [activeChat]);
+    if (activeChat) {
+      let currentActiveChat = chats.find((chat) => chat.id === activeChat);
+
+      // If chat not found in main chats array, check if we can create a synthetic one from message data
+      if (!currentActiveChat && messagesData?.messages && messagesData.messages.length > 0) {
+        const firstMessage = messagesData.messages[0];
+        // Create synthetic chat object from message data
+        currentActiveChat = {
+          id: activeChat,
+          title: "YGA Zirvesi Notlarım", // From conversation-save logs
+          assistantGroupId:
+            (firstMessage as any).assistantGroupId ||
+            "f2b835b2-139a-4ea4-a9a0-930d6baded6a",
+          type: "reflectionJournal", // Infer from assistantGroupId and title
+          assistantId: firstMessage.assistantId,
+        };
+        console.log(
+          "🔧 Created synthetic chat object from message data:",
+          currentActiveChat
+        );
+      }
+
+      // Debug: Check if currentActiveChat has type field
+      console.log(`🔧 WIDGET DEBUG - Current active chat:`, {
+        chatId: activeChat,
+        title: currentActiveChat?.title,
+        type: currentActiveChat?.type,
+        isReflectionJournal: isReflectionJournalChat(currentActiveChat),
+        chatObject: currentActiveChat,
+        chatsArrayLength: chats.length,
+        chatFound: !!currentActiveChat,
+        isSynthetic: !chats.find((chat) => chat.id === activeChat),
+      });
+
+      // Only for reflection journal chats
+      if (currentActiveChat && isReflectionJournalChat(currentActiveChat)) {
+        setOptimisticMessages([]);
+
+        // Check if widgets already exist in messages to avoid duplicates
+        const existingMessages = messagesData?.messages || [];
+        const hasAyracWidget = existingMessages.some(
+          (msg) =>
+            (msg.type === "widget" &&
+              msg.content?.includes('"widgetType":"Ayrac"')) ||
+            msg.content?.includes('"widgetType": "Ayrac"')
+        );
+        const hasJournalDateWidget = existingMessages.some(
+          (msg) =>
+            (msg.type === "widget" &&
+              msg.content?.includes('"widgetType":"JournalDate"')) ||
+            msg.content?.includes('"widgetType": "JournalDate"')
+        );
+
+        console.log(`🔧 Widget check - Chat: ${activeChat}`);
+        console.log(`🔧 Existing messages count: ${existingMessages.length}`);
+        console.log(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
+        console.log(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
+        console.log(
+          `🔧 Widget type messages:`,
+          existingMessages.filter((m) => m.type === "widget")
+        );
+
+        // Also check if widgets are already in optimistic messages to prevent duplicates
+        const hasOptimisticAyrac = optimisticMessages.some((msg) =>
+          msg.content?.includes('"widgetType":"Ayrac"')
+        );
+        const hasOptimisticJournalDate = optimisticMessages.some((msg) =>
+          msg.content?.includes('"widgetType":"JournalDate"')
+        );
+
+        // Only add widgets if they don't already exist in both existing and optimistic messages
+        const needsAyrac = !hasAyracWidget && !hasOptimisticAyrac;
+        const needsJournalDate =
+          !hasJournalDateWidget && !hasOptimisticJournalDate;
+
+        // Also check if we've already saved widgets for this chat to prevent duplicate saves
+        const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
+
+        if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
+          console.log(
+            `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
+          );
+          console.log(
+            `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
+          );
+          console.log(`🔧 Already saved for chat: ${alreadySavedForChat}`);
+
+          const baseDateTime = new Date();
+          const currentDateOnly = formatJournalDate();
+          const widgetsToAdd: ChatMessage[] = [];
+
+          // Add Ayrac widget if missing
+          if (needsAyrac) {
+            const ayracId = crypto.randomUUID();
+            const ayracDateTime = formatMobileDateTime(baseDateTime);
+            const openAyracWidget = {
+              id: ayracId,
+              identifier: ayracId,
+              content: JSON.stringify({
+                widgetType: "Ayrac",
+                isOpen: true,
+              }),
+              role: "user" as const,
+              type: "widget" as const,
+              sender: "user" as const,
+              createdAt: ayracDateTime,
+              assistantId: currentActiveChat.assistantId || "",
+            };
+            widgetsToAdd.push(openAyracWidget);
+          }
+
+          // Add JournalDate widget if missing with 1ms offset
+          if (needsJournalDate) {
+            const dateId = crypto.randomUUID();
+            const journalDateTime = formatMobileDateTime(new Date(baseDateTime.getTime() + 1));
+            const dateWidget = {
+              id: dateId,
+              identifier: dateId,
+              content: JSON.stringify({
+                widgetType: "JournalDate",
+                date: currentDateOnly,
+              }),
+              role: "user" as const,
+              type: "widget" as const,
+              sender: "user" as const,
+              createdAt: journalDateTime,
+              assistantId: currentActiveChat.assistantId || "",
+            };
+            widgetsToAdd.push(dateWidget);
+          }
+
+          // Add missing widgets to optimistic messages
+          if (widgetsToAdd.length > 0) {
+            setOptimisticMessages(widgetsToAdd);
+
+            // Auto-save the missing widgets
+            const autoSaveWidgets = async () => {
+              try {
+                const user = await getCurrentUser();
+
+                console.log(
+                  "💾 Attempting to save widgets:",
+                  widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
+                );
+                console.log(
+                  "💾 Existing messages count:",
+                  existingMessages.length
+                );
+                console.log(
+                  "💾 Existing widget IDs:",
+                  existingMessages
+                    .filter((m) => m.type === "widget")
+                    .map((m) => m.id)
+                );
+
+                // Combine existing messages with new widgets for complete save
+                const allMessages = [...existingMessages, ...widgetsToAdd];
+                console.log("💾 Total messages to save:", allMessages.length);
+                console.log(
+                  "💾 All widget IDs in payload:",
+                  allMessages
+                    .filter((m) => m.type === "widget")
+                    .map((m) => m.id)
+                );
+
+                const saveResult = await saveConversation({
+                  chatId: activeChat,
+                  messages: allMessages,
+                  assistantId: currentActiveChat.assistantId || "",
+                  assistantGroupId: currentActiveChat.assistantGroupId || "",
+                  type: "journal",
+                  userId: user.userId,
+                  localDateTime: formatMobileDateTime(baseDateTime),
+                  title: currentActiveChat.title,
+                  lastMessage: "Günlük widget'ları eklendi",
+                  conversationId: activeChat,
+                });
+
+                // Mark this chat as having widgets saved to prevent duplicates
+                setWidgetsSavedForChats((prev) =>
+                  new Set(prev).add(activeChat)
+                );
+
+                console.log(
+                  "✅ Auto-saved missing widgets successfully",
+                  saveResult
+                );
+              } catch (error) {
+                console.error("❌ Error auto-saving widgets:", error);
+                // Don't remove widgets from optimistic messages even if save failed
+                // They should remain visible to user
+                console.warn(
+                  "⚠️ Widget save failed, keeping widgets visible in UI"
+                );
+              }
+            };
+
+            // Save widgets automatically after a short delay
+            setTimeout(autoSaveWidgets, 500);
+          } else {
+            console.log("✅ All widgets already exist, skipping creation");
+          }
+        }
+      } else {
+        setOptimisticMessages([]);
+        setIsJournalMode(false);
+      }
+    } else {
+      setOptimisticMessages([]);
+      setIsJournalMode(false);
+    }
+  }, [activeChat, chats, messagesData]);
 
   // Check for closed ayrac widget and disable journal mode when messages are loaded
   useEffect(() => {
@@ -1282,12 +1431,12 @@ function HomePage({}: Props) {
               <div className="space-y-4 max-w-4xl mx-auto">
                 {messages.map((message, index) => {
                   // Console log for debugging
-                  console.log(`[MESSAGE DEBUG] Index ${index}:`, {
-                    role: message.role,
-                    content: message.content?.substring(0, 100),
-                    sender: message.sender,
-                    type: message.type,
-                  });
+                  // console.log(`[MESSAGE DEBUG] Index ${index}:`, {
+                  //   role: message.role,
+                  //   content: message.content?.substring(0, 100),
+                  //   sender: message.sender,
+                  //   type: message.type,
+                  // });
 
                   const isUser =
                     message.sender === "user" ||
@@ -1320,31 +1469,30 @@ function HomePage({}: Props) {
                       message.content?.includes('"widgetType": "JournalDate"'));
 
                   if (isAyracWidget || isJournalDateWidget) {
-                    // Render Ayrac/JournalDate widget centered without bubble - use viewport width to break out completely
+                    console.log(`🎯 Rendering widget - Index ${index}:`, {
+                      isAyracWidget,
+                      isJournalDateWidget,
+                      messageType: message.type,
+                      content: message.content?.substring(0, 100),
+                    });
+                    // Render Ayrac/JournalDate widget as normal message (scrollable, not fixed)
                     return (
                       <div
                         key={messageKey}
-                        className="animate-in fade-in slide-in-from-bottom-2 duration-300 py-4 relative"
-                        style={{
-                          width: "100vw",
-                          marginLeft: "calc(-50vw + 50%)",
-                          marginRight: "calc(-50vw + 50%)",
-                        }}
+                        className="animate-in fade-in slide-in-from-bottom-2 duration-300 py-2 w-full flex justify-center"
                       >
-                        <div className="flex justify-center w-full">
-                          <MessageRenderer
-                            content={
-                              message.content ||
-                              message.text ||
-                              (message as any).message ||
-                              (message as any).body ||
-                              "Mesaj içeriği yok"
-                            }
-                            sender={isUser ? "user" : "ai"}
-                            messageType={message.type}
-                            role={message.role}
-                          />
-                        </div>
+                        <MessageRenderer
+                          content={
+                            message.content ||
+                            message.text ||
+                            (message as any).message ||
+                            (message as any).body ||
+                            "Mesaj içeriği yok"
+                          }
+                          sender={isUser ? "user" : "ai"}
+                          messageType={message.type}
+                          role={message.role}
+                        />
                       </div>
                     );
                   }
