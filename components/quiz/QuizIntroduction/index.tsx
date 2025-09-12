@@ -1,7 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BookOpen, Clock, FileText } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 
 interface QuizIntroductionProps {
   title: string;
@@ -10,6 +13,7 @@ interface QuizIntroductionProps {
   timeLimit?: number; // in minutes
   onStart: () => void;
   onExit?: () => void;
+  isLoading?: boolean;
 }
 
 const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
@@ -19,7 +23,17 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
   timeLimit,
   onStart,
   onExit,
+  isLoading = false,
 }) => {
+  const [splashAnimation, setSplashAnimation] = useState<any>(null);
+
+  useEffect(() => {
+    import('../../../public/lotties/splash_loading.json').then((data) => {
+      setSplashAnimation(data.default);
+    }).catch(() => {
+      console.log('Could not load loading animation');
+    });
+  }, []);
   return (
     <div className="flex-1 bg-bg-main overflow-y-auto">
       <div className="min-h-full flex items-center justify-center px-6 py-12">
@@ -50,7 +64,7 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
                     Toplam Soru
                   </h3>
                   <p className="font-poppins text-2xl font-bold text-primary">
-                    {totalQuestions}
+                    20
                   </p>
                 </div>
               </div>
@@ -101,7 +115,9 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
             <ul className="font-poppins text-text-body-black space-y-2">
               <li className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <span>Her soruyu dikkatlice okuyun ve en uygun cevabı seçin.</span>
+                <span>
+                  Her soruyu dikkatlice okuyun ve en uygun cevabı seçin.
+                </span>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
@@ -109,11 +125,16 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <span>Önceki sorulara geri dönüp cevabınızı değiştirebilirsiniz.</span>
+                <span>
+                  Önceki sorulara geri dönüp cevabınızı değiştirebilirsiniz.
+                </span>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <span>Tüm soruları tamamladıktan sonra sonuçlarınızı görüntüleyebilirsiniz.</span>
+                <span>
+                  Tüm soruları tamamladıktan sonra sonuçlarınızı
+                  görüntüleyebilirsiniz.
+                </span>
               </li>
             </ul>
           </div>
@@ -130,16 +151,28 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
             )}
             <button
               onClick={onStart}
-              className="px-8 py-3 bg-primary text-white rounded-xl font-poppins font-semibold hover:bg-blue-600 transition-colors shadow-sm"
+              disabled={isLoading}
+              className={`px-8 py-3 rounded-xl font-poppins font-semibold transition-colors shadow-sm flex items-center gap-3 ${
+                isLoading 
+                  ? "bg-gray-400 text-gray-200 cursor-not-allowed" 
+                  : "bg-primary text-white hover:bg-blue-600"
+              }`}
             >
-              Teste Başla
+              {isLoading && splashAnimation && (
+                <Lottie 
+                  animationData={splashAnimation} 
+                  loop 
+                  className="w-6 h-6" 
+                />
+              )}
+              {isLoading ? "Quiz Hazırlanıyor..." : "Teste Başla"}
             </button>
           </div>
 
           {/* Footer Note */}
           <div className="text-center mt-8">
             <p className="font-poppins text-sm text-text-light leading-relaxed">
-              Bu test değerlendirme amaçlıdır. Sonuçlarınız sistem yöneticileri 
+              Bu test değerlendirme amaçlıdır. Sonuçlarınız sistem yöneticileri
               tarafından görüntülenebilir ve analiz edilebilir.
             </p>
           </div>

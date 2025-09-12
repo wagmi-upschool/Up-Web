@@ -30,7 +30,7 @@ export async function GET(
 
   try {
     // Call the real reinforcement results API
-    const reinforcementUrl = `${process.env.REMOTE_URL}/user/${userId}/reinforcement/sessions/${sessionId}/results`;
+    const reinforcementUrl = `${process.env.REMOTE_URL}/user/${userId}/reinforcement/sessions/${sessionId}/results?conversationId=${sessionId}`;
     const tokenToUse = idTokenHeader || authHeader.replace("Bearer ", "");
 
     console.log("Calling reinforcement results API:", reinforcementUrl);

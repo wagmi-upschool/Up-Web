@@ -65,21 +65,6 @@ const QuizProgress: React.FC<QuizProgressProps> = ({
             </span>
           </div>
 
-          {/* Answer Progress */}
-          <div className="flex items-center gap-3">
-            <span className="font-poppins text-sm text-text-body-black min-w-fit">
-              Cevaplar
-            </span>
-            <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-green-400 to-green-500 h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${Math.max(progressPercentage, 5)}%` }}
-              />
-            </div>
-            <span className="font-poppins text-xs text-green-600 min-w-fit">
-              {answeredCount}/{totalQuestions}
-            </span>
-          </div>
         </div>
 
         {/* Progress Indicators */}

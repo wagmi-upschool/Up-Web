@@ -24,11 +24,6 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
             {question.title.replaceAll("{blank}", "______")}
           </h2>
           
-          {question.description && (
-            <p className="font-poppins text-lg text-text-body-black leading-relaxed">
-              {question.description}
-            </p>
-          )}
         </div>
 
         {/* Answer Required Notice */}
@@ -47,8 +42,8 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
               <QuestionOption
                 key={option.id || index}
                 option={option}
-                isSelected={selectedOption === option.id}
-                onSelect={() => onOptionSelect(option.id)}
+                isSelected={selectedOption === option.text}
+                onSelect={() => onOptionSelect(option.id, option.text)}
               />
             ))}
           </div>

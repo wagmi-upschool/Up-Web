@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   useStartQuizSessionMutation,
   useGetQuizSessionQuery,
@@ -45,6 +45,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [existingQuestions, setExistingQuestions] = useState<QuizQuestion[]>([]);
   const [apiQuestions, setApiQuestions] = useState<QuizQuestion[]>([]); // Store questions from API
+  const [isStartingQuiz, setIsStartingQuiz] = useState(false);
 
   const [startQuizSession] = useStartQuizSessionMutation();
   const [submitQuizAnswer] = useSubmitQuizAnswerMutation();
@@ -67,14 +68,6 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     { skip: !conversationId || phase !== 'results' }
   );
 
-  // Check if conversationId is in URL on mount
-  useEffect(() => {
-    const urlConversationId = searchParams.get('conversationId');
-    if (urlConversationId) {
-      setConversationId(urlConversationId);
-      setSessionId(urlConversationId);
-    }
-  }, [searchParams]);
 
   // Process existing quiz data
   useEffect(() => {
@@ -102,6 +95,20 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
 
   const currentSession = sessionData?.session;
   
+  // Handle session data when it loads from URL conversationId
+  useEffect(() => {
+    if (currentSession && apiQuestions.length === 0) {
+      console.log("Setting questions from session data:", currentSession.questions);
+      if (currentSession.questions && currentSession.questions.length > 0) {
+        setApiQuestions(currentSession.questions);
+      } else {
+        console.log("No questions in session, need to fetch from backend or show introduction");
+        // If session has no questions, go back to introduction
+        setPhase('introduction');
+      }
+    }
+  }, [currentSession, apiQuestions.length]);
+  
   // Use the most appropriate questions source
   const activeQuestions = existingQuestions.length > 0 
     ? existingQuestions 
@@ -112,11 +119,14 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   const currentQuestion = activeQuestions[currentQuestionIndex];
 
   // Handle quiz start
-  const handleStartQuiz = async () => {
+  const handleStartQuiz = useCallback(async () => {
+    setIsStartingQuiz(true);
+    
     // If we have existing quiz data, skip API call and go to questions
     if (existingQuizData && existingQuestions.length > 0) {
       setPhase('question');
       toast.success("Quiz başlatıldı!");
+      setIsStartingQuiz(false);
       return;
     }
 
@@ -138,6 +148,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
         const newSearchParams = new URLSearchParams(searchParams.toString());
         newSearchParams.set('conversationId', result.data.conversationId);
         const newUrl = `${pathname}?${newSearchParams.toString()}`;
+        console.log("Updating URL with conversationId:", newUrl);
         router.replace(newUrl);
         
         // Transform backend questions to our format
@@ -156,6 +167,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
           state: QuizQuestionState.Initial,
         }));
         
+        console.log("Setting API questions:", transformedQuestions.length, "questions");
         setApiQuestions(transformedQuestions);
         setPhase('question');
         toast.success("Quiz başlatıldı!");
@@ -166,14 +178,33 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     } catch (error) {
       console.error("Error starting quiz:", error);
       toast.error("Quiz başlatılırken hata oluştu");
+    } finally {
+      setIsStartingQuiz(false);
     }
-  };
+  }, [existingQuizData, existingQuestions.length, assistantId, assistantGroupId, title, startQuizSession, pathname, router]);
+
+  // Check if conversationId is in URL on mount
+  useEffect(() => {
+    const urlConversationId = searchParams.get('conversationId');
+    
+    console.log("URL conversationId on mount:", urlConversationId);
+    
+    if (urlConversationId && !conversationId) {
+      console.log("Setting conversationId from URL:", urlConversationId);
+      setConversationId(urlConversationId);
+      setSessionId(urlConversationId);
+      
+      // If conversationId exists, skip introduction and go to question phase
+      console.log("ConversationId found in URL, skipping to questions");
+      setPhase('question');
+    }
+  }, [searchParams, conversationId]);
 
   // Handle answer selection
   const handleAnswerSelect = (questionId: string, selectedOptionId: string, userAnswer?: string) => {
     setAnswers(prev => ({
       ...prev,
-      [questionId]: userAnswer || selectedOptionId,
+      [questionId]: userAnswer || selectedOptionId, // userAnswer is the actual text like "1923"
     }));
   };
 
@@ -198,13 +229,30 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       return;
     }
 
-    // For API-loaded questions, also navigate locally
-    if (apiQuestions.length > 0) {
-      if (currentQuestionIndex < activeQuestions.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
-      } else {
-        // Last question - finish quiz
-        await handleFinishQuiz();
+    // For API-loaded questions, submit answer first
+    if (apiQuestions.length > 0 && conversationId) {
+      try {
+        // Convert option text to option index for backend
+        const optionIndex = currentQuestion.options.findIndex(opt => opt.text === selectedAnswer);
+        const selectedOptionId = optionIndex >= 0 ? `option-${optionIndex}` : selectedAnswer;
+        
+        await submitQuizAnswer({
+          sessionId: conversationId,
+          questionId: currentQuestion.questionId,
+          selectedOptionId: selectedOptionId,
+          userAnswer: selectedAnswer,
+          timeSpentSeconds: 0,
+        });
+
+        if (currentQuestionIndex < activeQuestions.length - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+        } else {
+          // Last question - finish quiz
+          await handleFinishQuiz();
+        }
+      } catch (error) {
+        console.error("Error submitting answer:", error);
+        toast.error("Cevap kaydedilirken hata oluştu");
       }
       return;
     }
@@ -213,10 +261,14 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     if (!sessionId) return;
 
     try {
+      // Convert option text to option index for backend
+      const optionIndex = currentQuestion.options.findIndex(opt => opt.text === selectedAnswer);
+      const selectedOptionId = optionIndex >= 0 ? `option-${optionIndex}` : selectedAnswer;
+      
       await submitQuizAnswer({
         sessionId,
         questionId: currentQuestion.questionId,
-        selectedOptionId: selectedAnswer,
+        selectedOptionId: selectedOptionId,
         userAnswer: selectedAnswer, // Support for fill-in-blanks
         timeSpentSeconds: 0, // TODO: Track actual time spent
       });
@@ -276,6 +328,17 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     ? !!answers[currentQuestion.questionId] 
     : false;
 
+  // Debug log
+  console.log("Render Debug:", {
+    phase,
+    currentQuestion: !!currentQuestion,
+    currentSession: !!currentSession,
+    existingQuestions: existingQuestions.length,
+    apiQuestions: apiQuestions.length,
+    totalQuestions,
+    activeQuestions: activeQuestions.length
+  });
+
   // Loading states - skip for existing quiz data
   if (isLoadingSession && !existingQuizData) {
     return (
@@ -316,10 +379,11 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
             totalQuestions={totalQuestions}
             onStart={handleStartQuiz}
             onExit={onExit}
+            isLoading={isStartingQuiz}
           />
         )}
 
-        {phase === 'question' && currentQuestion && (currentSession || existingQuestions.length > 0 || apiQuestions.length > 0) && (
+        {phase === 'question' && activeQuestions.length > 0 && (
           <>
             <QuizProgress
               currentQuestion={currentQuestionIndex + 1}
