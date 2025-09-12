@@ -281,16 +281,15 @@ export async function GET(req: NextRequest) {
     const excludedTypes = [
       "accountability",
       "boolean-tester",
+      "flashcard",
+      "fill-in-blanks",
     ];
-    
-    // Quiz types to be handled specially
-    const quizTypes = ["flashcard", "fill-in-blanks"];
 
     // Filter out specific type conversations before transformation (KEEP reflection journals now)
     const filteredConversations = allConversations.filter((chat: any) => {
       const assistant = assistantsMap.get(chat.assistantId);
 
-      // Filter out other excluded types but KEEP reflection journals and quiz types
+      // Filter out excluded types including quiz types
       if (excludedTypes.includes(chat.type || "")) return false;
       if (excludedTypes.includes(assistant?.type || "")) return false;
 
@@ -308,14 +307,8 @@ export async function GET(req: NextRequest) {
         if (chat.type === "reflectionJournal") {
           return chat.title || "Günlük";
         }
-        if (quizTypes.includes(chat.type || "") || quizTypes.includes(assistant?.type || "")) {
-          return `📝 Quiz: ${chat.title || assistant?.title || "Test"}`;
-        }
         return chat.title || assistant?.title || "Untitled Chat";
       };
-
-      // Check if this conversation is a quiz type
-      const isQuiz = quizTypes.includes(chat.type || "") || quizTypes.includes(assistant?.type || "");
 
       return {
         id: chat.idUpdatedAt,
@@ -334,7 +327,6 @@ export async function GET(req: NextRequest) {
         lastMessage: chat.lastMessage,
         iconUrl: chat.iconUrl,
         accountabilityDetail: chat.accountabilityDetail,
-        isQuiz: isQuiz, // Quiz indicator for frontend
         // Merged assistant data
         assistantName: assistant?.name,
         assistantDescription: assistant?.description,
