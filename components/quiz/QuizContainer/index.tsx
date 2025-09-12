@@ -101,13 +101,18 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       console.log("Setting questions from session data:", currentSession.questions);
       if (currentSession.questions && currentSession.questions.length > 0) {
         setApiQuestions(currentSession.questions);
+        // If we have conversationId from URL and session has questions, go to question phase
+        if (searchParams.get('conversationId')) {
+          console.log("Session loaded with questions, going to question phase");
+          setPhase('question');
+        }
       } else {
         console.log("No questions in session, need to fetch from backend or show introduction");
         // If session has no questions, go back to introduction
         setPhase('introduction');
       }
     }
-  }, [currentSession, apiQuestions.length]);
+  }, [currentSession, apiQuestions.length, searchParams]);
   
   // Use the most appropriate questions source
   const activeQuestions = existingQuestions.length > 0 
@@ -194,9 +199,8 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       setConversationId(urlConversationId);
       setSessionId(urlConversationId);
       
-      // If conversationId exists, skip introduction and go to question phase
-      console.log("ConversationId found in URL, skipping to questions");
-      setPhase('question');
+      // Don't skip to questions immediately - wait for session data to load
+      console.log("ConversationId found in URL, waiting for session data to load");
     }
   }, [searchParams, conversationId]);
 
