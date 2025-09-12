@@ -193,8 +193,9 @@ export async function GET(req: NextRequest) {
     // Fetch assistants data in parallel using local admin API
     const assistantsPromises = assistantIds.map(async (assistantId) => {
       try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL}/api/admin/assistant/get?assistantId=${assistantId}`,
+          `${baseUrl}/api/admin/assistant/get?assistantId=${assistantId}`,
           {
             method: "GET",
             headers: {
@@ -276,17 +277,20 @@ export async function GET(req: NextRequest) {
     //   `Assistant data fetched: ${assistantsMap.size}, Group data fetched: ${groupsMap.size}`
     // );
 
+    // Define conversation types
+    const excludedTypes = [
+      "accountability",
+      "boolean-tester",
+    ];
+    
+    // Quiz types to be handled specially
+    const quizTypes = ["flashcard", "fill-in-blanks"];
+
     // Filter out specific type conversations before transformation (KEEP reflection journals now)
     const filteredConversations = allConversations.filter((chat: any) => {
       const assistant = assistantsMap.get(chat.assistantId);
 
-      // Filter out other excluded types but KEEP reflection journals
-      const excludedTypes = [
-        "accountability",
-        "flashcard",
-        "boolean-tester", 
-        "fill-in-blanks",
-      ];
+      // Filter out other excluded types but KEEP reflection journals and quiz types
       if (excludedTypes.includes(chat.type || "")) return false;
       if (excludedTypes.includes(assistant?.type || "")) return false;
 
@@ -299,13 +303,19 @@ export async function GET(req: NextRequest) {
       const group = groupsMap.get(chat.assistantGroupId);
 
       // chat.iconUrl already contains the assistant icon URL from the conversation data
-      // Special title logic for reflection journal
+      // Special title logic for different conversation types
       const getTitle = () => {
         if (chat.type === "reflectionJournal") {
           return chat.title || "Günlük";
         }
+        if (quizTypes.includes(chat.type || "") || quizTypes.includes(assistant?.type || "")) {
+          return `📝 Quiz: ${chat.title || assistant?.title || "Test"}`;
+        }
         return chat.title || assistant?.title || "Untitled Chat";
       };
+
+      // Check if this conversation is a quiz type
+      const isQuiz = quizTypes.includes(chat.type || "") || quizTypes.includes(assistant?.type || "");
 
       return {
         id: chat.idUpdatedAt,
@@ -324,6 +334,7 @@ export async function GET(req: NextRequest) {
         lastMessage: chat.lastMessage,
         iconUrl: chat.iconUrl,
         accountabilityDetail: chat.accountabilityDetail,
+        isQuiz: isQuiz, // Quiz indicator for frontend
         // Merged assistant data
         assistantName: assistant?.name,
         assistantDescription: assistant?.description,

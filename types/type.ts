@@ -119,3 +119,100 @@ export interface Chat {
   isFlashcardType?: boolean;
   isRegularChat?: boolean;
 }
+
+// Quiz System Types
+export enum QuizQuestionState {
+  Initial = "initial",
+  Viewed = "viewed", 
+  Done = "done",
+  Skipped = "skipped",
+}
+
+export interface QuizOption {
+  id: string;
+  text: string;
+  value: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  questionId: string;
+  title: string;
+  description?: string;
+  options: QuizOption[];
+  correctOptionId?: string; // For results calculation
+  sequenceNumber: number;
+  state: QuizQuestionState;
+  userAnswer?: string; // Selected option ID
+  timeSpentSeconds?: number;
+}
+
+export interface QuizSession {
+  id: string;
+  sessionId: string;
+  conversationId: string;
+  assistantId: string;
+  assistantGroupId?: string;
+  questions: QuizQuestion[];
+  title: string;
+  description?: string;
+  totalQuestions: number;
+  currentQuestionIndex: number;
+  completedQuestions: string[]; // Question IDs
+  timeLimit?: number; // in minutes
+  createdAt: string;
+  updatedAt: string;
+  phase: 'introduction' | 'question' | 'results';
+}
+
+export interface QuizResults {
+  sessionId: string;
+  score: number; // percentage
+  correctAnswers: number;
+  incorrectAnswers: number;
+  totalQuestions: number;
+  completedAt: string;
+  answers: Record<string, string>; // questionId -> selectedOptionId
+  timeSpent: number; // total time in seconds
+}
+
+export interface QuizSessionResponse {
+  statusCode: number;
+  statusMessage: string;
+  session: QuizSession;
+}
+
+export interface CreateQuizSessionResponse {
+  statusCode: number;
+  statusMessage: string;
+  sessionId: string;
+  conversationId: string;
+  totalQuestions: number;
+  questions: QuizQuestion[];
+  assistantId?: string;
+  agentType?: string;
+}
+
+export interface QuizAnswerRequest {
+  sessionId: string;
+  questionId: string;
+  selectedOptionId: string;
+  userAnswer?: string; // For fill-in-blanks
+  timeSpentSeconds?: number;
+}
+
+export interface QuizSessionRequest {
+  assistantId: string;
+  assistantGroupId?: string;
+  type: string;
+  title: string;
+}
+
+// For existing conversation quiz data
+export interface ExistingQuizData {
+  conversationId: string;
+  assistantId: string;
+  title: string;
+  questions: any[]; // Questions from conversation response
+  totalQuestions?: number;
+}
