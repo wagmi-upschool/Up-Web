@@ -17,7 +17,9 @@ import {
   useGetChatMessagesQuery,
   useSendChatMessageMutation,
   useSaveConversationMutation,
+  api,
 } from "@/state/api";
+import { useDispatch } from "react-redux";
 import { ChatMessage } from "@/types/type";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 import toast from "react-hot-toast";
@@ -40,21 +42,61 @@ const formatMobileDateTime = (date?: Date | string): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
 };
 
+// Helper function to format date for journal (DD.MM.YYYY)
+const formatJournalDate = (date?: Date | string): string => {
+  const d = date ? new Date(date) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${day}.${month}.${year}`;
+};
+
+// Helper function to check if a chat is reflection journal type
+const isReflectionJournalChat = (chat: any): boolean => {
+  // Primary check: type field
+  if (chat.type === "reflectionJournal") {
+    return true;
+  }
+
+  // Fallback check: assistant group ID for reflection journals
+  // Based on console logs, reflection journal chats use assistantGroupId: f2b835b2-139a-4ea4-a9a0-930d6baded6a
+  if (chat.assistantGroupId === "f2b835b2-139a-4ea4-a9a0-930d6baded6a") {
+    return true;
+  }
+
+  // Additional fallback: check title patterns for journal chats
+  const journalPatterns = ["Günlüğü", "Notlarım", "Journal", "Günlük"];
+  if (
+    chat.title &&
+    journalPatterns.some((pattern) => chat.title.includes(pattern))
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
 function HomePage({}: Props) {
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [isTransitioningChat, setIsTransitioningChat] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isJournalMode, setIsJournalMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>(
     []
+  );
+  const [widgetsSavedForChats, setWidgetsSavedForChats] = useState<Set<string>>(
+    new Set()
   );
   const [messageLikes, setMessageLikes] = useState<{
     [messageId: string]: "like" | "dislike" | null;
   }>({});
   const [isAiResponding, setIsAiResponding] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const dispatch = useDispatch();
 
   // Auto scroll to bottom function
   const scrollToBottom = () => {
@@ -69,58 +111,16 @@ function HomePage({}: Props) {
 
   // Deduplicate chats by id and title
   const chats = useMemo(() => {
-    console.log('[CHAT DEBUG] Raw chats from API:', chatsData.map(c => ({
-      id: c.id,
-      title: c.title,
-      assistantId: c.assistantId,
-      type: c.type,
-      assistantType: (c as any).assistantType,
-      assistantGroupId: c.assistantGroupId,
-      description: c.description
-    })));
-
-    // Specifically log journal-like chats for debugging
-    const journalChats = chatsData.filter(c => 
-      c.title?.toLowerCase().includes('günlük') || 
-      c.title?.toLowerCase().includes('journal') ||
-      c.title?.toLowerCase().includes('harika')
-    );
-    if (journalChats.length > 0) {
-      console.log('[CHAT DEBUG] 🔍 Found potential journal chats:', journalChats.map(c => ({
-        id: c.id,
-        title: c.title,
-        type: c.type,
-        assistantType: (c as any).assistantType,
-        assistantId: c.assistantId,
-        assistantGroupId: c.assistantGroupId,
-        description: c.description,
-        fullObject: c
-      })));
-    }
-
     const deduplicatedChats = chatsData.filter((chat, index, arr) => {
       // Keep first occurrence of each unique chat
-      const firstIndex = arr.findIndex(c => 
-        c.id === chat.id || 
-        (c.title === chat.title && c.assistantId === chat.assistantId)
+      const firstIndex = arr.findIndex(
+        (c) =>
+          c.id === chat.id ||
+          (c.title === chat.title && c.assistantId === chat.assistantId)
       );
-      
-      if (firstIndex !== index) {
-        console.log('[CHAT DEBUG] Filtering duplicate chat:', {
-          original: { id: arr[firstIndex].id, title: arr[firstIndex].title },
-          duplicate: { id: chat.id, title: chat.title },
-          index, firstIndex
-        });
-      }
-      
+
       return firstIndex === index;
     });
-
-    console.log('[CHAT DEBUG] After deduplication:', deduplicatedChats.map(c => ({
-      id: c.id,
-      title: c.title,
-      assistantId: c.assistantId
-    })));
 
     return deduplicatedChats;
   }, [chatsData]);
@@ -132,7 +132,7 @@ function HomePage({}: Props) {
     { chatId: activeChat!, limit: "50" },
     { skip: !activeChat }
   );
-  const [sendMessage, { isLoading: isSendingMessage }] =
+  const [sendChatMessage, { isLoading: isSendingMessage }] =
     useSendChatMessageMutation();
   const [saveConversation] = useSaveConversationMutation();
 
@@ -140,14 +140,14 @@ function HomePage({}: Props) {
   const messages = useMemo(() => {
     const rawRealMessages = messagesData?.messages || [];
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        content: m.content?.substring(0, 50)
-      })));
-    }
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
+    //     id: m.id,
+    //     identifier: m.identifier,
+    //     role: m.role,
+    //     content: m.content?.substring(0, 50)
+    //   })));
+    // }
 
     // Deduplicate real messages by identifier/id
     const realMessages = rawRealMessages.filter((msg, index, arr) => {
@@ -161,41 +161,45 @@ function HomePage({}: Props) {
 
     // Create a Set of real message identifiers for quick lookup
     const realMessageIdentifiers = new Set(
-      realMessages
-        .map(msg => msg.identifier || msg.id)
-        .filter(Boolean)
+      realMessages.map((msg) => msg.identifier || msg.id).filter(Boolean)
     );
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Deduplicated real messages:', realMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        content: m.content?.substring(0, 50)
-      })));
-      
-      console.log('[DEBUG] Real message identifiers:', Array.from(realMessageIdentifiers));
-    }
+    // if (process.env.NODE_ENV === "development") {
+    //   console.log(
+    //     "[DEBUG] Deduplicated real messages:",
+    //     realMessages.map((m) => ({
+    //       id: m.id,
+    //       identifier: m.identifier,
+    //       role: m.role,
+    //       content: m.content?.substring(0, 50),
+    //     }))
+    //   );
+
+    //   console.log(
+    //     "[DEBUG] Real message identifiers:",
+    //     Array.from(realMessageIdentifiers)
+    //   );
+    // }
 
     // Filter optimistic messages: keep only those not yet saved to backend
-    const pendingOptimisticMessages = optimisticMessages.filter(opt => {
+    const pendingOptimisticMessages = optimisticMessages.filter((opt) => {
       const optIdentifier = opt.identifier || opt.id;
       const isAlreadySaved = realMessageIdentifiers.has(optIdentifier);
-      
-      if (isAlreadySaved && process.env.NODE_ENV === 'development') {
-        console.log('[DEBUG] Optimistic message replaced by real message:', {
-          identifier: optIdentifier,
-          role: opt.role,
-          content: opt.content?.substring(0, 30)
-        });
-      }
-      
+
+      // if (isAlreadySaved && process.env.NODE_ENV === "development") {
+      //   console.log("[DEBUG] Optimistic message replaced by real message:", {
+      //     identifier: optIdentifier,
+      //     role: opt.role,
+      //     content: opt.content?.substring(0, 30),
+      //   });
+      // }
+
       return !isAlreadySaved;
     });
 
     // Combine real messages with pending optimistic messages
     const finalMessages = [...realMessages, ...pendingOptimisticMessages];
-    
+
     // Sort by creation time to maintain proper order
     finalMessages.sort((a, b) => {
       const timeA = new Date(a.createdAt || 0).getTime();
@@ -203,21 +207,26 @@ function HomePage({}: Props) {
       return timeA - timeB;
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[DEBUG] Pending optimistic messages:', pendingOptimisticMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        content: m.content?.substring(0, 30)
-      })));
-
-      console.log('[DEBUG] Final merged messages:', finalMessages.map(m => ({
-        id: m.id,
-        identifier: m.identifier,
-        role: m.role,
-        isOptimistic: pendingOptimisticMessages.includes(m),
-        content: m.content?.substring(0, 30)
-      })));
+    if (process.env.NODE_ENV === "development") {
+      // console.log(
+      //   "[DEBUG] Pending optimistic messages:",
+      //   pendingOptimisticMessages.map((m) => ({
+      //     id: m.id,
+      //     identifier: m.identifier,
+      //     role: m.role,
+      //     content: m.content?.substring(0, 30),
+      //   }))
+      // );
+      // console.log(
+      //   "[DEBUG] Final merged messages:",
+      //   finalMessages.map((m) => ({
+      //     id: m.id,
+      //     identifier: m.identifier,
+      //     role: m.role,
+      //     isOptimistic: pendingOptimisticMessages.includes(m),
+      //     content: m.content?.substring(0, 30),
+      //   }))
+      // );
     }
 
     return finalMessages;
@@ -236,7 +245,9 @@ function HomePage({}: Props) {
   // Load existing like statuses from backend messages
   useEffect(() => {
     if (messages.length > 0) {
-      const newMessageLikes: { [messageId: string]: "like" | "dislike" | null } = {};
+      const newMessageLikes: {
+        [messageId: string]: "like" | "dislike" | null;
+      } = {};
       messages.forEach((message) => {
         const messageId = message.identifier || message.id;
         if (message.likeStatus === true || message.likeStatus === 1) {
@@ -251,11 +262,50 @@ function HomePage({}: Props) {
 
   const handleSignOut = async () => {
     try {
+      console.log("🚪 Starting logout process...");
+
+      // 1. Clear all RTK Query cache
+      dispatch(api.util.resetApiState());
+      console.log("✅ RTK Query cache cleared");
+
+      // 2. Clear local component state
+      setActiveChat(null);
+      setCurrentMessage("");
+      setOptimisticMessages([]);
+      setMessageLikes({});
+      setIsAiResponding(false);
+      setIsTransitioningChat(false);
+      console.log("✅ Local state cleared");
+
+      // 3. Sign out from Amplify
       await signOut();
+      console.log("✅ Amplify signout completed");
+
       setShowDropdown(false);
+
+      // 4. Optional: Clear any browser storage
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        console.log("✅ Browser storage cleared");
+      } catch (storageError) {
+        console.warn("⚠️ Could not clear storage:", storageError);
+      }
+
+      console.log("🎉 Logout completed successfully");
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("❌ Error during logout:", error);
+      toast.error("Çıkış yapılırken bir hata oluştu");
     }
+  };
+
+  const handleSendMessageWithText = async (messageText: string) => {
+    // Set the message and then call the existing handleSendMessage logic
+    setCurrentMessage(messageText);
+    // Use a small delay to ensure state is updated before calling handleSendMessage
+    setTimeout(() => {
+      handleSendMessage();
+    }, 50);
   };
 
   const handleSendMessage = async () => {
@@ -281,12 +331,59 @@ function HomePage({}: Props) {
       text: messageText,
       content: messageText,
       sender: "user",
-      role: "user",
+      role:
+        isReflectionJournalChat(currentActiveChat) && isJournalMode
+          ? "journal"
+          : "user",
       createdAt: timestamp,
-      assistantId: currentActiveChat.assistantId,
+      assistantId: currentActiveChat.assistantId || "",
     };
 
-    // Add typing indicator for AI response
+    // Journal mode - ONLY user message, NO AI response
+    if (isReflectionJournalChat(currentActiveChat) && isJournalMode) {
+      setCurrentMessage("");
+
+      // Add ONLY user message to optimistic messages
+      setOptimisticMessages((prev) => [...prev, userMessage]);
+
+      try {
+        console.log(
+          "📝 Journal mode: Saving user message only, no AI response"
+        );
+
+        const user = await getCurrentUser();
+
+        // ONLY save user message via conversation save (NO AI response)
+        const saveResult = await saveConversation({
+          chatId: activeChat,
+          messages: [userMessage],
+          assistantId: currentActiveChat.assistantId || "",
+          assistantGroupId: currentActiveChat.assistantGroupId,
+          type: "journal",
+          userId: user.userId,
+          localDateTime: timestamp,
+          title: currentActiveChat.title,
+          lastMessage:
+            messageText.substring(0, 100) +
+            (messageText.length > 100 ? "..." : ""),
+          conversationId: activeChat,
+        });
+
+        setTimeout(scrollToBottom, 100);
+        console.log("✅ Journal entry saved successfully", saveResult);
+      } catch (error) {
+        console.error("❌ Error saving journal entry:", error);
+        toast.error("Günlük kaydı başarısız oldu");
+
+        // Remove optimistic user message on error
+        setOptimisticMessages((prev) =>
+          prev.filter((msg) => msg.id !== userMessageId)
+        );
+      }
+      return; // Early return
+    }
+
+    // Add typing indicator for AI response (normal mode only)
     const typingMessage: ChatMessage = {
       id: aiMessageId,
       identifier: aiMessageId,
@@ -295,7 +392,7 @@ function HomePage({}: Props) {
       sender: "ai",
       role: "assistant",
       createdAt: timestamp,
-      assistantId: currentActiveChat.assistantId,
+      assistantId: currentActiveChat.assistantId || "",
       type: "typing",
     };
 
@@ -304,14 +401,13 @@ function HomePage({}: Props) {
     setIsAiResponding(true);
 
     try {
-      console.log("[MESSAGE STREAM TEST] 🚀 Sending message with streaming:", {
-        chatId: activeChat,
-        message: messageText,
-        assistantId: currentActiveChat.assistantId,
-      });
       console.log(
-        "[MESSAGE STREAM TEST] 📨 Optimistic messages set:",
-        optimisticMessages.length
+        "[NORMAL MODE] 🚀 Sending message (both message request + conversation save):",
+        {
+          chatId: activeChat,
+          message: messageText,
+          assistantId: currentActiveChat.assistantId || "",
+        }
       );
 
       // Get proper auth headers
@@ -333,15 +429,56 @@ function HomePage({}: Props) {
         headers["x-user-id"] = "test123";
       }
 
-      // Start streaming response
-      const response = await fetch(`/api/chats/${activeChat}/send`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          message: messageText,
-          assistantId: currentActiveChat.assistantId,
-        }),
+      // Normal mode: BOTH message request AND conversation save
+      // Step 1: Send message request (using RTK Query)
+      console.log(
+        "[NORMAL MODE] 📤 Step 1: Sending message request via RTK Query..."
+      );
+      const messageResult = await sendChatMessage({
+        chatId: activeChat,
+        message: messageText,
+        assistantId: currentActiveChat.assistantId || "",
       });
+
+      if ("error" in messageResult) {
+        console.error(
+          "[NORMAL MODE] ❌ Message request failed:",
+          messageResult.error
+        );
+        throw new Error("Message request failed");
+      }
+
+      console.log(
+        "[NORMAL MODE] ✅ Step 1 completed: Message request sent successfully"
+      );
+
+      // Step 2: Start streaming response
+      let response;
+
+      if (isReflectionJournalChat(currentActiveChat)) {
+        // Reflection journal uses local API endpoint
+        response = await fetch(`/api/chats/${activeChat}/reflection`, {
+          method: "POST",
+          headers: {
+            ...headers,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: messageText,
+            assistantId: currentActiveChat.assistantId || "",
+          }),
+        });
+      } else {
+        // Regular chats use local API
+        response = await fetch(`/api/chats/${activeChat}/send`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            message: messageText,
+            assistantId: currentActiveChat.assistantId || "",
+          }),
+        });
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -361,7 +498,7 @@ function HomePage({}: Props) {
           sender: "ai",
           role: "assistant",
           createdAt: formatMobileDateTime(),
-          assistantId: currentActiveChat.assistantId,
+          assistantId: currentActiveChat.assistantId || "",
         };
 
         // Process stream exactly like Flutter _processStream
@@ -436,10 +573,10 @@ function HomePage({}: Props) {
         // Stop AI responding indicator now that we have the response
         setIsAiResponding(false);
 
-        // Save the conversation using conversation-save endpoint (Flutter-style)
+        // Step 3: Save the conversation using conversation-save endpoint (completing normal mode)
         try {
           console.log(
-            "[MESSAGE STREAM TEST] 💾 Saving conversation via conversation-save endpoint..."
+            "[NORMAL MODE] 💾 Step 3: Saving conversation via conversation-save endpoint..."
           );
 
           // Get current user for userId
@@ -454,7 +591,7 @@ function HomePage({}: Props) {
             role: "user",
             sender: "user",
             createdAt: timestamp,
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
             type: "default",
           };
 
@@ -466,41 +603,17 @@ function HomePage({}: Props) {
             role: "assistant",
             sender: "ai",
             createdAt: formatMobileDateTime(),
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
             type: "default",
           };
 
           // Only send NEW messages since existing ones don't have content from API
           const messagesToSave: ChatMessage[] = [newUserMessage, newAiMessage];
 
-          console.log(
-            "[MESSAGE STREAM TEST] 📝 Preparing conversation-save request:",
-            {
-              messagesCount: messagesToSave.length,
-              assistantId: currentActiveChat.assistantId,
-              conversationId: activeChat,
-              userId: user.userId,
-              lastFewMessages: messagesToSave.slice(-3).map((m) => ({
-                id: m.id,
-                text: m.text,
-                content: m.content,
-                message: (m as any).message,
-                role: m.role,
-              })),
-            }
-          );
-
-          console.log("[MESSAGE STREAM TEST] 💾 Sending messages to save with IDs:", messagesToSave.map(m => ({
-            id: m.id,
-            identifier: m.identifier,
-            role: m.role,
-            content: m.content?.substring(0, 50)
-          })));
-
-          // Use conversation-save endpoint (Flutter-style)
+          // Use conversation-save endpoint (completing normal mode: message request + conversation save)
           const saveResult = await saveConversation({
             chatId: activeChat,
-            assistantId: currentActiveChat.assistantId,
+            assistantId: currentActiveChat.assistantId || "",
             assistantGroupId: currentActiveChat.assistantGroupId || "",
             type: "conversation",
             userId: user.userId,
@@ -527,45 +640,37 @@ function HomePage({}: Props) {
 
           if ("data" in saveResult) {
             console.log(
-              "[MESSAGE STREAM TEST] ✅ Conversation saved successfully via conversation-save endpoint"
+              "[NORMAL MODE] ✅ Step 3 completed: Conversation saved successfully"
             );
             console.log(
-              "[MESSAGE STREAM TEST] 🔄 RTK Query cache automatically invalidated"
-            );
-            console.log(
-              "[MESSAGE STREAM TEST] 📄 Save result:",
-              saveResult.data
+              "[NORMAL MODE] 🎉 Normal mode complete: Both message request AND conversation save finished"
             );
 
             // RTK Query will automatically refetch and merge with optimistic messages
-            console.log("[MESSAGE STREAM TEST] 🔄 RTK Query will refetch and seamlessly replace optimistic messages");
-            
-            // Optimistic messages will be replaced by real messages when they arrive
+            console.log(
+              "[NORMAL MODE] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
+            );
           } else {
             console.error(
-              "[MESSAGE STREAM TEST] ❌ Failed to save conversation:",
+              "[NORMAL MODE] ❌ Step 3 failed: Failed to save conversation:",
               saveResult.error
             );
           }
         } catch (saveError) {
           console.error(
-            "[MESSAGE STREAM TEST] ❌ Error saving conversation:",
+            "[NORMAL MODE] ❌ Step 3 error: Error saving conversation:",
             saveError
           );
         }
-
-        // Optimistic messages will be cleared automatically by useEffect when real messages load
-        console.log(
-          "[MESSAGE STREAM TEST] 💭 Optimistic messages will be cleared when real messages with content are detected"
-        );
       }
     } catch (error) {
-      console.error("[MESSAGE STREAM TEST] ❌ Failed to send message:", error);
+      console.error("[NORMAL MODE] ❌ Normal mode failed:", error);
       // Remove optimistic messages on error
       setOptimisticMessages([]);
       // Restore the message to input
       setCurrentMessage(messageText);
       setIsAiResponding(false);
+      toast.error("Mesaj gönderilemedi");
     }
   };
 
@@ -576,29 +681,145 @@ function HomePage({}: Props) {
     }
   };
 
+  const handleToggleUp = async () => {
+    if (!activeChat) return;
+
+    // Only work in reflection journal chats
+    const currentChat = chats.find((chat) => chat.id === activeChat);
+    if (!currentChat || !isReflectionJournalChat(currentChat)) return;
+
+    try {
+      const newJournalMode = !isJournalMode;
+      const baseDateTime = new Date();
+      const timestamp = formatMobileDateTime(baseDateTime);
+
+      const widgetsToSave: ChatMessage[] = [];
+
+      if (newJournalMode) {
+        // Switching TO journal mode - add opening ayrac and date with unique timestamps
+        const ayracId = crypto.randomUUID();
+        const openAyracWidget = {
+          id: ayracId,
+          identifier: ayracId,
+          content: JSON.stringify({
+            widgetType: "Ayrac",
+            isOpen: true,
+          }),
+          role: "user" as const,
+          type: "widget" as const,
+          createdAt: timestamp,
+          sender: "user" as const,
+          assistantId: currentChat.assistantId || "",
+        };
+
+        const currentDate = formatJournalDate();
+        const dateId = crypto.randomUUID();
+        const dateTimestamp = formatMobileDateTime(new Date(baseDateTime.getTime() + 1));
+        
+        const dateWidget = {
+          id: dateId,
+          identifier: dateId,
+          content: JSON.stringify({
+            widgetType: "JournalDate",
+            date: currentDate,
+          }),
+          role: "user" as const,
+          type: "widget" as const,
+          createdAt: dateTimestamp,
+          sender: "user" as const,
+          assistantId: currentChat.assistantId || "",
+        };
+
+        widgetsToSave.push(openAyracWidget, dateWidget);
+        setOptimisticMessages((prev) => [...prev, openAyracWidget, dateWidget]);
+      } else {
+        // Switching OUT of journal mode - add closing ayrac
+        const ayracId = crypto.randomUUID();
+        const closeAyracWidget = {
+          id: ayracId,
+          identifier: ayracId,
+          content: JSON.stringify({
+            widgetType: "Ayrac",
+            isOpen: false,
+          }),
+          role: "user" as const,
+          type: "widget" as const,
+          createdAt: timestamp,
+          sender: "user" as const,
+          assistantId: currentChat.assistantId || "",
+        };
+
+        widgetsToSave.push(closeAyracWidget);
+        setOptimisticMessages((prev) => [...prev, closeAyracWidget]);
+      }
+
+      // Save widgets to backend immediately
+      if (widgetsToSave.length > 0) {
+        console.log("🔧 BUTTON TOGGLE - Saving widgets:", widgetsToSave.map(w => ({ 
+          id: w.id, 
+          type: w.type, 
+          createdAt: w.createdAt,
+          content: w.content?.substring(0, 50) 
+        })));
+
+        try {
+          const user = await getCurrentUser();
+          const saveResult = await saveConversation({
+            chatId: activeChat,
+            messages: widgetsToSave,
+            assistantId: currentChat.assistantId || "",
+            assistantGroupId: currentChat.assistantGroupId || "",
+            type: "journal",
+            userId: user.userId,
+            localDateTime: timestamp,
+            title: currentChat.title,
+            lastMessage: newJournalMode ? "Günlük başlatıldı" : "Günlük sonlandırıldı",
+            conversationId: activeChat,
+          });
+
+          console.log("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
+          toast.success(newJournalMode ? "Günlük modu başlatıldı!" : "Günlük modu sonlandırıldı!");
+          
+        } catch (saveError) {
+          console.error("🔧 BUTTON TOGGLE - Error saving widgets:", saveError);
+          toast.error("Widget'lar kaydedilemedi");
+        }
+      }
+
+      // Toggle the journal mode
+      setIsJournalMode(newJournalMode);
+
+      // Scroll to bottom to show new widgets
+      setTimeout(scrollToBottom, 100);
+    } catch (error) {
+      console.error("Error toggling UP mode:", error);
+      toast.error("Bir hata oluştu");
+    }
+  };
+
   const handleLikeDislike = useCallback(
     async (messageId: string, type: "like" | "dislike", messageObj?: any) => {
       try {
-        console.log('Rating messageId:', messageId, 'type:', type);
-        console.log('Message object received:', messageObj);
-        
+        console.log("Rating messageId:", messageId, "type:", type);
+        console.log("Message object received:", messageObj);
+
         // Use identifier or id for backend API call
         const backendMessageId = messageObj?.identifier || messageObj?.id;
-        console.log('Backend messageId:', backendMessageId);
-        
+        console.log("Backend messageId:", backendMessageId);
+
         // Skip rating if no valid backend ID
         if (!backendMessageId) {
-          console.log('No backend messageId available:', backendMessageId);
-          toast.error('Mesaj ID\'si bulunamadı');
+          console.log("No backend messageId available:", backendMessageId);
+          toast.error("Mesaj ID'si bulunamadı");
           return;
         }
-        
+
         // Use the conversationId from the message object, or fall back to activeChat
         const conversationId = messageObj?.conversationId || activeChat;
-        console.log('Using conversationId:', conversationId);
-        
+        console.log("Using conversationId:", conversationId);
+
         if (!conversationId) {
-          console.error('No conversationId available');
+          console.error("No conversationId available");
           return;
         }
 
@@ -625,7 +846,12 @@ function HomePage({}: Props) {
               },
               body: JSON.stringify({
                 conversationId: conversationId,
-                rating: newStatus === "like" ? true : newStatus === "dislike" ? false : null,
+                rating:
+                  newStatus === "like"
+                    ? true
+                    : newStatus === "dislike"
+                      ? false
+                      : null,
                 isRemoveAction: newStatus === null,
               }),
             }
@@ -633,7 +859,7 @@ function HomePage({}: Props) {
 
           if (!response.ok) {
             const errorData = await response.text();
-            console.error('Rating API error:', errorData);
+            console.error("Rating API error:", errorData);
             // Revert on error
             setMessageLikes((prev) => ({
               ...prev,
@@ -692,10 +918,282 @@ function HomePage({}: Props) {
     };
   }, []);
 
-  // Clear optimistic messages when switching chats
+  // Clear optimistic messages and add automatic widgets when switching chats
   useEffect(() => {
-    setOptimisticMessages([]);
-  }, [activeChat]);
+    if (activeChat) {
+      let currentActiveChat = chats.find((chat) => chat.id === activeChat);
+
+      // If chat not found in main chats array, check if we can create a synthetic one from message data
+      if (!currentActiveChat && messagesData?.messages && messagesData.messages.length > 0) {
+        const firstMessage = messagesData.messages[0];
+        // Create synthetic chat object from message data
+        currentActiveChat = {
+          id: activeChat,
+          title: "YGA Zirvesi Notlarım", // From conversation-save logs
+          assistantGroupId:
+            (firstMessage as any).assistantGroupId ||
+            "f2b835b2-139a-4ea4-a9a0-930d6baded6a",
+          type: "reflectionJournal", // Infer from assistantGroupId and title
+          assistantId: firstMessage.assistantId,
+        };
+        console.log(
+          "🔧 Created synthetic chat object from message data:",
+          currentActiveChat
+        );
+      }
+
+      // Debug: Check if currentActiveChat has type field
+      console.log(`🔧 WIDGET DEBUG - Current active chat:`, {
+        chatId: activeChat,
+        title: currentActiveChat?.title,
+        type: currentActiveChat?.type,
+        isReflectionJournal: isReflectionJournalChat(currentActiveChat),
+        chatObject: currentActiveChat,
+        chatsArrayLength: chats.length,
+        chatFound: !!currentActiveChat,
+        isSynthetic: !chats.find((chat) => chat.id === activeChat),
+      });
+
+      // Only for reflection journal chats
+      if (currentActiveChat && isReflectionJournalChat(currentActiveChat)) {
+        setOptimisticMessages([]);
+
+        // Check if widgets already exist in messages to avoid duplicates
+        const existingMessages = messagesData?.messages || [];
+        const hasAyracWidget = existingMessages.some(
+          (msg) =>
+            (msg.type === "widget" &&
+              msg.content?.includes('"widgetType":"Ayrac"')) ||
+            msg.content?.includes('"widgetType": "Ayrac"')
+        );
+        const hasJournalDateWidget = existingMessages.some(
+          (msg) =>
+            (msg.type === "widget" &&
+              msg.content?.includes('"widgetType":"JournalDate"')) ||
+            msg.content?.includes('"widgetType": "JournalDate"')
+        );
+
+        console.log(`🔧 Widget check - Chat: ${activeChat}`);
+        console.log(`🔧 Existing messages count: ${existingMessages.length}`);
+        console.log(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
+        console.log(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
+        console.log(
+          `🔧 Widget type messages:`,
+          existingMessages.filter((m) => m.type === "widget")
+        );
+
+        // Also check if widgets are already in optimistic messages to prevent duplicates
+        const hasOptimisticAyrac = optimisticMessages.some((msg) =>
+          msg.content?.includes('"widgetType":"Ayrac"')
+        );
+        const hasOptimisticJournalDate = optimisticMessages.some((msg) =>
+          msg.content?.includes('"widgetType":"JournalDate"')
+        );
+
+        // Only add widgets if they don't already exist in both existing and optimistic messages
+        const needsAyrac = !hasAyracWidget && !hasOptimisticAyrac;
+        const needsJournalDate =
+          !hasJournalDateWidget && !hasOptimisticJournalDate;
+
+        // Also check if we've already saved widgets for this chat to prevent duplicate saves
+        const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
+
+        if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
+          console.log(
+            `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
+          );
+          console.log(
+            `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
+          );
+          console.log(`🔧 Already saved for chat: ${alreadySavedForChat}`);
+
+          const baseDateTime = new Date();
+          const currentDateOnly = formatJournalDate();
+          const widgetsToAdd: ChatMessage[] = [];
+
+          // Add Ayrac widget if missing
+          if (needsAyrac) {
+            const ayracId = crypto.randomUUID();
+            const ayracDateTime = formatMobileDateTime(baseDateTime);
+            const openAyracWidget = {
+              id: ayracId,
+              identifier: ayracId,
+              content: JSON.stringify({
+                widgetType: "Ayrac",
+                isOpen: true,
+              }),
+              role: "user" as const,
+              type: "widget" as const,
+              sender: "user" as const,
+              createdAt: ayracDateTime,
+              assistantId: currentActiveChat.assistantId || "",
+            };
+            widgetsToAdd.push(openAyracWidget);
+          }
+
+          // Add JournalDate widget if missing with 1ms offset
+          if (needsJournalDate) {
+            const dateId = crypto.randomUUID();
+            const journalDateTime = formatMobileDateTime(new Date(baseDateTime.getTime() + 1));
+            const dateWidget = {
+              id: dateId,
+              identifier: dateId,
+              content: JSON.stringify({
+                widgetType: "JournalDate",
+                date: currentDateOnly,
+              }),
+              role: "user" as const,
+              type: "widget" as const,
+              sender: "user" as const,
+              createdAt: journalDateTime,
+              assistantId: currentActiveChat.assistantId || "",
+            };
+            widgetsToAdd.push(dateWidget);
+          }
+
+          // Add missing widgets to optimistic messages
+          if (widgetsToAdd.length > 0) {
+            setOptimisticMessages(widgetsToAdd);
+
+            // Auto-save the missing widgets
+            const autoSaveWidgets = async () => {
+              try {
+                const user = await getCurrentUser();
+
+                console.log(
+                  "💾 Attempting to save widgets:",
+                  widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
+                );
+                console.log(
+                  "💾 Existing messages count:",
+                  existingMessages.length
+                );
+                console.log(
+                  "💾 Existing widget IDs:",
+                  existingMessages
+                    .filter((m) => m.type === "widget")
+                    .map((m) => m.id)
+                );
+
+                // Combine existing messages with new widgets for complete save
+                const allMessages = [...existingMessages, ...widgetsToAdd];
+                console.log("💾 Total messages to save:", allMessages.length);
+                console.log(
+                  "💾 All widget IDs in payload:",
+                  allMessages
+                    .filter((m) => m.type === "widget")
+                    .map((m) => m.id)
+                );
+
+                const saveResult = await saveConversation({
+                  chatId: activeChat,
+                  messages: allMessages,
+                  assistantId: currentActiveChat.assistantId || "",
+                  assistantGroupId: currentActiveChat.assistantGroupId || "",
+                  type: "journal",
+                  userId: user.userId,
+                  localDateTime: formatMobileDateTime(baseDateTime),
+                  title: currentActiveChat.title,
+                  lastMessage: "Günlük widget'ları eklendi",
+                  conversationId: activeChat,
+                });
+
+                // Mark this chat as having widgets saved to prevent duplicates
+                setWidgetsSavedForChats((prev) =>
+                  new Set(prev).add(activeChat)
+                );
+
+                console.log(
+                  "✅ Auto-saved missing widgets successfully",
+                  saveResult
+                );
+              } catch (error) {
+                console.error("❌ Error auto-saving widgets:", error);
+                // Don't remove widgets from optimistic messages even if save failed
+                // They should remain visible to user
+                console.warn(
+                  "⚠️ Widget save failed, keeping widgets visible in UI"
+                );
+              }
+            };
+
+            // Save widgets automatically after a short delay
+            setTimeout(autoSaveWidgets, 500);
+          } else {
+            console.log("✅ All widgets already exist, skipping creation");
+          }
+        }
+      } else {
+        setOptimisticMessages([]);
+        setIsJournalMode(false);
+      }
+    } else {
+      setOptimisticMessages([]);
+      setIsJournalMode(false);
+    }
+  }, [activeChat, chats, messagesData]);
+
+  // Determine journal mode based on ayrac widgets in messages
+  useEffect(() => {
+    if (activeChat && messages.length > 0 && !isLoadingMessages) {
+      const currentChat = chats.find((chat) => chat.id === activeChat);
+      
+      // Only for reflection journal chats
+      if (currentChat && isReflectionJournalChat(currentChat)) {
+        let hasOpenAyrac = false;
+        let lastAyracState = null;
+
+        // Check all messages for ayrac widgets to determine the current state
+        messages.forEach((msg) => {
+          try {
+            if (msg.content && (msg.type === "widget" || msg.type === "ayrac-widget")) {
+              const data = JSON.parse(msg.content);
+              if (data.widgetType === "Ayrac") {
+                lastAyracState = data.isOpen;
+                hasOpenAyrac = data.isOpen === true;
+              }
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        });
+
+        // Also check optimistic messages
+        optimisticMessages.forEach((msg) => {
+          try {
+            if (msg.content && msg.type === "widget") {
+              const data = JSON.parse(msg.content);
+              if (data.widgetType === "Ayrac") {
+                lastAyracState = data.isOpen;
+                hasOpenAyrac = data.isOpen === true;
+              }
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        });
+
+        console.log("🔧 JOURNAL MODE - Ayrac state check:", {
+          hasOpenAyrac,
+          lastAyracState,
+          currentJournalMode: isJournalMode,
+          messagesCount: messages.length,
+          optimisticCount: optimisticMessages.length
+        });
+
+        // Set journal mode based on ayrac state
+        if (lastAyracState !== null) {
+          setIsJournalMode(hasOpenAyrac);
+        } else if (messages.length === 0) {
+          // No messages at all, default to false
+          setIsJournalMode(false);
+        }
+      } else {
+        // Not a reflection journal chat
+        setIsJournalMode(false);
+      }
+    }
+  }, [activeChat, messages, optimisticMessages, isLoadingMessages, chats, isJournalMode]);
 
   // Note: Optimistic messages are now handled via deduplication in useMemo above
   // No need for separate clearing logic that causes flickering
@@ -772,58 +1270,14 @@ function HomePage({}: Props) {
           <div className="space-y-4">
             {chats
               .filter((chat) => {
-                // Enhanced filtering for reflection journal type chats
-                const lowerTitle = chat.title?.toLowerCase() || '';
-                const lowerDesc = chat.description?.toLowerCase() || '';
-                const lowerAssistantId = chat.assistantId?.toLowerCase() || '';
-                const chatType = chat.type?.toLowerCase() || '';
-                const assistantType = ((chat as any).assistantType || '').toLowerCase();
-                
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[FILTER DEBUG] Checking chat: "${chat.title}" - type: "${chatType}", assistantType: "${assistantType}"`);
-                }
-
-                // Filter out reflectionJournal type chats (multiple variations)
-                if (chatType === "reflectionjournal" || chatType === "reflection-journal" || chatType === "journal") return false;
-                
-                // Check assistantType field specifically
-                if (assistantType === "reflectionjournal" || assistantType === "reflection-journal" || assistantType === "journal") return false;
-
-                // Comprehensive journal detection - check for any journal-related keywords
-                const journalKeywords = [
-                  "günlük", "journal", "farkındalık", "reflection",
-                  "harika şeyler", "şeyler günlüğü", "reflektion",
-                  "diary", "dagbok" // Additional variations
-                ];
-                
-                const hasJournalKeyword = journalKeywords.some(keyword =>
-                  lowerTitle.includes(keyword) ||
-                  lowerDesc.includes(keyword) ||
-                  lowerAssistantId.includes(keyword)
-                );
-                
-                if (hasJournalKeyword) {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(`[FILTER DEBUG] 🚫 Filtering out journal chat: "${chat.title}" - matched keyword`);
-                  }
-                  return false;
-                }
-
-                // Specific check for assistant IDs that might indicate journal type
-                if (lowerAssistantId.includes("journal") || lowerAssistantId.includes("reflection")) {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(`[FILTER DEBUG] 🚫 Filtering out by assistantId: "${chat.assistantId}"`);
-                  }
-                  return false;
-                }
-
-                // Filter out specific chat types and assistant types
+                // Filter out specific chat types and assistant types (keep non-journal filtering)
                 const excludedTypes = [
                   "accountability",
                   "flashcard",
                   "boolean-tester",
                   "fill-in-blanks",
                 ];
+
                 if (excludedTypes.includes(chat.type || "")) return false;
 
                 // Also check assistant type for the same excluded types
@@ -841,9 +1295,10 @@ function HomePage({}: Props) {
               })
               .map((chat) => {
                 const isActive = activeChat === chat.id;
+
                 return (
                   <div
-                    key={`chat-${chat.id}-${isActive ? 'active' : 'inactive'}`}
+                    key={`chat-${chat.id}-${isActive ? "active" : "inactive"}`}
                     onClick={() => {
                       if (activeChat !== chat.id) {
                         setIsTransitioningChat(true);
@@ -901,7 +1356,14 @@ function HomePage({}: Props) {
       <div
         className="flex-1 flex flex-col relative"
         style={{
-          backgroundImage: "url(/bg.png)",
+          backgroundImage:
+            activeChat &&
+            chats.find((chat) => chat.id === activeChat) &&
+            isReflectionJournalChat(
+              chats.find((chat) => chat.id === activeChat)!
+            )
+              ? "url(/journal/journal-bg.png)"
+              : "url(/bg.png)",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -909,126 +1371,155 @@ function HomePage({}: Props) {
       >
         <div className="absolute inset-0 bg-white opacity-50"></div>
         <div className="relative z-10 flex flex-col h-full">
-        {/* Chat Header */}
-        <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
-          <div className="flex items-center justify-between">
-            <h2 className="text-neutral-900 text-base font-semibold font-poppins leading-snug">
-              {activeChat
-                ? chats.find((chat) => chat.id === activeChat)?.title ||
-                  "Sohbet"
-                : "Bir sohbet seçin"}
-            </h2>
-            <div className="flex items-center gap-2">
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  className="p-2 hover:bg-icon-slate-white rounded"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                >
-                  <MoreHorizontal className="w-5 h-5 text-passive-icon" />
-                </button>
+          {/* Chat Header */}
+          <div className="bg-app-bar-bg p-4 border-b border-message-box-border">
+            <div className="flex items-center justify-between">
+              <h2 className="text-neutral-900 text-base font-semibold font-poppins leading-snug">
+                {activeChat
+                  ? chats.find((chat) => chat.id === activeChat)?.title ||
+                    "Sohbet"
+                  : "Bir sohbet seçin"}
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    className="p-2 hover:bg-icon-slate-white rounded"
+                    onClick={() => setShowDropdown(!showDropdown)}
+                  >
+                    <MoreHorizontal className="w-5 h-5 text-passive-icon" />
+                  </button>
 
-                {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-message-box-bg border border-message-box-border rounded-lg shadow-lg z-50">
-                    <div className="py-1">
-                      <button
-                        onClick={handleSignOut}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Çıkış Yap
-                      </button>
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-message-box-bg border border-message-box-border rounded-lg shadow-lg z-50">
+                      <div className="py-1">
+                        <button
+                          onClick={handleSignOut}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Çıkış Yap
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out">
-          {!activeChat ? (
-            <div className="flex items-center justify-center h-full text-center">
-              <div>
-                <h3 className="text-lg font-medium text-text-black mb-2">
-                  Bir sohbet seçin
-                </h3>
-                <p className="text-text-description-gray">
-                  Mesajları görüntülemek için sol taraftan bir sohbet seçin
-                </p>
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out">
+            {!activeChat ? (
+              <div className="flex items-center justify-center h-full text-center">
+                <div>
+                  <h3 className="text-lg font-medium text-text-black mb-2">
+                    Bir sohbet seçin
+                  </h3>
+                  <p className="text-text-description-gray">
+                    Mesajları görüntülemek için sol taraftan bir sohbet seçin
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : isLoadingMessages || isTransitioningChat ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <LottieSpinner size={120} />
-                <p className="text-text-description-gray text-sm mt-3">
-                  {isTransitioningChat ? "Sohbet değiştiriliyor..." : "Mesajlar yükleniyor..."}
-                </p>
+            ) : isLoadingMessages || isTransitioningChat ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <LottieSpinner size={120} />
+                  <p className="text-text-description-gray text-sm mt-3">
+                    {isTransitioningChat
+                      ? "Sohbet değiştiriliyor..."
+                      : "Mesajlar yükleniyor..."}
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-center">
-              <div>
-                <h3 className="text-lg font-medium text-text-black mb-2">
-                  Henüz mesaj yok
-                </h3>
-                <p className="text-text-description-gray">
-                  Bu sohbette henüz mesaj bulunmuyor
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4 max-w-4xl mx-auto">
-              {messages.map((message, index) => {
-                const isUser =
-                  message.sender === "user" || message.role === "user";
-                // Generate unique key using multiple identifiers
-                const messageKey = message.id || 
-                                 message.identifier || 
-                                 `${message.role}-${index}-${message.content?.substring(0, 50) || 'no-content'}-${message.createdAt}`;
-                
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[DEBUG] Message ${index} key:`, messageKey, {
-                    id: message.id,
-                    identifier: message.identifier,
-                    role: message.role,
-                    content: message.content?.substring(0, 30)
-                  });
-                }
-                
-                return (
-                  <div
-                    key={messageKey}
-                    className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${
-                      isUser
-                        ? "flex flex-col justify-center items-end pl-[300px] gap-2 w-full"
-                        : "flex items-start gap-3"
-                    }`}
-                  >
-                    {/* Avatar - Only show for AI messages */}
-                    {!isUser && (
-                      <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
+            ) : messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-center">
+                <div>
+                  {activeChat &&
+                  chats.find((chat) => chat.id === activeChat) &&
+                  isReflectionJournalChat(
+                    chats.find((chat) => chat.id === activeChat)!
+                  ) ? (
+                    /* Journal Empty State */
+                    <>
+                      <div className="mb-4">
                         <Image
-                          src="/up_face.svg"
-                          alt="UP Face"
-                          width={40}
-                          height={40}
-                          className="object-contain"
+                          src="/journal/up_no_look.svg"
+                          alt="Journal Avatar"
+                          width={44}
+                          height={44}
+                          className="mx-auto opacity-80"
                         />
                       </div>
-                    )}
+                      <p className="text-text-body-black/60 font-poppins text-sm">
+                        Günlüğünüzü yazmaya başlayın...
+                      </p>
+                    </>
+                  ) : (
+                    /* Regular Empty State */
+                    <>
+                      <h3 className="text-lg font-medium text-text-black mb-2">
+                        Henüz mesaj yok
+                      </h3>
+                      <p className="text-text-description-gray">
+                        Bu sohbette henüz mesaj bulunmuyor
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 max-w-4xl mx-auto">
+                {messages.map((message, index) => {
+                  // Console log for debugging
+                  // console.log(`[MESSAGE DEBUG] Index ${index}:`, {
+                  //   role: message.role,
+                  //   content: message.content?.substring(0, 100),
+                  //   sender: message.sender,
+                  //   type: message.type,
+                  // });
 
-                    {/* Message Content */}
-                    <div
-                      className={`${isUser ? "w-auto" : "flex-1 max-w-[80%]"}`}
-                    >
+                  const isUser =
+                    message.sender === "user" ||
+                    message.role === "user" ||
+                    message.role === "journal";
+                  // Generate unique key using multiple identifiers
+                  const messageKey =
+                    message.id ||
+                    message.identifier ||
+                    `${message.role}-${index}-${message.content?.substring(0, 50) || "no-content"}-${message.createdAt}`;
+
+                  // if (process.env.NODE_ENV === "development") {
+                  //   console.log(`[DEBUG] Message ${index} key:`, messageKey, {
+                  //     id: message.id,
+                  //     identifier: message.identifier,
+                  //     role: message.role,
+                  //     content: message.content?.substring(0, 30),
+                  //   });
+                  // }
+
+                  // Check if this is an Ayrac or JournalDate widget that should be rendered centered
+                  const isAyracWidget =
+                    message.type === "widget" &&
+                    (message.content?.includes('"widgetType":"Ayrac"') ||
+                      message.content?.includes('"widgetType": "Ayrac"'));
+
+                  const isJournalDateWidget =
+                    message.type === "widget" &&
+                    (message.content?.includes('"widgetType":"JournalDate"') ||
+                      message.content?.includes('"widgetType": "JournalDate"'));
+
+                  if (isAyracWidget || isJournalDateWidget) {
+                    console.log(`🎯 Rendering widget - Index ${index}:`, {
+                      isAyracWidget,
+                      isJournalDateWidget,
+                      messageType: message.type,
+                      content: message.content?.substring(0, 100),
+                    });
+                    // Render Ayrac/JournalDate widget as normal message (scrollable, not fixed)
+                    return (
                       <div
-                        className={`p-4 ${
-                          isUser
-                            ? "bg-blue-600 rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] text-white"
-                            : "bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-text-body-black"
-                        }`}
+                        key={messageKey}
+                        className="animate-in fade-in slide-in-from-bottom-2 duration-300 py-2 w-full flex justify-center"
                       >
                         <MessageRenderer
                           content={
@@ -1040,105 +1531,389 @@ function HomePage({}: Props) {
                           }
                           sender={isUser ? "user" : "ai"}
                           messageType={message.type}
+                          role={message.role}
+                        />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={messageKey}
+                      className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+                        isUser
+                          ? "flex flex-col justify-center items-end pl-[300px] gap-2 w-full"
+                          : "flex items-start gap-3"
+                      }`}
+                    >
+                      {/* Avatar - Only show for AI messages */}
+                      {!isUser && (
+                        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
+                          <Image
+                            src="/up_face.svg"
+                            alt="UP Face"
+                            width={40}
+                            height={40}
+                            className="object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {/* Message Content */}
+                      <div
+                        className={`${isUser ? "w-auto" : "flex-1 max-w-[80%]"}`}
+                      >
+                        <div
+                          className={`${
+                            // Check if this is a journal chat and message type to apply different styling
+                            (() => {
+                              // Message styling based on role only
+                              if (message.role === "user") {
+                                // User messages: blue background, white text
+                                return "p-4 bg-blue-600 rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] !text-white";
+                              } else if (message.role === "journal") {
+                                // Journal messages: yellowish background, black text
+                                return "p-4 bg-[#FFF1E6] rounded-tl-3xl rounded-tr-3xl rounded-bl-3xl shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] !text-black border border-[#FED7AA]";
+                              } else if (message.role === "assistant") {
+                                // Assistant messages: whitish background, black text
+                                return "p-4 bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl !text-black";
+                              } else {
+                                // Default fallback
+                                return "p-4 bg-white/55 border border-white/31 backdrop-blur rounded-tr-3xl rounded-bl-3xl rounded-br-3xl text-slate-900";
+                              }
+                            })()
+                          }`}
+                        >
+                          <MessageRenderer
+                            content={
+                              message.content ||
+                              message.text ||
+                              (message as any).message ||
+                              (message as any).body ||
+                              "Mesaj içeriği yok"
+                            }
+                            sender={isUser ? "user" : "ai"}
+                            messageType={message.type}
+                            role={message.role}
+                          />
+                        </div>
+
+                        {/* Action buttons - Only for AI messages but not widgets */}
+                        {!isUser && message.type !== "widget" && (
+                          <div className="flex items-center gap-2 mt-2 ml-2">
+                            <button
+                              onClick={() => {
+                                handleLikeDislike(
+                                  message.identifier || message.id,
+                                  "like",
+                                  message
+                                );
+                              }}
+                              className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                            >
+                              {messageLikes[
+                                message.identifier || message.id
+                              ] === "like" ? (
+                                <Image
+                                  src="/liked.svg"
+                                  alt="Liked"
+                                  width={16}
+                                  height={16}
+                                  className="w-4 h-4"
+                                />
+                              ) : (
+                                <ThumbsUp className="w-4 h-4 text-passive-icon" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleLikeDislike(
+                                  message.identifier || message.id,
+                                  "dislike",
+                                  message
+                                );
+                              }}
+                              className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                            >
+                              {messageLikes[
+                                message.identifier || message.id
+                              ] === "dislike" ? (
+                                <Image
+                                  src="/disliked.svg"
+                                  alt="Disliked"
+                                  width={16}
+                                  height={16}
+                                  className="w-4 h-4"
+                                />
+                              ) : (
+                                <ThumbsDown className="w-4 h-4 text-passive-icon" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                const content =
+                                  message.content ||
+                                  message.text ||
+                                  (message as any).message ||
+                                  (message as any).body ||
+                                  "";
+                                navigator.clipboard.writeText(content);
+                                toast.success("Mesaj kopyalandı");
+                              }}
+                              className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
+                            >
+                              <Copy className="w-4 h-4 text-passive-icon" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+
+          {/* Journal Action Buttons - Floating on the right */}
+          {activeChat &&
+            chats.find((chat) => chat.id === activeChat) &&
+            isReflectionJournalChat(
+              chats.find((chat) => chat.id === activeChat)!
+            ) &&
+            !isJournalMode && (
+              <div className="fixed right-8 bottom-32 flex flex-col gap-3 z-10">
+                <button
+                  onClick={async () => {
+                    if (isSendingMessage || !activeChat) return;
+                    const message = "Konuları özetle";
+                    setCurrentMessage(message);
+                    // Send message immediately
+                    await handleSendMessageWithText(message);
+                  }}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Konuları Özetle
+                  </div>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (isSendingMessage || !activeChat) return;
+                    const message = "Yazılanları maddelendir";
+                    setCurrentMessage(message);
+                    // Send message immediately
+                    await handleSendMessageWithText(message);
+                  }}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Maddelendir
+                  </div>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (isSendingMessage || !activeChat) return;
+                    const message = "Biraz motivasyon";
+                    setCurrentMessage(message);
+                    // Send message immediately
+                    await handleSendMessageWithText(message);
+                  }}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Biraz Motivasyon
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleToggleUp}
+                  disabled={isSendingMessage}
+                  data-property-1="Desktop"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                >
+                  <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
+                  </div>
+                  <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
+                    Çekilebilirsin UP
+                  </div>
+                </button>
+              </div>
+            )}
+
+          {/* Message Input */}
+          {activeChat &&
+          chats.find((chat) => chat.id === activeChat) &&
+          isReflectionJournalChat(
+            chats.find((chat) => chat.id === activeChat)!
+          ) ? (
+            /* Journal Style Input */
+            <div className="px-8 pb-6">
+              <div className="max-w-4xl mx-auto">
+                <div
+                  data-property-1="journel"
+                  className="w-full p-4 bg-white/60 shadow-[0px_-5px_8px_0px_rgba(239,193,179,0.30)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl"
+                >
+                  <div
+                    data-property-1="günlük"
+                    className="w-11 h-11 relative flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                    onClick={handleToggleUp}
+                  >
+                    <Image
+                      src={
+                        isJournalMode
+                          ? "/journal/up_no_look.svg"
+                          : "/up_face.svg"
+                      }
+                      alt={isJournalMode ? "Journal Mode" : "UP Face"}
+                      width={44}
+                      height={44}
+                      className="object-contain"
+                    />
+                  </div>
+
+                  <div
+                    data-l-icon="false"
+                    data-property-1="Default"
+                    data-r-icon="true"
+                    className="flex-1 h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex flex-col justify-center items-start gap-1 overflow-hidden"
+                  >
+                    <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
+                      <div className="flex-1 flex justify-start items-center gap-2">
+                        <input
+                          type="text"
+                          value={currentMessage}
+                          onChange={(e) => setCurrentMessage(e.target.value)}
+                          onKeyDown={handleKeyPress}
+                          placeholder="Buraya yazabilirsin"
+                          disabled={isSendingMessage || !activeChat}
+                          className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
                         />
                       </div>
 
-                      {/* Action buttons - Only for AI messages but not widgets */}
-                      {!isUser && message.type !== 'widget' && (
-                        <div className="flex items-center gap-2 mt-2 ml-2">
-                          <button
-                            onClick={() => {
-                              handleLikeDislike(message.identifier || message.id, "like", message);
-                            }}
-                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
-                          >
-                            {messageLikes[message.identifier || message.id] === "like" ? (
-                              <Image
-                                src="/liked.svg"
-                                alt="Liked"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                              />
-                            ) : (
-                              <ThumbsUp className="w-4 h-4 text-passive-icon" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => {
-                              handleLikeDislike(message.identifier || message.id, "dislike", message);
-                            }}
-                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
-                          >
-                            {messageLikes[message.identifier || message.id] === "dislike" ? (
-                              <Image
-                                src="/disliked.svg"
-                                alt="Disliked"
-                                width={16}
-                                height={16}
-                                className="w-4 h-4"
-                              />
-                            ) : (
-                              <ThumbsDown className="w-4 h-4 text-passive-icon" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => {
-                              const content =
-                                message.content ||
-                                message.text ||
-                                (message as any).message ||
-                                (message as any).body ||
-                                "";
-                              navigator.clipboard.writeText(content);
-                              toast.success("Mesaj kopyalandı");
-                            }}
-                            className="p-1.5 hover:bg-icon-slate-white rounded-full transition-colors"
-                          >
-                            <Copy className="w-4 h-4 text-passive-icon" />
-                          </button>
-                        </div>
-                      )}
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={
+                          isSendingMessage ||
+                          !activeChat ||
+                          !currentMessage.trim()
+                        }
+                        className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
+                      >
+                        {isSendingMessage ? (
+                          <div className="w-3 h-3 border border-neutral-800 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Image
+                            src="/journal/tuy.svg"
+                            alt="Send"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                          />
+                        )}
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Regular Input - Journal Style Size */
+            <div className="px-8 pb-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="w-full p-4 bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl">
+                  <div className="w-11 h-11 relative flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                    onClick={handleToggleUp}
+                  >
+                    <Image
+                      src="/up_face.svg"
+                      alt="UP Face"
+                      width={44}
+                      height={44}
+                      className="object-contain"
+                    />
+                  </div>
+                  
+                  <div
+                    data-l-icon="false"
+                    data-property-1="Default"
+                    data-r-icon="true"
+                    className="flex-1 h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex flex-col justify-center items-start gap-1 overflow-hidden"
+                  >
+                    <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
+                      <div className="flex-1 flex justify-start items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Buraya yazabilirsin"
+                          value={currentMessage}
+                          onChange={(e) => setCurrentMessage(e.target.value)}
+                          onKeyDown={handleKeyPress}
+                          disabled={isSendingMessage || !activeChat}
+                          className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
+                        />
+                      </div>
+                      
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={
+                          isSendingMessage || !activeChat || !currentMessage.trim()
+                        }
+                        className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
+                      >
+                        {isSendingMessage ? (
+                          <div className="w-4 h-4 border border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Send className="w-4 h-4 text-neutral-500" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-        </div>
-
-        {/* Message Input */}
-        <div className="w-full bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex flex-col justify-start items-start gap-2 p-4">
-          <div className="self-stretch h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex flex-col justify-center items-start gap-1 overflow-hidden">
-            <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
-              <div className="flex justify-start items-center gap-2 flex-1">
-                <input
-                  type="text"
-                  placeholder="Buraya yazabilirsin"
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  disabled={isSendingMessage || !activeChat}
-                  className="flex-1 bg-transparent text-black text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400 disabled:opacity-50"
-                />
-              </div>
-              <button
-                onClick={handleSendMessage}
-                disabled={
-                  isSendingMessage || !activeChat || !currentMessage.trim()
-                }
-                className="w-4 h-4 relative overflow-hidden flex items-center justify-center disabled:opacity-50 hover:opacity-70 transition-opacity"
-              >
-                {isSendingMessage ? (
-                  <div className="w-4 h-4 border border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Send className="w-4 h-4 text-neutral-500" />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
         </div>
       </div>
     </div>

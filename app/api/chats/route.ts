@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
     let previousToken: string | null = null; // Track previous token to detect loops
     let totalFetched = 0;
     const batchSize = 50; // Fetch in batches of 50
-    const MAX_CONVERSATIONS = 100; // Limit to first 100 conversations
-    const MAX_BATCHES = 2; // Maximum 2 batches to prevent infinite loop
+    const MAX_CONVERSATIONS = 500; // Limit to first 500 conversations
+    const MAX_BATCHES = 10; // Maximum 10 batches to prevent infinite loop
     let batchCount = 0;
 
     do {
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
       }
 
       const rawData = await lambda.json();
-      console.log("Raw Lambda response:", rawData);
+      console.log("/api/chats Raw Lambda response:", rawData);
 
       // Handle nested body structure
       let data;
@@ -258,12 +258,12 @@ export async function GET(req: NextRequest) {
     // Create lookup maps
     const assistantsMap = new Map();
     assistantsResults.forEach((result) => {
-      console.log(`Assistant result for ${result.assistantId}:`, result.data);
+      // console.log(`Assistant result for ${result.assistantId}:`, result.data);
       if (result.data) {
         assistantsMap.set(result.assistantId, result.data);
       }
     });
-    console.log("Assistants map size:", assistantsMap.size);
+    // console.log("Assistants map size:", assistantsMap.size);
 
     const groupsMap = new Map();
     groupsResults.forEach((result) => {
@@ -272,35 +272,19 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    console.log(
-      `Assistant data fetched: ${assistantsMap.size}, Group data fetched: ${groupsMap.size}`
-    );
+    // console.log(
+    //   `Assistant data fetched: ${assistantsMap.size}, Group data fetched: ${groupsMap.size}`
+    // );
 
-    // Filter out reflectionJournal type conversations before transformation
+    // Filter out specific type conversations before transformation (KEEP reflection journals now)
     const filteredConversations = allConversations.filter((chat: any) => {
       const assistant = assistantsMap.get(chat.assistantId);
 
-      // Filter out reflectionJournal type chats
-      if (chat.type === "reflectionJournal") return false;
-      if (assistant?.type === "reflectionJournal") return false;
-
-      // Filter out by assistant ID, title, or other identifiers
-      const isReflectionJournal =
-        (chat.assistantId || "").toLowerCase().includes("reflectionjournal") ||
-        (chat.title || "").toLowerCase().includes("günlük") ||
-        (chat.title || "").toLowerCase().includes("journal") ||
-        (chat.title || "").toLowerCase().includes("farkındalık") ||
-        (assistant?.name || "").toLowerCase().includes("günlük") ||
-        (assistant?.name || "").toLowerCase().includes("journal") ||
-        (assistant?.name || "").toLowerCase().includes("farkındalık");
-
-      if (isReflectionJournal) return false;
-
-      // Filter out other excluded types
+      // Filter out other excluded types but KEEP reflection journals
       const excludedTypes = [
         "accountability",
         "flashcard",
-        "boolean-tester",
+        "boolean-tester", 
         "fill-in-blanks",
       ];
       if (excludedTypes.includes(chat.type || "")) return false;
@@ -315,9 +299,17 @@ export async function GET(req: NextRequest) {
       const group = groupsMap.get(chat.assistantGroupId);
 
       // chat.iconUrl already contains the assistant icon URL from the conversation data
+      // Special title logic for reflection journal
+      const getTitle = () => {
+        if (chat.type === "reflectionJournal") {
+          return chat.title || "Günlük";
+        }
+        return chat.title || assistant?.title || "Untitled Chat";
+      };
+
       return {
         id: chat.idUpdatedAt,
-        title: chat.title || assistant?.title || "Untitled Chat",
+        title: getTitle(),
         description: chat.lastMessage,
         icon: assistant?.src || chat.iconUrl,
         hasNewMessage: chat.unreadCount > 0,
