@@ -55,6 +55,10 @@ export async function POST(
 
     console.log("[CHAT REQ] Sending message:", { message, assistantId, chatId });
 
+    // This endpoint now only handles streaming calls
+    // RTK Query uses /api/chats/[chatId]/message endpoint
+    console.log("[CHAT STREAM] Processing streaming request");
+
     // Prepare the request data (matching AWS Lambda format)
     const requestData = {
       message: message,
@@ -106,53 +110,27 @@ export async function POST(
       );
     }
 
-    // For streaming responses, we need to handle the stream
-    if (response.body) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      // Create a readable stream to pipe the response
-      const stream = new ReadableStream({
-        start(controller) {
-          function pump(): Promise<void> {
-            return reader.read().then(({ done, value }) => {
-              if (done) {
-                controller.close();
-                return;
-              }
-
-              // Decode and forward the chunk
-              const chunk = decoder.decode(value, { stream: true });
-              console.log("[CHAT RESPONSE] Lambda chunk received:", {
-                chunkLength: chunk.length,
-                chunkPreview: chunk.substring(0, 100) + (chunk.length > 100 ? "..." : ""),
-                containsDone: chunk.includes('[DONE-UP]'),
-                url: url
-              });
-              controller.enqueue(new TextEncoder().encode(chunk));
-              return pump();
-            });
-          }
-          return pump();
-        },
-      });
-
-      return new NextResponse(stream, {
+    // Check if response has a body for streaming
+    if (!response.body) {
+      const textResponse = await response.text();
+      console.log("[CHAT RESPONSE] No stream body, returning text:", textResponse.substring(0, 100));
+      return new NextResponse(textResponse, {
+        status: 200,
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
-          "Transfer-Encoding": "chunked",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
         },
       });
     }
 
-    // Fallback for non-streaming response
-    const data = await response.text();
-    return new NextResponse(data, {
+    // Stream the response directly from Lambda
+    console.log("[CHAT RESPONSE] ✅ Proxying stream response from Lambda");
+    return new NextResponse(response.body, {
       status: 200,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "text/plain; charset=utf-8",
+        "Transfer-Encoding": "chunked",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
       },
     });
   } catch (error: any) {

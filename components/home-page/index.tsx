@@ -1133,27 +1133,67 @@ function HomePage({}: Props) {
     }
   }, [activeChat, chats, messagesData]);
 
-  // Check for closed ayrac widget and disable journal mode when messages are loaded
+  // Determine journal mode based on ayrac widgets in messages
   useEffect(() => {
     if (activeChat && messages.length > 0 && !isLoadingMessages) {
-      const hasClosedAyrac = messages.some((msg) => {
-        try {
-          if (msg.content && msg.type === "ayrac-widget") {
-            const data = JSON.parse(msg.content);
-            return data.isOpen === false;
-          }
-        } catch (e) {
-          // Ignore parsing errors
-        }
-        return false;
-      });
+      const currentChat = chats.find((chat) => chat.id === activeChat);
+      
+      // Only for reflection journal chats
+      if (currentChat && isReflectionJournalChat(currentChat)) {
+        let hasOpenAyrac = false;
+        let lastAyracState = null;
 
-      // Disable journal mode if there's a closed ayrac
-      if (hasClosedAyrac) {
+        // Check all messages for ayrac widgets to determine the current state
+        messages.forEach((msg) => {
+          try {
+            if (msg.content && (msg.type === "widget" || msg.type === "ayrac-widget")) {
+              const data = JSON.parse(msg.content);
+              if (data.widgetType === "Ayrac") {
+                lastAyracState = data.isOpen;
+                hasOpenAyrac = data.isOpen === true;
+              }
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        });
+
+        // Also check optimistic messages
+        optimisticMessages.forEach((msg) => {
+          try {
+            if (msg.content && msg.type === "widget") {
+              const data = JSON.parse(msg.content);
+              if (data.widgetType === "Ayrac") {
+                lastAyracState = data.isOpen;
+                hasOpenAyrac = data.isOpen === true;
+              }
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        });
+
+        console.log("🔧 JOURNAL MODE - Ayrac state check:", {
+          hasOpenAyrac,
+          lastAyracState,
+          currentJournalMode: isJournalMode,
+          messagesCount: messages.length,
+          optimisticCount: optimisticMessages.length
+        });
+
+        // Set journal mode based on ayrac state
+        if (lastAyracState !== null) {
+          setIsJournalMode(hasOpenAyrac);
+        } else if (messages.length === 0) {
+          // No messages at all, default to false
+          setIsJournalMode(false);
+        }
+      } else {
+        // Not a reflection journal chat
         setIsJournalMode(false);
       }
     }
-  }, [activeChat, messages, isLoadingMessages]);
+  }, [activeChat, messages, optimisticMessages, isLoadingMessages, chats, isJournalMode]);
 
   // Note: Optimistic messages are now handled via deduplication in useMemo above
   // No need for separate clearing logic that causes flickering
@@ -1653,10 +1693,16 @@ function HomePage({}: Props) {
                   }}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
-                    <span className="text-amber-500 text-sm">✨</span>
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
                   </div>
                   <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
                     Konuları Özetle
@@ -1673,13 +1719,19 @@ function HomePage({}: Props) {
                   }}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
-                    <span className="text-amber-500 text-sm">✨</span>
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
                   </div>
                   <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
-                    Yazılanları Maddelendir
+                    Maddelendir
                   </div>
                 </button>
 
@@ -1693,10 +1745,16 @@ function HomePage({}: Props) {
                   }}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
-                    <span className="text-amber-500 text-sm">✨</span>
+                    <Image
+                      src="/images/star.svg"
+                      alt="Star"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                    />
                   </div>
                   <div className="justify-start text-zinc-800 text-base font-medium font-poppins leading-snug">
                     Biraz Motivasyon
@@ -1707,7 +1765,7 @@ function HomePage({}: Props) {
                   onClick={handleToggleUp}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="px-3 py-2 bg-white/60 rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl outline outline-1 outline-offset-[-1px] outline-violet-700 backdrop-blur-sm inline-flex justify-start items-center gap-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
                     <Image
@@ -1802,34 +1860,56 @@ function HomePage({}: Props) {
               </div>
             </div>
           ) : (
-            /* Regular Input */
-            <div className="w-full bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex flex-col justify-start items-start gap-2 p-4">
-              <div className="self-stretch h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 flex flex-col justify-center items-start gap-1 overflow-hidden">
-                <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
-                  <div className="flex justify-start items-center gap-2 flex-1">
-                    <input
-                      type="text"
-                      placeholder="Buraya yazabilirsin"
-                      value={currentMessage}
-                      onChange={(e) => setCurrentMessage(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      disabled={isSendingMessage || !activeChat}
-                      className="flex-1 bg-transparent text-black text-sm font-medium font-poppins leading-tight focus:outline-none placeholder:text-neutral-400 disabled:opacity-50"
+            /* Regular Input - Journal Style Size */
+            <div className="px-8 pb-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="w-full p-4 bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl">
+                  <div className="w-11 h-11 relative flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
+                    onClick={handleToggleUp}
+                  >
+                    <Image
+                      src="/up_face.svg"
+                      alt="UP Face"
+                      width={44}
+                      height={44}
+                      className="object-contain"
                     />
                   </div>
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={
-                      isSendingMessage || !activeChat || !currentMessage.trim()
-                    }
-                    className="w-4 h-4 relative overflow-hidden flex items-center justify-center disabled:opacity-50 hover:opacity-70 transition-opacity"
+                  
+                  <div
+                    data-l-icon="false"
+                    data-property-1="Default"
+                    data-r-icon="true"
+                    className="flex-1 h-11 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-neutral-200 inline-flex flex-col justify-center items-start gap-1 overflow-hidden"
                   >
-                    {isSendingMessage ? (
-                      <div className="w-4 h-4 border border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Send className="w-4 h-4 text-neutral-500" />
-                    )}
-                  </button>
+                    <div className="self-stretch flex-1 px-4 py-2 bg-white rounded-[999px] shadow-[0px_2px_9px_0px_rgba(0,0,0,0.08)] inline-flex justify-between items-center overflow-hidden">
+                      <div className="flex-1 flex justify-start items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Buraya yazabilirsin"
+                          value={currentMessage}
+                          onChange={(e) => setCurrentMessage(e.target.value)}
+                          onKeyDown={handleKeyPress}
+                          disabled={isSendingMessage || !activeChat}
+                          className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
+                        />
+                      </div>
+                      
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={
+                          isSendingMessage || !activeChat || !currentMessage.trim()
+                        }
+                        className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
+                      >
+                        {isSendingMessage ? (
+                          <div className="w-4 h-4 border border-neutral-500 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Send className="w-4 h-4 text-neutral-500" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

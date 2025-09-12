@@ -25,7 +25,7 @@ const baseQuery = fetchBaseQuery({
 });
 
 const localApiQuery = fetchBaseQuery({
-  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000/",
+  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "/",
   prepareHeaders: async (headers) => {
     try {
       const session = await fetchAuthSession();
@@ -153,7 +153,7 @@ export const api = createApi({
     }),
     sendChatMessage: build.mutation<any, { chatId: string; message: string; assistantId: string }>({
       query: ({ chatId, message, assistantId }) => ({
-        url: `/api/chats/${chatId}/send`,
+        url: `/api/chats/${chatId}/message`,
         method: "POST",
         body: { message, assistantId },
       }),
