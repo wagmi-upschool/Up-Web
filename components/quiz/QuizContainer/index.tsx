@@ -100,7 +100,25 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     if (currentSession && apiQuestions.length === 0) {
       console.log("Setting questions from session data:", currentSession.questions);
       if (currentSession.questions && currentSession.questions.length > 0) {
-        setApiQuestions(currentSession.questions);
+        // Transform session questions to our format
+        const transformedQuestions: QuizQuestion[] = currentSession.questions.map((q: any, index: number) => ({
+          id: q.question_id || `question-${index}`,
+          questionId: q.question_id || `question-${index}`,
+          title: q.question_text || q.title,
+          description: q.answer_text || q.description,
+          options: (q.options || []).map((optionText: string, optionIndex: number) => ({
+            id: `option-${optionIndex}`,
+            text: optionText,
+            value: optionText,
+          })),
+          correctOptionId: q.correct_option_index !== undefined ? `option-${q.correct_option_index}` : q.correctOptionId,
+          sequenceNumber: q.sequence_number || (index + 1),
+          state: QuizQuestionState.Initial,
+        }));
+        
+        console.log("Transformed session questions:", transformedQuestions);
+        setApiQuestions(transformedQuestions);
+        
         // If we have conversationId from URL and session has questions, go to question phase
         if (searchParams.get('conversationId')) {
           console.log("Session loaded with questions, going to question phase");

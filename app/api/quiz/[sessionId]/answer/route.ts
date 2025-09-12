@@ -34,18 +34,22 @@ export async function POST(
     
     console.log("Answer submission:", { questionId, selectedOptionId, userAnswer, timeSpentSeconds });
 
-    // Prepare request body for reinforcement update API
+    // Prepare request body for reinforcement update API - try snake_case fields
     const reinforcementBody = {
       state: "answered",
       user_answer: userAnswer || selectedOptionId,
-      time_spent_seconds: timeSpentSeconds || 0
+      time_spent_seconds: timeSpentSeconds || 0,
+      selected_option_id: selectedOptionId
     };
 
     console.log("Calling reinforcement update API with:", reinforcementBody);
 
-    // Call the real reinforcement update API
+    // Call the real reinforcement update API - both as query parameters
     const reinforcementUrl = `${process.env.REMOTE_URL}/user/${userId}/reinforcement/sessions?conversationId=${sessionId}&questionId=${questionId}`;
     const tokenToUse = idTokenHeader || authHeader.replace("Bearer ", "");
+
+    console.log("Calling reinforcement URL:", reinforcementUrl);
+    console.log("Request body:", JSON.stringify(reinforcementBody, null, 2));
 
     const response = await fetch(reinforcementUrl, {
       method: "PUT",
@@ -59,13 +63,24 @@ export async function POST(
     console.log("Reinforcement update API response status:", response.status);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Reinforcement update API error:", errorData);
+      const errorText = await response.text();
+      console.error("Reinforcement update API raw error response:", errorText);
+      
+      let errorData = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        console.error("Error response is not JSON:", errorText);
+        errorData = { message: errorText };
+      }
+      
+      console.error("Reinforcement update API parsed error:", errorData);
       return NextResponse.json(
         {
           statusCode: response.status,
           statusMessage: "Failed to submit answer",
-          error: errorData.error || "Unknown error from reinforcement API",
+          error: (errorData as any).error || (errorData as any).message || "Unknown error from reinforcement API",
+          rawError: errorText,
         },
         { status: response.status }
       );

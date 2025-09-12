@@ -64,17 +64,25 @@ export async function GET(
     // Calculate results from the questions data
     const questions = reinforcementData.questions || [];
     const answeredQuestions = questions.filter((q: any) => q.state === "answered");
-    const correctAnswers = answeredQuestions.filter((q: any) => q.user_answer === q.answer_text || q.user_answer === q.correct_answer_id).length;
+    // Try both snake_case and camelCase field names for user answers
+    const correctAnswers = answeredQuestions.filter((q: any) => 
+      (q.user_answer || q.userAnswer) === q.answer_text || 
+      (q.user_answer || q.userAnswer) === q.correct_answer_id
+    ).length;
     const totalQuestions = questions.length;
     const incorrectAnswers = answeredQuestions.length - correctAnswers;
     const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-    const totalTimeSpent = questions.reduce((total: number, q: any) => total + (q.time_spent_seconds || 0), 0);
+    const totalTimeSpent = questions.reduce((total: number, q: any) => total + (q.time_spent_seconds || q.timeSpentSeconds || 0), 0);
 
     // Transform answers to expected format
     const answers: { [key: string]: string } = {};
     questions.forEach((q: any, index: number) => {
-      if (q.user_answer) {
-        answers[`question-${index + 1}`] = q.user_answer;
+      // Try both snake_case and camelCase field names for user answers
+      const userAnswer = q.user_answer || q.userAnswer;
+      if (userAnswer) {
+        // Use actual questionId from the data, fallback to index-based ID
+        const questionKey = q.question_id || `question-${index + 1}`;
+        answers[questionKey] = userAnswer;
       }
     });
 
@@ -100,9 +108,9 @@ export async function GET(
         correctOptionId: q.correct_answer_id,
         sequenceNumber: q.sequence_number || (index + 1),
         state: q.state || "initial",
-        userAnswer: q.user_answer,
-        timeSpentSeconds: q.time_spent_seconds,
-        isCorrect: q.user_answer === q.answer_text || q.user_answer === q.correct_answer_id
+        userAnswer: q.user_answer || q.userAnswer,
+        timeSpentSeconds: q.time_spent_seconds || q.timeSpentSeconds,
+        isCorrect: (q.user_answer || q.userAnswer) === q.answer_text || (q.user_answer || q.userAnswer) === q.correct_answer_id
       }))
     };
 
