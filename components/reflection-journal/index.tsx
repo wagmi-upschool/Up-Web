@@ -159,7 +159,7 @@ const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
         </div>
 
         {/* Input Area - Journal Style */}
-        <div className="px-8 pb-6">
+        <div className="px-8 pb-6 bg-white">
           <div className="max-w-4xl mx-auto">
             <div 
               data-property-1="journel" 

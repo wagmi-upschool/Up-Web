@@ -716,8 +716,10 @@ function HomePage({}: Props) {
 
         const currentDate = formatJournalDate();
         const dateId = crypto.randomUUID();
-        const dateTimestamp = formatMobileDateTime(new Date(baseDateTime.getTime() + 1));
-        
+        const dateTimestamp = formatMobileDateTime(
+          new Date(baseDateTime.getTime() + 1)
+        );
+
         const dateWidget = {
           id: dateId,
           identifier: dateId,
@@ -757,12 +759,15 @@ function HomePage({}: Props) {
 
       // Save widgets to backend immediately
       if (widgetsToSave.length > 0) {
-        console.log("🔧 BUTTON TOGGLE - Saving widgets:", widgetsToSave.map(w => ({ 
-          id: w.id, 
-          type: w.type, 
-          createdAt: w.createdAt,
-          content: w.content?.substring(0, 50) 
-        })));
+        console.log(
+          "🔧 BUTTON TOGGLE - Saving widgets:",
+          widgetsToSave.map((w) => ({
+            id: w.id,
+            type: w.type,
+            createdAt: w.createdAt,
+            content: w.content?.substring(0, 50),
+          }))
+        );
 
         try {
           const user = await getCurrentUser();
@@ -775,13 +780,18 @@ function HomePage({}: Props) {
             userId: user.userId,
             localDateTime: timestamp,
             title: currentChat.title,
-            lastMessage: newJournalMode ? "Günlük başlatıldı" : "Günlük sonlandırıldı",
+            lastMessage: newJournalMode
+              ? "Günlük başlatıldı"
+              : "Günlük sonlandırıldı",
             conversationId: activeChat,
           });
 
           console.log("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
-          toast.success(newJournalMode ? "Günlük modu başlatıldı!" : "Günlük modu sonlandırıldı!");
-          
+          toast.success(
+            newJournalMode
+              ? "Günlük modu başlatıldı!"
+              : "Günlük modu sonlandırıldı!"
+          );
         } catch (saveError) {
           console.error("🔧 BUTTON TOGGLE - Error saving widgets:", saveError);
           toast.error("Widget'lar kaydedilemedi");
@@ -926,7 +936,11 @@ function HomePage({}: Props) {
       let currentActiveChat = chats.find((chat) => chat.id === activeChat);
 
       // If chat not found in main chats array, check if we can create a synthetic one from message data
-      if (!currentActiveChat && messagesData?.messages && messagesData.messages.length > 0) {
+      if (
+        !currentActiveChat &&
+        messagesData?.messages &&
+        messagesData.messages.length > 0
+      ) {
         const firstMessage = messagesData.messages[0];
         // Create synthetic chat object from message data
         currentActiveChat = {
@@ -1036,7 +1050,9 @@ function HomePage({}: Props) {
           // Add JournalDate widget if missing with 1ms offset
           if (needsJournalDate) {
             const dateId = crypto.randomUUID();
-            const journalDateTime = formatMobileDateTime(new Date(baseDateTime.getTime() + 1));
+            const journalDateTime = formatMobileDateTime(
+              new Date(baseDateTime.getTime() + 1)
+            );
             const dateWidget = {
               id: dateId,
               identifier: dateId,
@@ -1139,7 +1155,7 @@ function HomePage({}: Props) {
   useEffect(() => {
     if (activeChat && messages.length > 0 && !isLoadingMessages) {
       const currentChat = chats.find((chat) => chat.id === activeChat);
-      
+
       // Only for reflection journal chats
       if (currentChat && isReflectionJournalChat(currentChat)) {
         let hasOpenAyrac = false;
@@ -1148,7 +1164,10 @@ function HomePage({}: Props) {
         // Check all messages for ayrac widgets to determine the current state
         messages.forEach((msg) => {
           try {
-            if (msg.content && (msg.type === "widget" || msg.type === "ayrac-widget")) {
+            if (
+              msg.content &&
+              (msg.type === "widget" || msg.type === "ayrac-widget")
+            ) {
               const data = JSON.parse(msg.content);
               if (data.widgetType === "Ayrac") {
                 lastAyracState = data.isOpen;
@@ -1180,7 +1199,7 @@ function HomePage({}: Props) {
           lastAyracState,
           currentJournalMode: isJournalMode,
           messagesCount: messages.length,
-          optimisticCount: optimisticMessages.length
+          optimisticCount: optimisticMessages.length,
         });
 
         // Set journal mode based on ayrac state
@@ -1195,7 +1214,14 @@ function HomePage({}: Props) {
         setIsJournalMode(false);
       }
     }
-  }, [activeChat, messages, optimisticMessages, isLoadingMessages, chats, isJournalMode]);
+  }, [
+    activeChat,
+    messages,
+    optimisticMessages,
+    isLoadingMessages,
+    chats,
+    isJournalMode,
+  ]);
 
   // Note: Optimistic messages are now handled via deduplication in useMemo above
   // No need for separate clearing logic that causes flickering
@@ -1228,8 +1254,26 @@ function HomePage({}: Props) {
           <div className="flex flex-col items-center gap-2">
             <div className="w-16 h-16 flex items-center justify-center">
               <Image
-                src="/up_face.svg"
-                alt="UP Face"
+                src={
+                  isJournalMode ||
+                  (activeChat &&
+                    chats.find((c) => c.id === activeChat) &&
+                    isReflectionJournalChat(
+                      chats.find((c) => c.id === activeChat)!
+                    ))
+                    ? "/journal/up_no_look.svg"
+                    : "/up_face.svg"
+                }
+                alt={
+                  isJournalMode ||
+                  (activeChat &&
+                    chats.find((c) => c.id === activeChat) &&
+                    isReflectionJournalChat(
+                      chats.find((c) => c.id === activeChat)!
+                    ))
+                    ? "Journal Mode"
+                    : "UP Face"
+                }
                 width={64}
                 height={64}
                 className="object-contain"
@@ -1273,10 +1317,7 @@ function HomePage({}: Props) {
             {chats
               .filter((chat) => {
                 // Filter out specific chat types and assistant types (keep non-journal filtering)
-                const excludedTypes = [
-                  "accountability",
-                  "boolean-tester",
-                ];
+                const excludedTypes = ["accountability", "boolean-tester"];
 
                 if (excludedTypes.includes(chat.type || "")) return false;
 
@@ -1292,7 +1333,10 @@ function HomePage({}: Props) {
                   return false;
 
                 // Filter out chats whose IDs start with 'up' or 'Up'
-                if (chat.id && (chat.id.startsWith('up') || chat.id.startsWith('Up'))) {
+                if (
+                  chat.id &&
+                  (chat.id.startsWith("up") || chat.id.startsWith("Up"))
+                ) {
                   return false;
                 }
 
@@ -1308,7 +1352,9 @@ function HomePage({}: Props) {
                       // Check if this is a quiz conversation
                       if ((chat as any).isQuiz) {
                         // Redirect to quiz page with the assistant ID and conversation ID
-                        router.push(`/quiz/${chat.assistantId}?title=${encodeURIComponent(chat.title)}&conversationId=${chat.id}&assistantGroupId=${chat.assistantGroupId || ''}`);
+                        router.push(
+                          `/quiz/${chat.assistantId}?title=${encodeURIComponent(chat.title)}&conversationId=${chat.id}&assistantGroupId=${chat.assistantGroupId || ""}`
+                        );
                         return;
                       }
 
@@ -1561,10 +1607,28 @@ function HomePage({}: Props) {
                     >
                       {/* Avatar - Only show for AI messages */}
                       {!isUser && (
-                        <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
+                        <div className=" w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
                           <Image
-                            src="/up_face.svg"
-                            alt="UP Face"
+                            src={
+                              isJournalMode ||
+                              (activeChat &&
+                                chats.find((c) => c.id === activeChat) &&
+                                isReflectionJournalChat(
+                                  chats.find((c) => c.id === activeChat)!
+                                ))
+                                ? "/journal/up_no_look.svg"
+                                : "/up_face.svg"
+                            }
+                            alt={
+                              isJournalMode ||
+                              (activeChat &&
+                                chats.find((c) => c.id === activeChat) &&
+                                isReflectionJournalChat(
+                                  chats.find((c) => c.id === activeChat)!
+                                ))
+                                ? "Journal Mode"
+                                : "UP Face"
+                            }
                             width={40}
                             height={40}
                             className="object-contain"
@@ -1872,23 +1936,11 @@ function HomePage({}: Props) {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeChat ? (
             /* Regular Input - Journal Style Size */
             <div className="px-8 pb-6">
               <div className="max-w-4xl mx-auto">
                 <div className="w-full p-4 bg-white/60 shadow-[0px_-5px_8px_0px_rgba(162,174,255,0.25)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl">
-                  <div className="w-11 h-11 relative flex-shrink-0 cursor-pointer hover:opacity-70 transition-opacity"
-                    onClick={handleToggleUp}
-                  >
-                    <Image
-                      src="/up_face.svg"
-                      alt="UP Face"
-                      width={44}
-                      height={44}
-                      className="object-contain"
-                    />
-                  </div>
-                  
                   <div
                     data-l-icon="false"
                     data-property-1="Default"
@@ -1907,11 +1959,13 @@ function HomePage({}: Props) {
                           className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
                         />
                       </div>
-                      
+
                       <button
                         onClick={handleSendMessage}
                         disabled={
-                          isSendingMessage || !activeChat || !currentMessage.trim()
+                          isSendingMessage ||
+                          !activeChat ||
+                          !currentMessage.trim()
                         }
                         className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
                       >
@@ -1926,7 +1980,7 @@ function HomePage({}: Props) {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

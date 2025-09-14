@@ -46,8 +46,6 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
         backgroundRepeat: "no-repeat",
       }}
     >
-      {/* Background overlay with opacity */}
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
 
       {/* UP Logo */}
       <div className="absolute top-6 left-6 z-10">
