@@ -39,8 +39,24 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex-1 bg-bg-main flex items-center justify-center">
-        <div className="text-center">
+      <div 
+        className="flex-1 flex items-center justify-center relative"
+        style={{
+          backgroundImage: 'url(/bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        {/* Background overlay with opacity */}
+        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+        
+        {/* UP Logo */}
+        <div className="absolute top-6 left-6 z-10">
+          <img src="/up.png" alt="UP" className="h-12 w-auto" />
+        </div>
+        
+        <div className="text-center bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="font-poppins text-text-body-black">Sonuçlar hesaplanıyor...</p>
         </div>
@@ -49,8 +65,24 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
   }
 
   return (
-    <div className="flex-1 bg-bg-main overflow-y-auto py-12 px-6">
-      <div className="max-w-2xl mx-auto">
+    <div 
+      className="flex-1 overflow-y-auto py-12 px-6 relative"
+      style={{
+        backgroundImage: 'url(/bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Background overlay with opacity */}
+      <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+      
+      {/* UP Logo */}
+      <div className="absolute top-6 left-6 z-10">
+        <img src="/up.png" alt="UP" className="h-12 w-auto" />
+      </div>
+      
+      <div className="max-w-2xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
         {/* Congratulations Header */}
         <div className="text-center mb-12">
           <div className="w-24 h-24 bg-light-blue rounded-full flex items-center justify-center mx-auto mb-6">

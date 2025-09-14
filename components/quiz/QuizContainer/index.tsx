@@ -11,8 +11,6 @@ import {
 import QuizIntroduction from "../QuizIntroduction";
 import QuizQuestionComponent from "../QuizQuestion";
 import QuizResultsComponent from "../QuizResults";
-import QuizProgress from "../QuizProgress";
-import QuizNavigation from "../QuizNavigation";
 import toast from "react-hot-toast";
 import { ExistingQuizData, QuizQuestion, QuizQuestionState } from "@/types/type";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -407,29 +405,16 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
         )}
 
         {phase === 'question' && activeQuestions.length > 0 && (
-          <>
-            <QuizProgress
-              currentQuestion={currentQuestionIndex + 1}
-              totalQuestions={totalQuestions}
-              answeredCount={answeredCount}
-              title={existingQuizData?.title || currentSession?.title || title || "Quiz"}
-            />
-            
             <QuizQuestionComponent
               question={currentQuestion}
               selectedOption={answers[currentQuestion.questionId]}
               onOptionSelect={(optionId, userAnswer) => handleAnswerSelect(currentQuestion.questionId, optionId, userAnswer)}
-            />
-            
-            <QuizNavigation
               currentQuestionIndex={currentQuestionIndex}
               totalQuestions={totalQuestions}
-              hasAnswer={hasAnswerForCurrentQuestion}
               onPrevious={handlePrevious}
               onNext={handleNext}
               onFinish={handleFinishQuiz}
             />
-          </>
         )}
 
         {phase === 'results' && (resultsData || existingQuestions.length > 0 || apiQuestions.length > 0) && (

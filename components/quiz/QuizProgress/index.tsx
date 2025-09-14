@@ -24,8 +24,19 @@ const QuizProgress: React.FC<QuizProgressProps> = ({
     : 0;
 
   return (
-    <div className="bg-white border-b border-border-gray px-6 py-4 shadow-sm">
-      <div className="max-w-3xl mx-auto">
+    <div 
+      className="border-b border-border-gray px-6 py-4 shadow-sm relative"
+      style={{
+        backgroundImage: 'url(/bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* Background overlay */}
+      <div className="absolute inset-0 bg-white/90 backdrop-blur-sm"></div>
+      
+      <div className="max-w-3xl mx-auto relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -47,57 +58,20 @@ const QuizProgress: React.FC<QuizProgressProps> = ({
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          {/* Main Progress */}
-          <div className="flex items-center gap-3">
-            <span className="font-poppins text-sm text-text-body-black min-w-fit">
-              İlerleme
-            </span>
-            <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-primary to-blue-500 h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${Math.max(completionPercentage, 5)}%` }}
-              />
-            </div>
-            <span className="font-poppins text-sm font-medium text-primary min-w-fit">
-              {Math.round(completionPercentage)}%
-            </span>
+        {/* Single Progress Bar - İlerliyoruz */}
+        <div className="flex items-center gap-3">
+          <span className="font-poppins text-sm text-text-body-black min-w-fit">
+            İlerliyoruz
+          </span>
+          <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
+            <div 
+              className="bg-gradient-to-r from-primary to-blue-500 h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${Math.max(completionPercentage, 5)}%` }}
+            />
           </div>
-
-        </div>
-
-        {/* Progress Indicators */}
-        <div className="flex justify-between items-center mt-4 pt-2">
-          <div className="flex gap-1">
-            {Array.from({ length: totalQuestions }, (_, index) => {
-              const questionNumber = index + 1;
-              const isAnswered = answeredCount > index;
-              const isCurrent = currentQuestion === questionNumber;
-              
-              return (
-                <div
-                  key={index}
-                  className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                    isCurrent
-                      ? "bg-primary ring-2 ring-primary/30 scale-125"
-                      : isAnswered
-                      ? "bg-green-500"
-                      : "bg-gray-300"
-                  }`}
-                  title={`Soru ${questionNumber}${isAnswered ? " - Cevaplandı" : ""}${isCurrent ? " - Şu anki" : ""}`}
-                />
-              );
-            })}
-          </div>
-          
-          {/* Status Text */}
-          <div className="font-poppins text-xs text-text-light">
-            {answeredCount === totalQuestions 
-              ? "Tüm sorular cevaplandı!" 
-              : `${totalQuestions - answeredCount} soru kaldı`
-            }
-          </div>
+          <span className="font-poppins text-sm font-medium text-primary min-w-fit">
+            {Math.round(completionPercentage)}%
+          </span>
         </div>
       </div>
     </div>
