@@ -205,6 +205,19 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
           </div>
         </div>
 
+        {/* Backend Data Issue Warning */}
+        {results.isLocalCalculation && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-8">
+            <h3 className="font-poppins font-semibold text-orange-800 mb-2">
+              ⚠️ Teknik Bilgi
+            </h3>
+            <p className="font-poppins text-sm text-orange-700 leading-relaxed">
+              Sonuçlar yerel hesaplama ile oluşturulmuştur. Backend veri erişiminde geçici bir sorun yaşandı ancak 
+              cevaplarınız başarıyla kaydedildi ve skorunuz doğru hesaplandı.
+            </p>
+          </div>
+        )}
+
         {/* Important Note */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
           <h3 className="font-poppins font-semibold text-yellow-800 mb-2">

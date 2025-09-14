@@ -44,6 +44,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   const [existingQuestions, setExistingQuestions] = useState<QuizQuestion[]>([]);
   const [apiQuestions, setApiQuestions] = useState<QuizQuestion[]>([]); // Store questions from API
   const [isStartingQuiz, setIsStartingQuiz] = useState(false);
+  const [isFinishingQuiz, setIsFinishingQuiz] = useState(false);
 
   const [startQuizSession] = useStartQuizSessionMutation();
   const [submitQuizAnswer] = useSubmitQuizAnswerMutation();
@@ -257,7 +258,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
         const optionIndex = currentQuestion.options.findIndex(opt => opt.text === selectedAnswer);
         const selectedOptionId = optionIndex >= 0 ? `option-${optionIndex}` : selectedAnswer;
         
-        await submitQuizAnswer({
+        const answerResult = await submitQuizAnswer({
           sessionId: conversationId,
           questionId: currentQuestion.questionId,
           selectedOptionId: selectedOptionId,
@@ -265,11 +266,20 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
           timeSpentSeconds: 0,
         });
 
-        if (currentQuestionIndex < activeQuestions.length - 1) {
-          setCurrentQuestionIndex(prev => prev + 1);
+        console.log("Answer submission result:", answerResult);
+
+        // Ensure we got a successful response before proceeding
+        if ('data' in answerResult && answerResult.data) {
+          if (currentQuestionIndex < activeQuestions.length - 1) {
+            setCurrentQuestionIndex(prev => prev + 1);
+          } else {
+            // Last question - finish quiz
+            await handleFinishQuiz();
+          }
         } else {
-          // Last question - finish quiz
-          await handleFinishQuiz();
+          console.error("Answer submission failed:", answerResult);
+          toast.error("Cevap kaydedilirken hata oluştu");
+          return; // Don't proceed if answer submission failed
         }
       } catch (error) {
         console.error("Error submitting answer:", error);
@@ -315,6 +325,48 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
 
   // Handle quiz finish
   const handleFinishQuiz = async () => {
+    setIsFinishingQuiz(true);
+    
+    try {
+      // IMPORTANT: Submit the current (last) question's answer before finishing
+      if (currentQuestion) {
+        const selectedAnswer = answers[currentQuestion.questionId];
+      
+      // If we have an answer for the current question, submit it first
+      if (selectedAnswer && apiQuestions.length > 0 && conversationId) {
+        try {
+          console.log("Submitting final question answer before finishing quiz");
+          // Convert option text to option index for backend
+          const optionIndex = currentQuestion.options.findIndex(opt => opt.text === selectedAnswer);
+          const selectedOptionId = optionIndex >= 0 ? `option-${optionIndex}` : selectedAnswer;
+          
+          const answerResult = await submitQuizAnswer({
+            sessionId: conversationId,
+            questionId: currentQuestion.questionId,
+            selectedOptionId: selectedOptionId,
+            userAnswer: selectedAnswer,
+            timeSpentSeconds: 0,
+          });
+          
+          console.log("Final answer submission result:", answerResult);
+          
+          if ('data' in answerResult && answerResult.data) {
+            console.log("Final answer submitted successfully - backend confirmed");
+            // Additional delay to ensure backend processes the answer completely
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            console.error("Final answer submission returned error:", answerResult);
+            // Still continue but with warning
+            toast.error("Son cevap kaydedilirken sorun oluştu, ancak quiz tamamlandı");
+          }
+        } catch (error) {
+          console.error("Error submitting final answer:", error);
+          toast.error("Son cevap kaydedilirken hata oluştu");
+          // Continue with quiz finish even if final answer submission fails
+        }
+      }
+    }
+
     // For existing quiz data or API-loaded questions, just go to results phase
     if (existingQuizData && existingQuestions.length > 0) {
       setPhase('results');
@@ -339,6 +391,9 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     } catch (error) {
       console.error("Error finishing quiz:", error);
       toast.error("Quiz tamamlanırken hata oluştu");
+    }
+    } finally {
+      setIsFinishingQuiz(false);
     }
   };
 
@@ -414,21 +469,72 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
               onPrevious={handlePrevious}
               onNext={handleNext}
               onFinish={handleFinishQuiz}
+              isLoading={isFinishingQuiz}
             />
         )}
 
         {phase === 'results' && (resultsData || existingQuestions.length > 0 || apiQuestions.length > 0) && (
           <QuizResultsComponent
-            results={resultsData || {
-              sessionId: existingQuizData?.conversationId || 'local-session',
-              score: Math.round((answeredCount / totalQuestions) * 100),
-              correctAnswers: 0, // We don't have correct answer data for existing conversations
-              incorrectAnswers: 0,
-              totalQuestions,
-              completedAt: new Date().toISOString(),
-              answers,
-              timeSpent: 0,
-            }}
+            results={(() => {
+              // If we have results data from backend and it contains questions, use it
+              if (resultsData && !resultsData.error && resultsData.totalQuestions > 0) {
+                return resultsData;
+              }
+              
+              // If backend returned error or empty questions but we have local questions, calculate locally
+              if ((resultsData?.error === 'backend_data_missing' || !resultsData) && (apiQuestions.length > 0 || existingQuestions.length > 0)) {
+                console.log("Backend data missing, calculating results locally");
+                
+                // Calculate score based on local questions and answers
+                const localQuestions = apiQuestions.length > 0 ? apiQuestions : existingQuestions;
+                let correctAnswers = 0;
+                
+                // Count correct answers by comparing with stored question data
+                localQuestions.forEach(question => {
+                  const userAnswer = answers[question.questionId];
+                  if (userAnswer && question.options.length > 0) {
+                    // For multiple choice, find the correct option
+                    const correctOption = question.options.find(opt => opt.id === question.correctOptionId);
+                    if (correctOption && correctOption.text === userAnswer) {
+                      correctAnswers++;
+                    }
+                  }
+                });
+                
+                const score = localQuestions.length > 0 ? Math.round((correctAnswers / answeredCount) * 100) : 0;
+                
+                console.log("Local results calculation:", {
+                  totalQuestions: localQuestions.length,
+                  answeredCount,
+                  correctAnswers,
+                  score
+                });
+                
+                return {
+                  sessionId: conversationId || existingQuizData?.conversationId || 'local-session',
+                  score: score,
+                  correctAnswers: correctAnswers,
+                  incorrectAnswers: answeredCount - correctAnswers,
+                  totalQuestions: localQuestions.length,
+                  completedAt: new Date().toISOString(),
+                  answers,
+                  timeSpent: 0,
+                  isLocalCalculation: true,
+                };
+              }
+              
+              // Fallback for existing conversations without backend data
+              return {
+                sessionId: existingQuizData?.conversationId || 'local-session',
+                score: Math.round((answeredCount / totalQuestions) * 100),
+                correctAnswers: 0, // We don't have correct answer data for existing conversations
+                incorrectAnswers: 0,
+                totalQuestions,
+                completedAt: new Date().toISOString(),
+                answers,
+                timeSpent: 0,
+              };
+            })()}
             onRestart={() => {
               setPhase('introduction');
               setSessionId(null);

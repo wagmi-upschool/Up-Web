@@ -64,14 +64,63 @@ export async function GET(
     // Calculate results from the questions data
     const questions = reinforcementData.questions || [];
     const answeredQuestions = questions.filter((q: any) => q.state === "answered");
-    // Try both snake_case and camelCase field names for user answers
-    const correctAnswers = answeredQuestions.filter((q: any) => 
-      (q.user_answer || q.userAnswer) === q.answer_text || 
-      (q.user_answer || q.userAnswer) === q.correct_answer_id
-    ).length;
-    const totalQuestions = questions.length;
+    
+    console.log("Total questions from backend:", questions.length);
+    console.log("Answered questions:", answeredQuestions.length);
+    
+    // If backend returned empty questions but we have a session, try to get questions count from total_questions
+    if (questions.length === 0 && reinforcementData.total_questions > 0) {
+      console.log("Backend returned empty questions array but total_questions is:", reinforcementData.total_questions);
+      console.log("This indicates a backend data persistence issue");
+      
+      // Return a warning response that the frontend can handle
+      const fallbackResults = {
+        sessionId: sessionId,
+        conversationId: sessionId,
+        score: 0,
+        correctAnswers: 0,
+        incorrectAnswers: 0,
+        totalQuestions: reinforcementData.total_questions || 0,
+        completedAt: reinforcementData.session_completed_at || new Date().toISOString(),
+        answers: {},
+        timeSpent: 0,
+        assistantId: reinforcementData.assistant_id,
+        title: reinforcementData.title,
+        questions: [],
+        error: "backend_data_missing",
+        message: "Backend returned empty questions array. This is a known data persistence issue."
+      };
+      
+      console.log("Returning fallback results due to empty questions:", fallbackResults);
+      return NextResponse.json(fallbackResults, { status: 200 });
+    }
+    
+    // Debug correct answer logic - only check questions that are actually answered
+    const correctAnswers = answeredQuestions.filter((q: any) => {
+      const userAnswer = q.user_answer || q.userAnswer;
+      const correctAnswer = q.answer_text;
+      
+      // Must have a user answer to be considered
+      if (!userAnswer) {
+        console.log(`Question ${q.sequence_number}: No user answer provided -> false`);
+        return false;
+      }
+      
+      const isCorrect = userAnswer === correctAnswer;
+      
+      if (!isCorrect) {
+        console.log(`Question ${q.sequence_number}: User="${userAnswer}" vs Correct="${correctAnswer}" -> ${isCorrect}`);
+      }
+      
+      return isCorrect;
+    }).length;
+    
+    const totalQuestions = answeredQuestions.length; // Use answered questions for score calculation
     const incorrectAnswers = answeredQuestions.length - correctAnswers;
     const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+    
+    console.log("Correct answers found:", correctAnswers);
+    console.log("Calculated score:", score);
     const totalTimeSpent = questions.reduce((total: number, q: any) => total + (q.time_spent_seconds || q.timeSpentSeconds || 0), 0);
 
     // Transform answers to expected format
@@ -93,7 +142,7 @@ export async function GET(
       score: score,
       correctAnswers: correctAnswers,
       incorrectAnswers: incorrectAnswers,
-      totalQuestions: totalQuestions,
+      totalQuestions: questions.length, // Always show total questions from backend
       completedAt: reinforcementData.session_completed_at || new Date().toISOString(),
       answers: answers,
       timeSpent: totalTimeSpent,
@@ -110,7 +159,7 @@ export async function GET(
         state: q.state || "initial",
         userAnswer: q.user_answer || q.userAnswer,
         timeSpentSeconds: q.time_spent_seconds || q.timeSpentSeconds,
-        isCorrect: (q.user_answer || q.userAnswer) === q.answer_text || (q.user_answer || q.userAnswer) === q.correct_answer_id
+        isCorrect: (q.user_answer || q.userAnswer) ? (q.user_answer || q.userAnswer) === q.answer_text : false
       }))
     };
 

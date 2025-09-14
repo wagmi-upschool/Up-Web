@@ -174,6 +174,9 @@ export interface QuizResults {
   completedAt: string;
   answers: Record<string, string>; // questionId -> selectedOptionId
   timeSpent: number; // total time in seconds
+  error?: string; // Backend error indicator
+  message?: string; // Error message
+  isLocalCalculation?: boolean; // Flag indicating local score calculation
 }
 
 export interface QuizSessionResponse {
