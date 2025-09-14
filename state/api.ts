@@ -6,6 +6,11 @@ import {
   User,
   Chat,
   ChatMessage,
+  QuizSession,
+  QuizSessionResponse,
+  CreateQuizSessionResponse,
+  QuizAnswerRequest,
+  QuizResults,
 } from "@/types/type";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { fetchAuthSession, getCurrentUser } from "aws-amplify/auth";
@@ -54,7 +59,7 @@ const localApiQuery = fetchBaseQuery({
 export const api = createApi({
   baseQuery: localApiQuery,
   reducerPath: "api",
-  tagTypes: ["Projects", "Tasks", "Users", "Teams", "Chats", "Messages"],
+  tagTypes: ["Projects", "Tasks", "Users", "Teams", "Chats", "Messages", "Quiz", "QuizResults"],
   endpoints: (build) => ({
     getAuthUser: build.query({
       queryFn: async (_, _queryApi, _extraoptions, fetchWihBQ) => {
@@ -201,6 +206,51 @@ export const api = createApi({
         { type: 'Messages', id: chatId }
       ],
     }),
+    
+    // Quiz System Endpoints
+    startQuizSession: build.mutation<CreateQuizSessionResponse, { assistantId: string; assistantGroupId?: string; type?: string; title?: string; questionCount?: number }>({
+      query: ({ assistantId, assistantGroupId, type, title, questionCount }) => ({
+        url: `/api/quiz/start`,
+        method: "POST",
+        body: { assistantId, assistantGroupId, type, title, questionCount },
+      }),
+      invalidatesTags: ["Quiz"],
+    }),
+    
+    getQuizSession: build.query<QuizSessionResponse, { sessionId: string }>({
+      query: ({ sessionId }) => `/api/quiz/${sessionId}`,
+      providesTags: (result, error, { sessionId }) => [
+        { type: 'Quiz', id: sessionId }
+      ],
+    }),
+    
+    submitQuizAnswer: build.mutation<QuizSessionResponse, QuizAnswerRequest>({
+      query: ({ sessionId, questionId, selectedOptionId, userAnswer, timeSpentSeconds }) => ({
+        url: `/api/quiz/${sessionId}/answer`,
+        method: "POST",
+        body: { questionId, selectedOptionId, userAnswer, timeSpentSeconds },
+      }),
+      invalidatesTags: (result, error, { sessionId }) => [
+        { type: 'Quiz', id: sessionId }
+      ],
+    }),
+    
+    finishQuiz: build.mutation<QuizSessionResponse, { sessionId: string }>({
+      query: ({ sessionId }) => ({
+        url: `/api/quiz/${sessionId}/finish`,
+        method: "POST",
+      }),
+      invalidatesTags: (result, error, { sessionId }) => [
+        { type: 'Quiz', id: sessionId }
+      ],
+    }),
+    
+    getQuizResults: build.query<QuizResults, { sessionId: string }>({
+      query: ({ sessionId }) => `/api/quiz/${sessionId}/results`,
+      providesTags: (result, error, { sessionId }) => [
+        { type: 'QuizResults', id: sessionId }
+      ],
+    }),
   }),
 });
 
@@ -221,4 +271,10 @@ export const {
   useSendChatMessageMutation,
   useSaveChatMessagesMutation,
   useSaveConversationMutation,
+  // Quiz System Hooks
+  useStartQuizSessionMutation,
+  useGetQuizSessionQuery,
+  useSubmitQuizAnswerMutation,
+  useFinishQuizMutation,
+  useGetQuizResultsQuery,
 } = api;

@@ -2,6 +2,7 @@
 
 import { getCurrentUser, signOut, fetchAuthSession } from "aws-amplify/auth";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import LottieSpinner from "../global/loader/lottie-spinner";
 import {
   Send,
@@ -78,6 +79,7 @@ const isReflectionJournalChat = (chat: any): boolean => {
 };
 
 function HomePage({}: Props) {
+  const router = useRouter();
   const [loadingUser, setLoadingUser] = useState(true);
   const [currentMessage, setCurrentMessage] = useState("");
   const [activeChat, setActiveChat] = useState<string | null>(null);
@@ -1273,9 +1275,7 @@ function HomePage({}: Props) {
                 // Filter out specific chat types and assistant types (keep non-journal filtering)
                 const excludedTypes = [
                   "accountability",
-                  "flashcard",
                   "boolean-tester",
-                  "fill-in-blanks",
                 ];
 
                 if (excludedTypes.includes(chat.type || "")) return false;
@@ -1300,6 +1300,14 @@ function HomePage({}: Props) {
                   <div
                     key={`chat-${chat.id}-${isActive ? "active" : "inactive"}`}
                     onClick={() => {
+                      // Check if this is a quiz conversation
+                      if ((chat as any).isQuiz) {
+                        // Redirect to quiz page with the assistant ID and conversation ID
+                        router.push(`/quiz/${chat.assistantId}?title=${encodeURIComponent(chat.title)}&conversationId=${chat.id}&assistantGroupId=${chat.assistantGroupId || ''}`);
+                        return;
+                      }
+
+                      // Regular chat behavior
                       if (activeChat !== chat.id) {
                         setIsTransitioningChat(true);
                         setActiveChat(chat.id);
