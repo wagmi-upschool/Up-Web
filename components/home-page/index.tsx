@@ -1291,6 +1291,11 @@ function HomePage({}: Props) {
                 )
                   return false;
 
+                // Filter out chats whose IDs start with 'up' or 'Up'
+                if (chat.id && (chat.id.startsWith('up') || chat.id.startsWith('Up'))) {
+                  return false;
+                }
+
                 return true;
               })
               .map((chat) => {

@@ -163,7 +163,7 @@ const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
           <div className="max-w-4xl mx-auto">
             <div 
               data-property-1="journel" 
-              className="w-full p-4 bg-white/60 shadow-[0px_-5px_8px_0px_rgba(239,193,179,0.30)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl"
+              className="w-full p-4 bg-white shadow-[0px_-5px_8px_0px_rgba(239,193,179,0.30)] outline outline-1 outline-offset-[-1px] outline-white/30 backdrop-blur-[6.30px] inline-flex justify-start items-center gap-4 rounded-2xl"
             >
               <div data-property-1="günlük" className="w-11 h-11 relative flex-shrink-0">
                 <div className="w-11 h-11 left-0 top-0 absolute bg-blue-500 rounded-full border border-white/30 backdrop-blur-sm" />

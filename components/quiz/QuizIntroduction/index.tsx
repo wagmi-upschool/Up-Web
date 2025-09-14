@@ -47,7 +47,7 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
       }}
     >
       {/* Background overlay with opacity */}
-      <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>
 
       {/* UP Logo */}
       <div className="absolute top-6 left-6 z-10">
@@ -55,7 +55,7 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
       </div>
 
       <div className="min-h-full flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-2xl bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+        <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-8">
           {/* Header */}
           <div className="text-center mb-12">
             <div className="w-20 h-20 bg-light-blue rounded-full flex items-center justify-center mx-auto mb-6">
