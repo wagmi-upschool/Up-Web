@@ -59,7 +59,7 @@ export async function GET(
     }
 
     const reinforcementData = await response.json();
-    console.log("Reinforcement results API success response:", reinforcementData);
+    console.log("Reinforcement results API success response:", JSON.stringify(reinforcementData, null, 2));
 
     // Calculate results from the questions data
     const questions = reinforcementData.questions || [];

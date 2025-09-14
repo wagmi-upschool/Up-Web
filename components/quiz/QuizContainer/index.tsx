@@ -102,8 +102,8 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       if (currentSession.questions && currentSession.questions.length > 0) {
         // Transform session questions to our format
         const transformedQuestions: QuizQuestion[] = currentSession.questions.map((q: any, index: number) => ({
-          id: q.question_id || `question-${index}`,
-          questionId: q.question_id || `question-${index}`,
+          id: q.question_id || q.id || `question-${index}`,
+          questionId: q.question_id || q.id || `question-${index}`,
           title: q.question_text || q.title,
           description: q.answer_text || q.description,
           options: (q.options || []).map((optionText: string, optionIndex: number) => ({
@@ -116,7 +116,8 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
           state: QuizQuestionState.Initial,
         }));
         
-        console.log("Transformed session questions:", transformedQuestions);
+        console.log("Raw session questions from backend:", currentSession.questions.slice(0, 2)); // First 2 questions for debugging
+        console.log("Transformed session questions:", transformedQuestions.slice(0, 2)); // First 2 for debugging
         setApiQuestions(transformedQuestions);
         
         // If we have conversationId from URL and session has questions, go to question phase
@@ -176,8 +177,8 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
         
         // Transform backend questions to our format
         const transformedQuestions: QuizQuestion[] = (result.data.questions || []).map((q: any, index: number) => ({
-          id: q.question_id || `question-${index}`,
-          questionId: q.question_id || `question-${index}`,
+          id: q.question_id || q.id || `question-${index}`,
+          questionId: q.question_id || q.id || `question-${index}`,
           title: q.question_text || q.title,
           description: q.answer_text || q.description,
           options: (q.options || []).map((optionText: string, optionIndex: number) => ({
