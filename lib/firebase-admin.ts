@@ -12,11 +12,31 @@ const getServiceAccount = () => {
     // Try individual environment variables
     if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
       console.log('🔑 Constructing Firebase service account from individual environment variables');
+
+      // Clean and format the private key properly
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+      // If it contains escaped newlines, replace them with actual newlines
+      if (privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+
+      // Ensure proper formatting
+      if (!privateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+        throw new Error('Invalid private key format: missing BEGIN header');
+      }
+
+      if (!privateKey.endsWith('-----END PRIVATE KEY-----')) {
+        throw new Error('Invalid private key format: missing END header');
+      }
+
+      console.log('🔑 Private key format validated successfully');
+
       return {
         type: "service_account",
         project_id: process.env.FIREBASE_PROJECT_ID,
         private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        private_key: privateKey,
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
         client_id: process.env.FIREBASE_CLIENT_ID,
         auth_uri: "https://accounts.google.com/o/oauth2/auth",

@@ -131,13 +131,13 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
           )}
 
           {/* Selection Feedback */}
-          {selectedOption && (
+          {/* {selectedOption && (
             <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="font-poppins text-sm text-green-700 font-medium">
                 ✅ Cevabınız kaydedildi. Sonraki soruya geçebilirsiniz.
               </p>
             </div>
-          )}
+          )} */}
 
           {/* Navigation Section */}
           <div className="mt-8 pt-6 border-t border-gray-200">
