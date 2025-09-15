@@ -43,13 +43,13 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
       }}
     >
       {/* Background overlay with opacity */}
-      <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px]"></div>
 
       {/* Combined top section with white background */}
       <div className="relative z-10 bg-white px-6 py-4 shadow-sm">
         {/* UP Logo */}
         <div className="absolute top-4 left-6">
-          <img src="/up.png" alt="UP" className="h-8 w-auto" />
+          <img src="/up.svg" alt="UP" className="h-8 w-auto" />
         </div>
 
         <div className="max-w-3xl mx-auto">
@@ -92,13 +92,13 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
           </div>
 
           {/* Answer Required Notice */}
-          {!selectedOption && (
+          {/* {!selectedOption && (
             <div className="bg-light-blue border border-primary/20 rounded-lg p-4 mb-6">
               <p className="font-poppins text-sm text-primary font-medium">
                 ⚠️ Bu soruyu yanıtlamanız zorunludur
               </p>
             </div>
-          )}
+          )} */}
 
           {/* Options or Fill-in-blank input */}
           {question.options && question.options.length > 0 ? (

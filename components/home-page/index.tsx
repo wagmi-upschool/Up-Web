@@ -99,7 +99,9 @@ function HomePage({}: Props) {
   }>({});
   const [isAiResponding, setIsAiResponding] = useState(false);
   const [showMixpanelOption, setShowMixpanelOption] = useState(false);
-  const [mixpanelDashboardUrl, setMixpanelDashboardUrl] = useState<string | null>(null);
+  const [mixpanelDashboardUrl, setMixpanelDashboardUrl] = useState<
+    string | null
+  >(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
 
@@ -309,7 +311,7 @@ function HomePage({}: Props) {
     try {
       const user = await getCurrentUser();
       const userEmail = user?.signInDetails?.loginId;
-      
+
       if (!userEmail) {
         console.log("No user email found, skipping Mixpanel check");
         return;
@@ -319,17 +321,20 @@ function HomePage({}: Props) {
       const { accessToken } = session.tokens ?? {};
 
       if (accessToken) {
-        const response = await fetch(`/api/mixpanel/config?email=${encodeURIComponent(userEmail)}`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await fetch(
+          `/api/mixpanel/config?email=${encodeURIComponent(userEmail)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
         if (response.ok) {
           const config = await response.json();
           console.log("Mixpanel config response:", config);
-          
+
           if (config.enabled && config.dashboardUrl) {
             setShowMixpanelOption(true);
             setMixpanelDashboardUrl(config.dashboardUrl);
@@ -350,7 +355,7 @@ function HomePage({}: Props) {
   const handleCompanyReport = () => {
     if (mixpanelDashboardUrl) {
       // Open Mixpanel dashboard in new tab
-      window.open(mixpanelDashboardUrl, '_blank', 'noopener,noreferrer');
+      window.open(mixpanelDashboardUrl, "_blank", "noopener,noreferrer");
       setShowDropdown(false);
     } else {
       toast.error("Dashboard URL bulunamadı");
@@ -1312,16 +1317,7 @@ function HomePage({}: Props) {
           <div className="flex flex-col items-center gap-2">
             <div className="w-16 h-16 flex items-center justify-center">
               <Image
-                src={
-                  isJournalMode ||
-                  (activeChat &&
-                    chats.find((c) => c.id === activeChat) &&
-                    isReflectionJournalChat(
-                      chats.find((c) => c.id === activeChat)!
-                    ))
-                    ? "/journal/up_no_look.svg"
-                    : "/up_face.svg"
-                }
+                src={"/up_face.svg"}
                 alt={
                   isJournalMode ||
                   (activeChat &&
@@ -1676,16 +1672,7 @@ function HomePage({}: Props) {
                       {!isUser && (
                         <div className=" w-10 h-10 flex items-center justify-center flex-shrink-0 mt-1">
                           <Image
-                            src={
-                              isJournalMode ||
-                              (activeChat &&
-                                chats.find((c) => c.id === activeChat) &&
-                                isReflectionJournalChat(
-                                  chats.find((c) => c.id === activeChat)!
-                                ))
-                                ? "/journal/up_no_look.svg"
-                                : "/up_face.svg"
-                            }
+                            src={"/up_face.svg"}
                             alt={
                               isJournalMode ||
                               (activeChat &&

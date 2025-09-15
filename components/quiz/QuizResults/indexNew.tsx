@@ -53,7 +53,7 @@ const QuizResultsRedux: React.FC<QuizResultsReduxProps> = ({
 
         {/* UP Logo */}
         <div className="absolute top-6 left-6 z-10">
-          <img src="/up.png" alt="UP" className="h-12 w-auto" />
+          <img src="up.svg" alt="UP" className="h-12 w-auto" />
         </div>
 
         <div className="text-center bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
@@ -81,10 +81,10 @@ const QuizResultsRedux: React.FC<QuizResultsReduxProps> = ({
 
       {/* UP Logo */}
       <div className="absolute top-6 left-6 z-10">
-        <img src="/up.png" alt="UP" className="h-12 w-auto" />
+        <img src="/up.svg" alt="UP" className="h-12 w-auto" />
       </div>
 
-      <div className="max-w-2xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+      <div className="max-w-lg mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6">
         {/* Congratulations Header */}
         <div className="text-center mb-12">
           <div className="w-24 h-24 bg-light-blue rounded-full flex items-center justify-center mx-auto mb-6">
@@ -192,7 +192,6 @@ const QuizResultsRedux: React.FC<QuizResultsReduxProps> = ({
             </div>
           </div>
         </div>
-
 
         {/* Important Note */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">

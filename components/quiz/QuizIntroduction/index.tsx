@@ -46,10 +46,9 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
         backgroundRepeat: "no-repeat",
       }}
     >
-
       {/* UP Logo */}
       <div className="absolute top-6 left-6 z-10">
-        <img src="/up.png" alt="UP" className="h-12 w-50" />
+        <img src="/up.svg" alt="UP" className="h-12 w-50" />
       </div>
 
       <div className="min-h-full flex items-center justify-center px-6 py-12">
