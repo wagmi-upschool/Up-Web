@@ -39,49 +39,51 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
 
   if (isLoading) {
     return (
-      <div 
+      <div
         className="flex-1 flex items-center justify-center relative"
         style={{
-          backgroundImage: 'url(/bg.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
+          backgroundImage: "url(/bg.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
         }}
       >
         {/* Background overlay with opacity */}
         <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
-        
+
         {/* UP Logo */}
         <div className="absolute top-6 left-6 z-10">
           <img src="/up.png" alt="UP" className="h-12 w-auto" />
         </div>
-        
+
         <div className="text-center bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="font-poppins text-text-body-black">Sonuçlar hesaplanıyor...</p>
+          <p className="font-poppins text-text-body-black">
+            Sonuçlar hesaplanıyor...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       className="flex-1 overflow-y-auto py-12 px-6 relative"
       style={{
-        backgroundImage: 'url(/bg.png)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
+        backgroundImage: "url(/bg.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }}
     >
       {/* Background overlay with opacity */}
       <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
-      
+
       {/* UP Logo */}
       <div className="absolute top-6 left-6 z-10">
         <img src="/up.png" alt="UP" className="h-12 w-auto" />
       </div>
-      
+
       <div className="max-w-2xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
         {/* Congratulations Header */}
         <div className="text-center mb-12">
@@ -97,23 +99,29 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
         </div>
 
         {/* Score Card */}
-        <div className={`rounded-2xl p-8 shadow-sm border border-border-gray mb-8 ${getScoreBgColor(results.score)}`}>
+        <div
+          className={`rounded-2xl p-8 shadow-sm border border-border-gray mb-8 ${getScoreBgColor(results.score)}`}
+        >
           <div className="text-center">
             <h2 className="font-poppins font-semibold text-title-black text-xl mb-4">
               Genel Başarı Oranı
             </h2>
-            
-            <div className={`text-6xl font-bold mb-4 ${getScoreColor(results.score)}`}>
+
+            <div
+              className={`text-6xl font-bold mb-4 ${getScoreColor(results.score)}`}
+            >
               {Math.round(results.score)}%
             </div>
-            
-            <div className={`inline-block px-4 py-2 rounded-lg font-poppins font-semibold ${
-              results.score >= 80 
-                ? "bg-green-100 text-green-800" 
-                : results.score >= 60 
-                  ? "bg-yellow-100 text-yellow-800"
-                  : "bg-red-100 text-red-800"
-            }`}>
+
+            <div
+              className={`inline-block px-4 py-2 rounded-lg font-poppins font-semibold ${
+                results.score >= 80
+                  ? "bg-green-100 text-green-800"
+                  : results.score >= 60
+                    ? "bg-yellow-100 text-yellow-800"
+                    : "bg-red-100 text-red-800"
+              }`}
+            >
               {getPerformanceText(results.score)}
             </div>
           </div>
@@ -162,7 +170,7 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
           </div>
 
           {/* Time Spent */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-border-gray">
+          {/* <div className="bg-white rounded-xl p-6 shadow-sm border border-border-gray">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Clock className="w-6 h-6 text-blue-600" />
@@ -179,7 +187,7 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Completion Date */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-border-gray">
@@ -192,12 +200,12 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
                   Tamamlanma
                 </h3>
                 <p className="font-poppins text-lg font-bold text-purple-600">
-                  {new Date(results.completedAt).toLocaleDateString('tr-TR')}
+                  {new Date(results.completedAt).toLocaleDateString("tr-TR")}
                 </p>
                 <p className="font-poppins text-sm text-text-light">
-                  {new Date(results.completedAt).toLocaleTimeString('tr-TR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
+                  {new Date(results.completedAt).toLocaleTimeString("tr-TR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
                 </p>
               </div>
@@ -212,8 +220,9 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
               ⚠️ Teknik Bilgi
             </h3>
             <p className="font-poppins text-sm text-orange-700 leading-relaxed">
-              Sonuçlar yerel hesaplama ile oluşturulmuştur. Backend veri erişiminde geçici bir sorun yaşandı ancak 
-              cevaplarınız başarıyla kaydedildi ve skorunuz doğru hesaplandı.
+              Sonuçlar yerel hesaplama ile oluşturulmuştur. Backend veri
+              erişiminde geçici bir sorun yaşandı ancak cevaplarınız başarıyla
+              kaydedildi ve skorunuz doğru hesaplandı.
             </p>
           </div>
         )}
@@ -224,7 +233,7 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
             Önemli Not
           </h3>
           <p className="font-poppins text-sm text-yellow-700 leading-relaxed">
-            Bu teste tekrar başlayamazsınız. Test sonuçlarınız kaydedilmiştir ve 
+            Bu teste tekrar başlayamazsınız. Test sonuçlarınız kaydedilmiştir ve
             sistem yöneticileri tarafından değerlendirilebilir.
           </p>
         </div>
@@ -240,7 +249,7 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
               Yeni Test
             </button>
           )}
-          
+
           {onReturnHome && (
             <button
               onClick={onReturnHome}
@@ -255,7 +264,8 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="font-poppins text-sm text-text-light">
-            Sonuçlarınızı daha sonra görüntülemek için sistem yöneticinizle iletişime geçebilirsiniz.
+            Sonuçlarınızı daha sonra görüntülemek için sistem yöneticinizle
+            iletişime geçebilirsiniz.
           </p>
         </div>
       </div>

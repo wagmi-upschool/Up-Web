@@ -1770,7 +1770,7 @@ function HomePage({}: Props) {
                   }}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
                     <Image
@@ -1796,7 +1796,7 @@ function HomePage({}: Props) {
                   }}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
                     <Image
@@ -1822,7 +1822,7 @@ function HomePage({}: Props) {
                   }}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
                     <Image
@@ -1842,7 +1842,7 @@ function HomePage({}: Props) {
                   onClick={handleToggleUp}
                   disabled={isSendingMessage}
                   data-property-1="Desktop"
-                  className="w-[189px] h-[38px] bg-white/55 rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
+                  className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
                   <div className="w-5 h-5 relative overflow-hidden flex items-center justify-center">
                     <Image
