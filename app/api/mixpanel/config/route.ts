@@ -35,7 +35,8 @@ async function fetchRemoteConfig(): Promise<RemoteConfig> {
       "denizbank": {
         "users": [
           "yusuffx03@gmail.com",
-          "onat@wagmitech.co"
+          "onat@wagmitech.co",
+          "wagmiup@gmail.com"
         ],
         "url": "https://eu.mixpanel.com/project/3422744/view/3926876/app/events"
       }
@@ -47,7 +48,8 @@ async function fetchRemoteConfig(): Promise<RemoteConfig> {
       "denizbank": {
         "users": [
           "yusuffx03@gmail.com",
-          "onat@wagmitech.co"
+          "onat@wagmitech.co",
+          "wagmiup@gmail.com"
         ],
         "url": "https://eu.mixpanel.com/project/3422744/view/3926876/app/events"
       }

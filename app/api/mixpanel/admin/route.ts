@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateMixpanelUrl } from "@/lib/mixpanel-utils";
-import { getRemoteConfigValue, setRemoteConfigValue } from "@/lib/firebase-admin";
+import {
+  getRemoteConfigValue,
+  setRemoteConfigValue,
+} from "@/lib/firebase-admin";
 
 // Admin configuration interface
 interface MixpanelConfig {
@@ -13,21 +16,18 @@ interface MixpanelConfig {
 // Get current configuration from Firebase Remote Config
 async function getCurrentConfig(): Promise<MixpanelConfig> {
   try {
-    const config = await getRemoteConfigValue('UpWebMixpanelDashboard');
-    
-    if (config && typeof config === 'object') {
+    const config = await getRemoteConfigValue("UpWebMixpanelDashboard");
+
+    if (config && typeof config === "object") {
       return config as MixpanelConfig;
     }
-    
+
     // Return default config if nothing is found
     const defaultConfig = {
-      "denizbank": {
-        "users": [
-          "yusuffx03@gmail.com",
-          "onat@wagmitech.co"
-        ],
-        "url": "https://eu.mixpanel.com/project/3422744/view/3926876/app/events"
-      }
+      denizbank: {
+        users: [],
+        url: "https://eu.mixpanel.com/project/3422744/view/3926876/app/events",
+      },
     };
     return defaultConfig;
   } catch (error) {
@@ -40,9 +40,9 @@ async function getCurrentConfig(): Promise<MixpanelConfig> {
 async function saveConfiguration(config: MixpanelConfig): Promise<boolean> {
   try {
     return await setRemoteConfigValue(
-      'UpWebMixpanelDashboard', 
-      config, 
-      'Mixpanel dashboard URLs and user access configuration for Up Web'
+      "UpWebMixpanelDashboard",
+      config,
+      "Mixpanel dashboard URLs and user access configuration for Up Web"
     );
   } catch (error) {
     console.error("Error saving config:", error);
@@ -54,21 +54,19 @@ async function saveConfiguration(config: MixpanelConfig): Promise<boolean> {
 export async function GET(request: NextRequest) {
   try {
     const authorization = request.headers.get("Authorization");
-    
+
     if (!authorization?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // In production, verify admin permissions here
-    
+
     const configurations = await getCurrentConfig();
-    
+
     return NextResponse.json({
       configurations,
-      message: "Configuration retrieved successfully from Firebase Remote Config"
+      message:
+        "Configuration retrieved successfully from Firebase Remote Config",
     });
   } catch (error) {
     console.error("❌ Error retrieving Mixpanel configuration:", error);
@@ -83,12 +81,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authorization = request.headers.get("Authorization");
-    
+
     if (!authorization?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -112,12 +107,12 @@ export async function POST(request: NextRequest) {
 
     // Get current configuration
     const currentConfig = await getCurrentConfig();
-    
+
     // Initialize organization if it doesn't exist
     if (!currentConfig[orgName]) {
       currentConfig[orgName] = {
         users: [],
-        url: dashboardUrl
+        url: dashboardUrl,
       };
     }
 
@@ -130,7 +125,7 @@ export async function POST(request: NextRequest) {
 
       // Save updated configuration to Firebase Remote Config
       const saved = await saveConfiguration(currentConfig);
-      
+
       if (!saved) {
         return NextResponse.json(
           { error: "Failed to save configuration to Firebase Remote Config" },
@@ -139,11 +134,11 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(`✅ Added user ${userEmail} to ${orgName} dashboard access`);
-      
+
       return NextResponse.json({
         success: true,
         message: `User ${userEmail} added to ${orgName} dashboard access`,
-        configuration: currentConfig[orgName]
+        configuration: currentConfig[orgName],
       });
     } else if (action === "remove") {
       // Remove user from organization
@@ -159,7 +154,7 @@ export async function POST(request: NextRequest) {
 
       // Save updated configuration to Firebase Remote Config
       const saved = await saveConfiguration(currentConfig);
-      
+
       if (!saved) {
         return NextResponse.json(
           { error: "Failed to save configuration to Firebase Remote Config" },
@@ -167,12 +162,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(`✅ Removed user ${userEmail} from ${orgName} dashboard access`);
-      
+      console.log(
+        `✅ Removed user ${userEmail} from ${orgName} dashboard access`
+      );
+
       return NextResponse.json({
         success: true,
         message: `User ${userEmail} removed from ${orgName} dashboard access`,
-        configuration: currentConfig[orgName] || null
+        configuration: currentConfig[orgName] || null,
       });
     } else {
       return NextResponse.json(
@@ -193,18 +190,15 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const authorization = request.headers.get("Authorization");
-    
+
     if (!authorization?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();
     const { configurations } = body;
 
-    if (!configurations || typeof configurations !== 'object') {
+    if (!configurations || typeof configurations !== "object") {
       return NextResponse.json(
         { error: "Invalid configuration format" },
         { status: 400 }
@@ -212,7 +206,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Validate all URLs in the configuration
-    for (const [orgName, config] of Object.entries(configurations as MixpanelConfig)) {
+    for (const [orgName, config] of Object.entries(
+      configurations as MixpanelConfig
+    )) {
       if (!validateMixpanelUrl(config.url)) {
         return NextResponse.json(
           { error: `Invalid Mixpanel URL for organization ${orgName}` },
@@ -223,7 +219,7 @@ export async function PUT(request: NextRequest) {
 
     // Save the entire configuration to Firebase Remote Config
     const saved = await saveConfiguration(configurations as MixpanelConfig);
-    
+
     if (!saved) {
       return NextResponse.json(
         { error: "Failed to save configuration to Firebase Remote Config" },
@@ -232,11 +228,11 @@ export async function PUT(request: NextRequest) {
     }
 
     console.log("✅ Updated entire Mixpanel configuration");
-    
+
     return NextResponse.json({
       success: true,
       message: "Configuration updated successfully in Firebase Remote Config",
-      configurations: configurations
+      configurations: configurations,
     });
   } catch (error) {
     console.error("❌ Error updating Mixpanel configuration:", error);

@@ -16,6 +16,18 @@ const getServiceAccount = () => {
       // Clean and format the private key properly
       let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
+      // Check if the private key is base64 encoded (for production)
+      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        try {
+          // Try to decode base64
+          privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+          console.log('🔓 Decoded base64 private key for production');
+        } catch (error) {
+          console.error('❌ Failed to decode base64 private key:', error);
+          throw new Error('Invalid private key: not valid base64 or PEM format');
+        }
+      }
+
       // If it contains escaped newlines, replace them with actual newlines
       if (privateKey.includes('\\n')) {
         privateKey = privateKey.replace(/\\n/g, '\n');
