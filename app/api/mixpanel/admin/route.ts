@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateMixpanelUrl } from "../config/route";
+import { validateMixpanelUrl } from "@/lib/mixpanel-utils";
 import { getRemoteConfigValue, setRemoteConfigValue } from "@/lib/firebase-admin";
 
 // Admin configuration interface

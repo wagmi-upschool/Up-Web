@@ -14,7 +14,7 @@ import {
   setConversationId,
   setAnswer,
 } from './quizSlice'
-import { CreateQuizSessionResponse, QuizAnswerRequest, QuizResults } from '@/types/type'
+import { CreateQuizSessionResponse, QuizAnswerRequest, QuizResults, QuizQuestionState } from '@/types/type'
 
 // Start Quiz Thunk
 export const startQuizThunk = createAsyncThunk<
@@ -46,7 +46,7 @@ export const startQuizThunk = createAsyncThunk<
             })),
             correctOptionId: q.correct_option_index !== undefined ? `option-${q.correct_option_index}` : q.correctOptionId,
             sequenceNumber: q.sequence_number || (index + 1),
-            state: 'Initial' as const,
+            state: QuizQuestionState.Initial,
           }))
         }))
         return result
@@ -193,7 +193,7 @@ export const loadExistingQuizThunk = createAsyncThunk<
           })),
           correctOptionId: q.correct_option_index !== undefined ? `option-${q.correct_option_index}` : q.correctOptionId,
           sequenceNumber: q.sequence_number || (index + 1),
-          state: 'Initial' as const,
+          state: QuizQuestionState.Initial,
         }))
 
         dispatch(quizStarted({

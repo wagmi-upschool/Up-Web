@@ -127,15 +127,3 @@ export async function GET(request: NextRequest) {
   }
 }
 
-
-// Helper function to validate URL security
-export function validateMixpanelUrl(url: string): boolean {
-  try {
-    const parsedUrl = new URL(url);
-    // Only allow Mixpanel URLs
-    const allowedHosts = ['eu.mixpanel.com', 'mixpanel.com', 'us.mixpanel.com'];
-    return allowedHosts.includes(parsedUrl.hostname);
-  } catch {
-    return false;
-  }
-}

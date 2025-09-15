@@ -29,7 +29,7 @@ import QuizIntroduction from "../QuizIntroduction";
 import QuizQuestionComponent from "../QuizQuestion";
 import QuizResultsRedux from "../QuizResults/indexNew";
 import toast from "react-hot-toast";
-import { ExistingQuizData } from "@/types/type";
+import { ExistingQuizData, QuizQuestionState } from "@/types/type";
 
 interface QuizContainerProps {
   assistantId: string;
@@ -78,7 +78,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
         options: q.options || q.choices || [],
         correctOptionId: q.correctOptionId || q.correctAnswer,
         sequenceNumber: index + 1,
-        state: 'Initial' as const,
+        state: QuizQuestionState.Initial,
       }));
       
       dispatch(setQuestions(processedQuestions));
@@ -210,7 +210,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
         {quiz.phase === 'question' && quiz.questions.length > 0 && currentQuestion && (
           <QuizQuestionComponent
             question={currentQuestion}
-            selectedOption={currentAnswer}
+            selectedOption={currentAnswer || undefined}
             onOptionSelect={(optionId, userAnswer) => 
               handleAnswerSelect(currentQuestion.questionId, optionId, userAnswer)
             }
