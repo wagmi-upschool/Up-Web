@@ -1,15 +1,41 @@
 import admin from 'firebase-admin';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
-// Get service account from file
+// Get service account from environment variables or fallback to file
 const getServiceAccount = () => {
   try {
+    // Try environment variables first (for production/Vercel)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+      console.log('🔑 Using Firebase service account from environment variables');
+      return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    }
+    
+    // Try individual environment variables
+    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+      console.log('🔑 Constructing Firebase service account from individual environment variables');
+      return {
+        type: "service_account",
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        client_id: process.env.FIREBASE_CLIENT_ID,
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+        universe_domain: "googleapis.com"
+      };
+    }
+    
+    // Fallback to local file (for development)
+    console.log('🔑 Using Firebase service account from local file (development only)');
+    const { readFileSync } = require('fs');
+    const { join } = require('path');
     const serviceAccountPath = join(process.cwd(), 'upcompaniontest-firebase-adminsdk-vfftg-d6ab1dfa67.json');
     const serviceAccountData = readFileSync(serviceAccountPath, 'utf8');
     return JSON.parse(serviceAccountData);
   } catch (error) {
-    console.error('❌ Error loading service account:', error);
+    console.error('❌ Error loading Firebase service account:', error);
     throw error;
   }
 };
@@ -68,7 +94,8 @@ export async function getRemoteConfigValue(parameter: string, useCache: boolean 
     const defaultValue = parameterConfig.defaultValue;
     let value = null;
     
-    if (defaultValue?.value) {
+    // Type guard to check if defaultValue is ExplicitParameterValue (has 'value' property)
+    if (defaultValue && 'value' in defaultValue) {
       // Try to parse JSON if it looks like JSON
       try {
         value = JSON.parse(defaultValue.value);
