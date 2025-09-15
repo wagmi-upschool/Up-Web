@@ -1,22 +1,22 @@
 "use client";
 
 import React from "react";
-import { QuizResults } from "@/types/type";
-import { Trophy, Target, XCircle, Clock, Home, RotateCcw } from "lucide-react";
+import { useAppSelector } from "@/components/wrapper/redux";
+import { selectQuiz } from "@/state/quizSlice";
+import { Trophy, Target, XCircle, Home } from "lucide-react";
 
-interface QuizResultsProps {
-  results: QuizResults;
-  onRestart?: () => void;
+interface QuizResultsReduxProps {
   onReturnHome?: () => void;
   isLoading?: boolean;
 }
 
-const QuizResultsComponent: React.FC<QuizResultsProps> = ({
-  results,
-  onRestart,
+const QuizResultsRedux: React.FC<QuizResultsReduxProps> = ({
   onReturnHome,
   isLoading = false,
 }) => {
+  const quiz = useAppSelector(selectQuiz);
+  const { results } = quiz;
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600";
     if (score >= 60) return "text-yellow-600";
@@ -37,7 +37,7 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
     return "Geliştirilmeli";
   };
 
-  if (isLoading) {
+  if (isLoading || !results) {
     return (
       <div
         className="flex-1 flex items-center justify-center relative"
@@ -169,26 +169,6 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
             </div>
           </div>
 
-          {/* Time Spent */}
-          {/* <div className="bg-white rounded-xl p-6 shadow-sm border border-border-gray">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-poppins font-semibold text-title-black text-lg">
-                  Toplam Süre
-                </h3>
-                <p className="font-poppins text-2xl font-bold text-blue-600">
-                  {Math.floor(results.timeSpent / 60)}:{(results.timeSpent % 60).toString().padStart(2, '0')}
-                </p>
-                <p className="font-poppins text-sm text-text-light">
-                  dakika
-                </p>
-              </div>
-            </div>
-          </div> */}
-
           {/* Completion Date */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-border-gray">
             <div className="flex items-center gap-4">
@@ -213,19 +193,6 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
           </div>
         </div>
 
-        {/* Backend Data Issue Warning */}
-        {results.isLocalCalculation && (
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-8">
-            <h3 className="font-poppins font-semibold text-orange-800 mb-2">
-              ⚠️ Teknik Bilgi
-            </h3>
-            <p className="font-poppins text-sm text-orange-700 leading-relaxed">
-              Sonuçlar yerel hesaplama ile oluşturulmuştur. Backend veri
-              erişiminde geçici bir sorun yaşandı ancak cevaplarınız başarıyla
-              kaydedildi ve skorunuz doğru hesaplandı.
-            </p>
-          </div>
-        )}
 
         {/* Important Note */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
@@ -273,4 +240,4 @@ const QuizResultsComponent: React.FC<QuizResultsProps> = ({
   );
 };
 
-export default QuizResultsComponent;
+export default QuizResultsRedux;

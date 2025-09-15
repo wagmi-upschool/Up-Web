@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   useStartQuizSessionMutation,
   useGetQuizSessionQuery,
@@ -19,6 +19,7 @@ interface QuizContainerProps {
   assistantId: string;
   assistantGroupId?: string;
   title?: string;
+  conversationId?: string;
   existingQuizData?: ExistingQuizData;
   onExit?: () => void;
 }
@@ -29,6 +30,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   assistantId,
   assistantGroupId,
   title,
+  conversationId: propConversationId,
   existingQuizData,
   onExit,
 }) => {
@@ -37,7 +39,6 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   const searchParams = useSearchParams();
   
   const [phase, setPhase] = useState<QuizPhase>('introduction');
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -45,18 +46,28 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   const [apiQuestions, setApiQuestions] = useState<QuizQuestion[]>([]); // Store questions from API
   const [isStartingQuiz, setIsStartingQuiz] = useState(false);
   const [isFinishingQuiz, setIsFinishingQuiz] = useState(false);
+  
+  // Robust initialization flags
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const startingQuizRef = useRef(false);
 
   const [startQuizSession] = useStartQuizSessionMutation();
   const [submitQuizAnswer] = useSubmitQuizAnswerMutation();
   const [finishQuiz] = useFinishQuizMutation();
+
+  // Handle hydration - wait for client-side to be ready
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   const {
     data: sessionData,
     isLoading: isLoadingSession,
     error: sessionError,
   } = useGetQuizSessionQuery(
-    { sessionId: sessionId! },
-    { skip: !sessionId }
+    { sessionId: conversationId! },
+    { skip: !conversationId }
   );
 
   const {
@@ -94,6 +105,10 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
 
   const currentSession = sessionData?.session;
   
+  // Extract URL parameters for dependency optimization
+  const urlConversationId = searchParams?.get('conversationId');
+  const isNewQuiz = searchParams?.get('new') === 'true';
+  
   // Handle session data when it loads from URL conversationId
   useEffect(() => {
     if (currentSession && apiQuestions.length === 0) {
@@ -119,18 +134,22 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
         console.log("Transformed session questions:", transformedQuestions.slice(0, 2)); // First 2 for debugging
         setApiQuestions(transformedQuestions);
         
-        // If we have conversationId from URL and session has questions, go to question phase
-        if (searchParams.get('conversationId')) {
-          console.log("Session loaded with questions, going to question phase");
-          setPhase('question');
-        }
+        // ONLY go to question phase if we have actual questions
+        console.log("Session loaded with questions, going to question phase");
+        setPhase('question');
       } else {
-        console.log("No questions in session, need to fetch from backend or show introduction");
-        // If session has no questions, go back to introduction
+        console.log("No questions in session, staying on introduction");
+        // If session has no questions, stay on introduction - don't force navigation
         setPhase('introduction');
       }
     }
-  }, [currentSession, apiQuestions.length, searchParams]);
+    
+    // Handle case where session exists but has no questions (invalid session)
+    if (sessionError || (currentSession && (!currentSession.questions || currentSession.questions.length === 0))) {
+      console.log("Invalid session or no questions, resetting to introduction");
+      setPhase('introduction');
+    }
+  }, [currentSession, apiQuestions.length, sessionError]);
   
   // Use the most appropriate questions source
   const activeQuestions = existingQuestions.length > 0 
@@ -139,16 +158,28 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       ? apiQuestions 
       : currentSession?.questions || [];
   
-  const currentQuestion = activeQuestions[currentQuestionIndex];
+  const currentQuestion = activeQuestions[currentQuestionIndex] || null;
 
-  // Handle quiz start
+  // Handle quiz start with robust debouncing
   const handleStartQuiz = useCallback(async () => {
+    // Robust debouncing - check ref first (survives re-renders)
+    if (startingQuizRef.current || isStartingQuiz) {
+      console.log("Quiz start blocked - already in progress");
+      return;
+    }
+    
+    // Set both ref and state for maximum protection
+    startingQuizRef.current = true;
     setIsStartingQuiz(true);
+    
+    console.log("Starting quiz...");
     
     // If we have existing quiz data, skip API call and go to questions
     if (existingQuizData && existingQuestions.length > 0) {
       setPhase('question');
       toast.success("Quiz başlatıldı!");
+      // Reset both state and ref
+      startingQuizRef.current = false;
       setIsStartingQuiz(false);
       return;
     }
@@ -164,7 +195,6 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       });
 
       if ("data" in result && result.data) {
-        setSessionId(result.data.sessionId);
         setConversationId(result.data.conversationId);
         
         // Update URL with conversationId parameter
@@ -202,25 +232,87 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       console.error("Error starting quiz:", error);
       toast.error("Quiz başlatılırken hata oluştu");
     } finally {
+      // Reset both state and ref in all cases
+      startingQuizRef.current = false;
       setIsStartingQuiz(false);
     }
   }, [existingQuizData, existingQuestions.length, assistantId, assistantGroupId, title, startQuizSession, pathname, router]);
 
-  // Check if conversationId is in URL on mount
+  // Robust initialization - handles conversationId from props or URL after hydration
   useEffect(() => {
-    const urlConversationId = searchParams.get('conversationId');
+    // Only initialize once and after hydration
+    if (isInitialized || !isHydrated) return;
     
-    console.log("URL conversationId on mount:", urlConversationId);
-    
-    if (urlConversationId && !conversationId) {
-      console.log("Setting conversationId from URL:", urlConversationId);
-      setConversationId(urlConversationId);
-      setSessionId(urlConversationId);
-      
-      // Don't skip to questions immediately - wait for session data to load
-      console.log("ConversationId found in URL, waiting for session data to load");
+    // If this is a new quiz, ignore any conversationId and start fresh
+    if (isNewQuiz) {
+      console.log("New quiz requested, ignoring existing conversationId");
+      setConversationId(null);
+      setPhase('introduction');
+      setIsInitialized(true);
+      return;
     }
-  }, [searchParams, conversationId]);
+    
+    // Priority: prop > URL > null (for existing quizzes)
+    const finalConversationId = propConversationId || urlConversationId;
+    
+    console.log("Robust initialization:", {
+      propConversationId,
+      urlConversationId,
+      finalConversationId,
+      isHydrated,
+      isNewQuiz
+    });
+    
+    if (finalConversationId && !conversationId) {
+      console.log("Setting conversationId from initialization:", finalConversationId);
+      setConversationId(finalConversationId);
+      // NOTE: conversationId is set here for existing quizzes
+      console.log("ConversationId set, waiting for session data to load");
+    }
+    
+    setIsInitialized(true);
+  }, [propConversationId, urlConversationId, isHydrated, isInitialized, conversationId, isNewQuiz]);
+
+  // Handle URL parameter changes after initialization
+  useEffect(() => {
+    if (!isInitialized || !isHydrated) return;
+    
+    // If new quiz is requested, reset everything
+    if (isNewQuiz && phase !== 'introduction') {
+      console.log("New quiz detected, resetting to introduction");
+      setConversationId(null);
+      setPhase('introduction');
+      setCurrentQuestionIndex(0);
+      setAnswers({});
+      setApiQuestions([]);
+      return;
+    }
+    
+    const finalConversationId = propConversationId || urlConversationId;
+    
+    console.log("URL change detected:", {
+      current: conversationId,
+      new: finalConversationId,
+      phase,
+      isNewQuiz
+    });
+    
+    // If conversationId is removed from URL, reset to introduction phase
+    if (!finalConversationId && conversationId && !isNewQuiz) {
+      console.log("ConversationId removed from URL, resetting to introduction");
+      setConversationId(null);
+      setPhase('introduction');
+      setCurrentQuestionIndex(0);
+      setAnswers({});
+      setApiQuestions([]);
+    }
+    // If new conversationId is provided, update it but stay on introduction until session loads
+    else if (finalConversationId && finalConversationId !== conversationId && !isNewQuiz) {
+      console.log("New conversationId detected, updating:", finalConversationId);
+      setConversationId(finalConversationId);
+      // Don't automatically go to question phase - wait for session data
+    }
+  }, [propConversationId, urlConversationId, isInitialized, isHydrated, conversationId, phase, isNewQuiz]);
 
   // Handle answer selection
   const handleAnswerSelect = (questionId: string, selectedOptionId: string, userAnswer?: string) => {
@@ -289,7 +381,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     }
 
     // For API-based sessions, submit answer to backend
-    if (!sessionId) return;
+    if (!conversationId) return;
 
     try {
       // Convert option text to option index for backend
@@ -297,7 +389,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
       const selectedOptionId = optionIndex >= 0 ? `option-${optionIndex}` : selectedAnswer;
       
       await submitQuizAnswer({
-        sessionId,
+        sessionId: conversationId,
         questionId: currentQuestion.questionId,
         selectedOptionId: selectedOptionId,
         userAnswer: selectedAnswer, // Support for fill-in-blanks
@@ -382,10 +474,10 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     }
 
     // For API-based sessions (legacy path), finish via API
-    if (!sessionId) return;
+    if (!conversationId) return;
 
     try {
-      await finishQuiz({ sessionId });
+      await finishQuiz({ sessionId: conversationId });
       setPhase('results');
       toast.success("Quiz tamamlandı!");
     } catch (error) {
@@ -408,11 +500,14 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   console.log("Render Debug:", {
     phase,
     currentQuestion: !!currentQuestion,
+    currentQuestionIndex,
     currentSession: !!currentSession,
     existingQuestions: existingQuestions.length,
     apiQuestions: apiQuestions.length,
     totalQuestions,
-    activeQuestions: activeQuestions.length
+    activeQuestions: activeQuestions.length,
+    conversationId,
+    isNewQuiz
   });
 
   // Loading states - skip for existing quiz data
@@ -459,7 +554,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
           />
         )}
 
-        {phase === 'question' && activeQuestions.length > 0 && (
+        {phase === 'question' && activeQuestions.length > 0 && currentQuestion && (
             <QuizQuestionComponent
               question={currentQuestion}
               selectedOption={answers[currentQuestion.questionId]}
@@ -537,16 +632,16 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
             })()}
             onRestart={() => {
               setPhase('introduction');
-              setSessionId(null);
               setConversationId(null);
               setCurrentQuestionIndex(0);
               setAnswers({});
               setExistingQuestions([]);
               setApiQuestions([]);
               
-              // Remove conversationId from URL
+              // Add new=true parameter to start fresh quiz
               const newSearchParams = new URLSearchParams(searchParams.toString());
               newSearchParams.delete('conversationId');
+              newSearchParams.set('new', 'true');
               const newUrl = `${pathname}?${newSearchParams.toString()}`;
               router.replace(newUrl);
             }}

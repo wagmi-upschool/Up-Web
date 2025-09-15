@@ -38,13 +38,14 @@ export async function POST(
     const reinforcementBody = {
       session_completed: true,
       total_score: totalScore || 0,
-      completed_at: completedAt || new Date().toISOString()
+      completed_at: completedAt || new Date().toISOString(),
+      state: "completed"
     };
 
     console.log("Calling reinforcement finish API with:", reinforcementBody);
 
-    // Call the real reinforcement finish API
-    const reinforcementUrl = `${process.env.REMOTE_URL}/user/${userId}/reinforcement/sessions/${sessionId}/finish`;
+    // Call the real reinforcement finish API with conversationId and questionId as query parameters
+    const reinforcementUrl = `${process.env.REMOTE_URL}/user/${userId}/reinforcement/sessions/${sessionId}/finish?conversationId=${sessionId}&questionId=finish`;
     const tokenToUse = idTokenHeader || authHeader.replace("Bearer ", "");
 
     const response = await fetch(reinforcementUrl, {

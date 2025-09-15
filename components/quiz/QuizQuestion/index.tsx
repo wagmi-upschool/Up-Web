@@ -64,7 +64,7 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
             {/* Progress bar */}
             <div className="flex items-center gap-3 mt-2">
               <span className="font-poppins text-xs text-text-body-black min-w-fit">
-                İlerliyoruz
+                İlerleme
               </span>
               <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div

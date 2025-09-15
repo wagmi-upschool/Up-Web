@@ -1,5 +1,6 @@
 import globalReducer from "@/state";
 import { api } from "@/state/api";
+import quizReducer from "@/state/quizSlice";
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { useRef } from "react";
@@ -49,6 +50,7 @@ const persistConfig = {
 };
 const rootReducer = combineReducers({
   global: globalReducer,
+  quiz: quizReducer,
   [api.reducerPath]: api.reducer,
 });
 const persistedReducer = persistReducer(persistConfig, rootReducer);

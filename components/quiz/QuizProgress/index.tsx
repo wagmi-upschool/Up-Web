@@ -44,14 +44,14 @@ const QuizProgress: React.FC<QuizProgressProps> = ({
             </p>
           </div>
 
-          <div className="text-right">
+          {/* <div className="text-right">
             <div className="font-poppins text-lg font-semibold text-primary">
               Soru {currentQuestion} / {totalQuestions}
             </div>
             <div className="font-poppins text-sm text-text-light">
               {answeredCount} cevaplandı
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Single Progress Bar - İlerliyoruz */}

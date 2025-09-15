@@ -17,45 +17,18 @@ const QuizSelectionPage = () => {
   }, [searchParams]);
 
   // Mock quiz options - would come from API in real implementation
-  const availableQuizzes = [
-    {
-      id: "general-knowledge",
-      assistantId: "assist_general_001",
-      title: "Genel Bilgi Testi",
-      description: "Temel genel kültür ve bilgi seviyenizi değerlendiren kapsamlı test",
-      questionCount: 15,
-      estimatedTime: 10,
-      difficulty: "Orta",
-      category: "Genel",
-    },
-    {
-      id: "technical-assessment",
-      assistantId: "assist_tech_001", 
-      title: "Teknik Değerlendirme",
-      description: "Teknoloji ve yazılım geliştirme konularında bilgi testi",
-      questionCount: 20,
-      estimatedTime: 15,
-      difficulty: "Zor",
-      category: "Teknik",
-    },
-    {
-      id: "business-skills",
-      assistantId: "assist_business_001",
-      title: "İş Becerileri Testi",
-      description: "İş dünyası ve yönetim becerilerini ölçen değerlendirme",
-      questionCount: 12,
-      estimatedTime: 8,
-      difficulty: "Kolay",
-      category: "İş",
-    },
-  ];
+  const availableQuizzes: any = [];
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "Kolay": return "text-green-600 bg-green-50";
-      case "Orta": return "text-yellow-600 bg-yellow-50";
-      case "Zor": return "text-red-600 bg-red-50";
-      default: return "text-gray-600 bg-gray-50";
+      case "Kolay":
+        return "text-green-600 bg-green-50";
+      case "Orta":
+        return "text-yellow-600 bg-yellow-50";
+      case "Zor":
+        return "text-red-600 bg-red-50";
+      default:
+        return "text-gray-600 bg-gray-50";
     }
   };
 
@@ -66,7 +39,9 @@ const QuizSelectionPage = () => {
   const handleCreateNewQuiz = () => {
     if (assistantId) {
       // Start new quiz session with the provided assistant ID
-      router.push(`/quiz/${assistantId}?new=true&title=${encodeURIComponent("Yeni Quiz Oturumu")}`);
+      router.push(
+        `/quiz/${assistantId}?new=true&title=${encodeURIComponent("Yeni Quiz Oturumu")}`
+      );
     }
   };
 
@@ -82,11 +57,10 @@ const QuizSelectionPage = () => {
             Test ve Değerlendirme Merkezi
           </h1>
           <p className="font-poppins text-lg text-text-body-black max-w-2xl mx-auto">
-            Bilgi seviyenizi ölçmek ve gelişim alanlarınızı belirlemek için 
+            Bilgi seviyenizi ölçmek ve gelişim alanlarınızı belirlemek için
             tasarlanmış testler arasından seçim yapın.
           </p>
         </div>
-
         {/* New Quiz Creation Section - Shows when assistantId is provided */}
         {assistantId && (
           <div className="bg-gradient-to-r from-primary to-blue-600 rounded-2xl p-6 mb-8 text-white">
@@ -96,10 +70,14 @@ const QuizSelectionPage = () => {
                   Yeni Quiz Oturumu Oluştur
                 </h2>
                 <p className="font-poppins text-blue-100 mb-4">
-                  Asistan ID: <code className="bg-blue-800 px-2 py-1 rounded text-xs">{assistantId}</code>
+                  Asistan ID:{" "}
+                  <code className="bg-blue-800 px-2 py-1 rounded text-xs">
+                    {assistantId}
+                  </code>
                 </p>
                 <p className="font-poppins text-blue-100">
-                  Bu asistan ile yeni bir quiz oturumu başlatmak için aşağıdaki butona tıklayın.
+                  Bu asistan ile yeni bir quiz oturumu başlatmak için aşağıdaki
+                  butona tıklayın.
                 </p>
               </div>
               <div className="flex-shrink-0 ml-6">
@@ -115,33 +93,34 @@ const QuizSelectionPage = () => {
           </div>
         )}
 
-        {/* Quiz Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {availableQuizzes.map((quiz) => (
+          {/* {availableQuizzes.map((quiz) => (
             <div
               key={quiz.id}
               className="bg-white rounded-2xl p-6 shadow-sm border border-border-gray hover:shadow-md transition-shadow"
             >
               {/* Category Badge */}
-              <div className="flex justify-between items-start mb-4">
+          {/* <div className="flex justify-between items-start mb-4">
                 <span className="px-3 py-1 bg-light-blue text-primary text-sm font-poppins font-medium rounded-lg">
                   {quiz.category}
                 </span>
-                <span className={`px-3 py-1 text-sm font-poppins font-medium rounded-lg ${getDifficultyColor(quiz.difficulty)}`}>
+                <span
+                  className={`px-3 py-1 text-sm font-poppins font-medium rounded-lg ${getDifficultyColor(quiz.difficulty)}`}
+                >
                   {quiz.difficulty}
                 </span>
-              </div>
+              </div> */}
 
-              {/* Quiz Info */}
-              <h3 className="font-righteous text-xl text-title-black mb-3">
+          {/* Quiz Info */}
+          {/* <h3 className="font-righteous text-xl text-title-black mb-3">
                 {quiz.title}
               </h3>
               <p className="font-poppins text-text-body-black text-sm mb-6 leading-relaxed">
                 {quiz.description}
-              </p>
+              </p> */}
 
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Stats */}
+          {/* <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="flex items-center gap-2">
                   <Target className="w-4 h-4 text-primary" />
                   <span className="font-poppins text-sm text-text-body-black">
@@ -154,19 +133,18 @@ const QuizSelectionPage = () => {
                     ~{quiz.estimatedTime} dk
                   </span>
                 </div>
-              </div>
+              </div> */}
 
-              {/* Start Button */}
-              <button
+          {/* Start Button */}
+          {/* <button
                 onClick={() => handleStartQuiz(quiz.assistantId, quiz.title)}
                 className="w-full bg-primary text-white py-3 px-4 rounded-xl font-poppins font-semibold hover:bg-blue-600 transition-colors shadow-md hover:shadow-lg"
               >
                 Teste Başla
-              </button>
-            </div>
-          ))}
+              </button> */}
+          {/* </div> */}
+          {/* ))} */}
         </div>
-
         {/* Info Section */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-border-gray">
           <div className="flex items-center gap-3 mb-6">
@@ -175,7 +153,7 @@ const QuizSelectionPage = () => {
               Test Hakkında Bilgiler
             </h2>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="font-poppins font-semibold text-title-black mb-2">
@@ -188,7 +166,7 @@ const QuizSelectionPage = () => {
                 <li>• Test tamamlandıktan sonra tekrar başlayamazsınız</li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-poppins font-semibold text-title-black mb-2">
                 🎯 Değerlendirme Kriterleri
