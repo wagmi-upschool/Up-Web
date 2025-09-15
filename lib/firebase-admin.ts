@@ -28,9 +28,24 @@ const getServiceAccount = () => {
         }
       }
 
-      // If it contains escaped newlines, replace them with actual newlines
-      if (privateKey.includes('\\n')) {
+      // Handle different newline formats that might occur in environment variables
+      if (privateKey.includes('\\\\n')) {
+        // Handle double-escaped newlines
+        privateKey = privateKey.replace(/\\\\n/g, '\n');
+      } else if (privateKey.includes('\\n')) {
+        // Handle escaped newlines
         privateKey = privateKey.replace(/\\n/g, '\n');
+      } else if (!privateKey.includes('\n') && privateKey.length > 100) {
+        // If it's a single line but long, try to restore newlines by inserting them
+        // This handles cases where the environment strips all newlines
+        privateKey = privateKey
+          .replace('-----BEGIN PRIVATE KEY-----', '-----BEGIN PRIVATE KEY-----\n')
+          .replace('-----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+          // Insert newlines every 64 characters in the middle section
+          .replace(/(-----BEGIN PRIVATE KEY-----\n)(.+)(\n-----END PRIVATE KEY-----)/, (match, start, middle, end) => {
+            const formattedMiddle = middle.match(/.{1,64}/g)?.join('\n') || middle;
+            return start + formattedMiddle + end;
+          });
       }
 
       // Ensure proper formatting
