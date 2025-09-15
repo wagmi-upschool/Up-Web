@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
       }
 
       const rawData = await lambda.json();
-      console.log("/api/chats Raw Lambda response:", rawData);
+      //console.log("/api/chats Raw Lambda response:", rawData);
 
       // Handle nested body structure
       let data;
@@ -106,10 +106,10 @@ export async function GET(req: NextRequest) {
         data = rawData;
       }
 
-      console.log(
-        `Parsed response data (conversations count: ${data.conversations?.length || 0}):`,
-        data
-      );
+      // console.log(
+      //   `Parsed response data (conversations count: ${data.conversations?.length || 0}):`,
+      //   data
+      // );
 
       if (data && data.message === "Internal server error") {
         throw new Error("Failed to fetch chats");
@@ -193,7 +193,8 @@ export async function GET(req: NextRequest) {
     // Fetch assistants data in parallel using local admin API
     const assistantsPromises = assistantIds.map(async (assistantId) => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
         const response = await fetch(
           `${baseUrl}/api/admin/assistant/get?assistantId=${assistantId}`,
           {

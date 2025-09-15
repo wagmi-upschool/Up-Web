@@ -11,6 +11,7 @@ import {
   Copy,
   MoreHorizontal,
   LogOut,
+  BarChart3,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -97,6 +98,8 @@ function HomePage({}: Props) {
     [messageId: string]: "like" | "dislike" | null;
   }>({});
   const [isAiResponding, setIsAiResponding] = useState(false);
+  const [showMixpanelOption, setShowMixpanelOption] = useState(false);
+  const [mixpanelDashboardUrl, setMixpanelDashboardUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
 
@@ -298,6 +301,59 @@ function HomePage({}: Props) {
     } catch (error) {
       console.error("❌ Error during logout:", error);
       toast.error("Çıkış yapılırken bir hata oluştu");
+    }
+  };
+
+  // Check Mixpanel configuration for current user
+  const checkMixpanelConfiguration = async () => {
+    try {
+      const user = await getCurrentUser();
+      const userEmail = user?.signInDetails?.loginId;
+      
+      if (!userEmail) {
+        console.log("No user email found, skipping Mixpanel check");
+        return;
+      }
+
+      const session = await fetchAuthSession();
+      const { accessToken } = session.tokens ?? {};
+
+      if (accessToken) {
+        const response = await fetch(`/api/mixpanel/config?email=${encodeURIComponent(userEmail)}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const config = await response.json();
+          console.log("Mixpanel config response:", config);
+          
+          if (config.enabled && config.dashboardUrl) {
+            setShowMixpanelOption(true);
+            setMixpanelDashboardUrl(config.dashboardUrl);
+            console.log("✅ Mixpanel dashboard access granted for:", userEmail);
+          } else {
+            console.log("❌ No Mixpanel dashboard access for:", userEmail);
+          }
+        } else {
+          console.log("Mixpanel config request failed:", response.status);
+        }
+      }
+    } catch (error) {
+      console.log("Mixpanel configuration check failed:", error);
+      // Silently fail - this is not critical functionality
+    }
+  };
+
+  const handleCompanyReport = () => {
+    if (mixpanelDashboardUrl) {
+      // Open Mixpanel dashboard in new tab
+      window.open(mixpanelDashboardUrl, '_blank', 'noopener,noreferrer');
+      setShowDropdown(false);
+    } else {
+      toast.error("Dashboard URL bulunamadı");
     }
   };
 
@@ -904,6 +960,8 @@ function HomePage({}: Props) {
     const fetchUser = async () => {
       try {
         await getCurrentUser();
+        // Check Mixpanel configuration after user is loaded
+        await checkMixpanelConfiguration();
       } catch (error) {
         console.error("Error fetching user:", error);
       } finally {
@@ -1451,6 +1509,15 @@ function HomePage({}: Props) {
                   {showDropdown && (
                     <div className="absolute right-0 mt-2 w-48 bg-message-box-bg border border-message-box-border rounded-lg shadow-lg z-50">
                       <div className="py-1">
+                        {showMixpanelOption && (
+                          <button
+                            onClick={handleCompanyReport}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                            Şirket Raporu
+                          </button>
+                        )}
                         <button
                           onClick={handleSignOut}
                           className="flex items-center gap-2 w-full px-4 py-2 text-sm text-text-body-black hover:bg-icon-slate-white transition-colors"
