@@ -33,28 +33,33 @@ const QuizNavigation: React.FC<QuizNavigationProps> = ({
           <button
             onClick={onPrevious}
             disabled={isFirstQuestion || isLoading}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-poppins font-medium transition-colors ${
+            className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-poppins font-medium transition-colors min-w-[140px] ${
               isFirstQuestion || isLoading
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-white border-2 border-border-gray text-text-body-black hover:border-primary/50 hover:text-primary"
             }`}
           >
             <ChevronLeft className="w-5 h-5" />
-            Önceki Soru
+            <span>Önceki Soru</span>
           </button>
 
           {/* Center Status */}
           <div className="flex flex-col items-center gap-2">
-            {!hasAnswer && (
+            {isLoading ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="font-poppins text-sm text-blue-700 font-medium">
+                  Yükleniyor...
+                </span>
+              </div>
+            ) : !hasAnswer ? (
               <div className="flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
                 <span className="font-poppins text-sm text-yellow-700 font-medium">
                   Cevap bekleniyor
                 </span>
               </div>
-            )}
-            
-            {hasAnswer && (
+            ) : (
               <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <span className="font-poppins text-sm text-green-700 font-medium">
@@ -69,37 +74,27 @@ const QuizNavigation: React.FC<QuizNavigationProps> = ({
             <button
               onClick={onFinish}
               disabled={!hasAnswer || isLoading}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-poppins font-semibold transition-all ${
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-poppins font-semibold transition-all min-w-[140px] ${
                 !hasAnswer || isLoading
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-primary text-white hover:bg-blue-600 shadow-md hover:shadow-lg"
               }`}
             >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Flag className="w-5 h-5" />
-              )}
-              {isLoading ? "Tamamlanıyor..." : "Testi Bitir"}
+              <Flag className="w-5 h-5" />
+              Testi Bitir
             </button>
           ) : (
             <button
               onClick={onNext}
               disabled={!hasAnswer || isLoading}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-poppins font-medium transition-all ${
+              className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-poppins font-medium transition-all min-w-[140px] ${
                 !hasAnswer || isLoading
                   ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-primary text-white hover:bg-blue-600 shadow-md hover:shadow-lg"
               }`}
             >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  Sonraki Soru
-                  <ChevronRight className="w-5 h-5" />
-                </>
-              )}
+              <ChevronRight className="w-5 h-5" />
+              <span>Sonraki Soru</span>
             </button>
           )}
         </div>
@@ -116,10 +111,9 @@ const QuizNavigation: React.FC<QuizNavigationProps> = ({
         {/* Progress Hint */}
         <div className="text-center mt-2">
           <p className="font-poppins text-xs text-text-light">
-            {isLastQuestion 
+            {isLastQuestion
               ? "Son soru - test tamamlanmak üzere"
-              : `${totalQuestions - currentQuestionIndex - 1} soru kaldı`
-            }
+              : `${totalQuestions - currentQuestionIndex - 1} soru kaldı`}
           </p>
         </div>
       </div>

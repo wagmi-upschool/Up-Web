@@ -12,6 +12,8 @@ import {
   MoreHorizontal,
   LogOut,
   BarChart3,
+  ClipboardList,
+  Trophy,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -102,6 +104,11 @@ function HomePage({}: Props) {
   const [mixpanelDashboardUrl, setMixpanelDashboardUrl] = useState<
     string | null
   >(null);
+  const [showQuizAccess, setShowQuizAccess] = useState(false);
+  const [quizData, setQuizData] = useState<{
+    testId: string;
+    groupName: string;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
 
@@ -303,6 +310,72 @@ function HomePage({}: Props) {
     } catch (error) {
       console.error("❌ Error during logout:", error);
       toast.error("Çıkış yapılırken bir hata oluştu");
+    }
+  };
+
+  // Check Quiz access for current user
+  const checkQuizAccess = async () => {
+    try {
+      const user = await getCurrentUser();
+      const userEmail = user?.signInDetails?.loginId;
+
+      if (!userEmail) {
+        console.warn("No user email found");
+        return;
+      }
+
+      // Get user's custom attributes
+      const userAttributes = user.signInDetails?.loginId;
+      // For now, we'll check without groupName, later we can add Cognito custom attribute support
+      let userGroupName = null;
+
+      // Get access token for API auth
+      const session = await fetchAuthSession();
+      const { accessToken } = session.tokens ?? {};
+
+      if (!accessToken) {
+        console.warn("No access token found");
+        return;
+      }
+
+      // Check quiz access via API
+      const queryParams = new URLSearchParams({
+        email: userEmail,
+      });
+
+      if (userGroupName) {
+        queryParams.append('groupName', userGroupName);
+      }
+
+      const response = await fetch(
+        `/api/quiz/access?${queryParams.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data.hasAccess) {
+          console.log("✅ User has quiz access:", data);
+          setShowQuizAccess(true);
+          setQuizData({
+            testId: data.testId,
+            groupName: data.groupName,
+          });
+        } else {
+          console.log("❌ User does not have quiz access");
+          setShowQuizAccess(false);
+        }
+      } else {
+        console.error("Failed to check quiz access:", response.status);
+      }
+    } catch (error) {
+      console.error("Error checking quiz access:", error);
     }
   };
 
@@ -965,8 +1038,9 @@ function HomePage({}: Props) {
     const fetchUser = async () => {
       try {
         await getCurrentUser();
-        // Check Mixpanel configuration after user is loaded
+        // Check configurations after user is loaded
         await checkMixpanelConfiguration();
+        await checkQuizAccess();
       } catch (error) {
         console.error("Error fetching user:", error);
       } finally {
@@ -1358,6 +1432,30 @@ function HomePage({}: Props) {
               Sohbetlerim
             </h1>
           </div>
+
+          {/* Quiz Access Button */}
+          {showQuizAccess && quizData && (
+            <div className="mb-4">
+              <button
+                onClick={() => router.push(`/quiz/${quizData.testId}`)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl font-poppins font-medium hover:from-blue-600 hover:to-primary transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              >
+                <ClipboardList className="w-5 h-5" />
+                <span className="text-sm">Değerlendirme Testi seni bekliyor!</span>
+              </button>
+            </div>
+          )}
+
+          {/* Mock Results Button */}
+          <div className="mb-4">
+            <button
+              onClick={() => router.push('/quiz/results/mock')}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-poppins font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+            >
+              <Trophy className="w-5 h-5" />
+              <span className="text-sm">Mock Sonuç Sayfası</span>
+            </button>
+          </div>
         </div>
 
         {/* Chat List */}
@@ -1494,6 +1592,17 @@ function HomePage({}: Props) {
                   : "Bir sohbet seçin"}
               </h2>
               <div className="flex items-center gap-2">
+                {/* Quiz Access Button */}
+                {showQuizAccess && quizData && (
+                  <button
+                    onClick={() => router.push(`/quiz/${quizData.testId}`)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl font-poppins font-semibold hover:from-blue-600 hover:to-primary transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 whitespace-nowrap"
+                  >
+                    <ClipboardList className="w-5 h-5" />
+                    <span className="text-sm">Değerlendirme Testi seni bekliyor!</span>
+                  </button>
+                )}
+
                 <div className="relative" ref={dropdownRef}>
                   <button
                     className="p-2 hover:bg-icon-slate-white rounded"
@@ -1533,13 +1642,30 @@ function HomePage({}: Props) {
           <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out">
             {!activeChat ? (
               <div className="flex items-center justify-center h-full text-center">
-                <div>
-                  <h3 className="text-lg font-medium text-text-black mb-2">
-                    Bir sohbet seçin
-                  </h3>
-                  <p className="text-text-description-gray">
-                    Mesajları görüntülemek için sol taraftan bir sohbet seçin
-                  </p>
+                <div className="flex items-center gap-8">
+                  <div>
+                    <h3 className="text-lg font-medium text-text-black mb-2">
+                      Bir sohbet seçin
+                    </h3>
+                    <p className="text-text-description-gray">
+                      Mesajları görüntülemek için sol taraftan bir sohbet seçin
+                    </p>
+                  </div>
+
+                  {/* Quiz Access Button */}
+                  {showQuizAccess && quizData && (
+                    <div className="ml-8">
+                      <button
+                        onClick={() => router.push(`/quiz/${quizData.testId}`)}
+                        className="flex flex-col items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                      >
+                        <ClipboardList className="w-6 h-6" />
+                        <span className="text-sm font-medium whitespace-nowrap">
+                          Değerlendirme Testi<br />seni bekliyor!
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : isLoadingMessages || isTransitioningChat ? (

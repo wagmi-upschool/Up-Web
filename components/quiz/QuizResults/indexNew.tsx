@@ -4,6 +4,7 @@ import React from "react";
 import { useAppSelector } from "@/components/wrapper/redux";
 import { selectQuiz } from "@/state/quizSlice";
 import { Trophy, Target, XCircle, Home } from "lucide-react";
+import Image from "next/image";
 
 interface QuizResultsReduxProps {
   onReturnHome?: () => void;
@@ -42,7 +43,7 @@ const QuizResultsRedux: React.FC<QuizResultsReduxProps> = ({
       <div
         className="flex-1 flex items-center justify-center relative"
         style={{
-          backgroundImage: "url(/bg.png)",
+          backgroundImage: "url(/image.png)",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -68,27 +69,27 @@ const QuizResultsRedux: React.FC<QuizResultsReduxProps> = ({
 
   return (
     <div
-      className="flex-1 overflow-y-auto py-12 px-6 relative"
+      className="flex-1 overflow-y-auto py-12 px-6 relative "
       style={{
-        backgroundImage: "url(/bg.png)",
+        backgroundImage: "url(/image.png)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
     >
       {/* Background overlay with opacity */}
-      <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+      <div className="absolute inset-0  w-full h-full min-h-screen"></div>
 
       {/* UP Logo */}
       <div className="absolute top-6 left-6 z-10">
         <img src="/up.svg" alt="UP" className="h-12 w-auto" />
       </div>
 
-      <div className="max-w-lg mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6">
+      <div className="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-6">
         {/* Congratulations Header */}
         <div className="text-center mb-12">
           <div className="w-24 h-24 bg-light-blue rounded-full flex items-center justify-center mx-auto mb-6">
-            <Trophy className="w-12 h-12 text-primary" />
+            <img src="/up_face.svg" alt="UP" className="w-50 h-14" />
           </div>
           <h1 className="font-righteous text-3xl text-title-black mb-4">
             Tebrikler, testi tamamladınız! 🎉

@@ -40,7 +40,7 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
     <div
       className="flex-1 overflow-y-auto relative"
       style={{
-        backgroundImage: "url(/bg.png)",
+        backgroundImage: "url(/image.png)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",

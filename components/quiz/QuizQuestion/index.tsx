@@ -36,7 +36,7 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
     <div
       className="flex-1 overflow-y-auto relative"
       style={{
-        backgroundImage: "url(/bg.png)",
+        backgroundImage: "url(/image.png)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -205,14 +205,10 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
                       : "bg-primary text-white hover:bg-blue-600 shadow-md hover:shadow-lg"
                   }`}
                 >
-                  {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>
-                      Sonraki Soru
-                      <ChevronRight className="w-5 h-5" />
-                    </>
-                  )}
+                  <>
+                    Sonraki Soru
+                    <ChevronRight className="w-5 h-5" />
+                  </>
                 </button>
               )}
             </div>

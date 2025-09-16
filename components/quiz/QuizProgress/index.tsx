@@ -25,7 +25,7 @@ const QuizProgress: React.FC<QuizProgressProps> = ({
     <div
       className="border-b border-border-gray px-6 py-4 shadow-sm relative"
       style={{
-        backgroundImage: "url(/bg.png)",
+        backgroundImage: "url(/image.png)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
