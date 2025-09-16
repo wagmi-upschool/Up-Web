@@ -10,7 +10,7 @@ import {
 } from "@/state/api";
 import QuizIntroduction from "../QuizIntroduction";
 import QuizQuestionComponent from "../QuizQuestion";
-import QuizResultsComponent from "../QuizResults";
+import QuizResultsComponent from "../QuizResults/indexNew";
 import toast from "react-hot-toast";
 import { ExistingQuizData, QuizQuestion, QuizQuestionState } from "@/types/type";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -570,81 +570,6 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
 
         {phase === 'results' && (resultsData || existingQuestions.length > 0 || apiQuestions.length > 0) && (
           <QuizResultsComponent
-            results={(() => {
-              // If we have results data from backend and it contains questions, use it
-              if (resultsData && !resultsData.error && resultsData.totalQuestions > 0) {
-                return resultsData;
-              }
-              
-              // If backend returned error or empty questions but we have local questions, calculate locally
-              if ((resultsData?.error === 'backend_data_missing' || !resultsData) && (apiQuestions.length > 0 || existingQuestions.length > 0)) {
-                console.log("Backend data missing, calculating results locally");
-                
-                // Calculate score based on local questions and answers
-                const localQuestions = apiQuestions.length > 0 ? apiQuestions : existingQuestions;
-                let correctAnswers = 0;
-                
-                // Count correct answers by comparing with stored question data
-                localQuestions.forEach(question => {
-                  const userAnswer = answers[question.questionId];
-                  if (userAnswer && question.options.length > 0) {
-                    // For multiple choice, find the correct option
-                    const correctOption = question.options.find(opt => opt.id === question.correctOptionId);
-                    if (correctOption && correctOption.text === userAnswer) {
-                      correctAnswers++;
-                    }
-                  }
-                });
-                
-                const score = localQuestions.length > 0 ? Math.round((correctAnswers / answeredCount) * 100) : 0;
-                
-                console.log("Local results calculation:", {
-                  totalQuestions: localQuestions.length,
-                  answeredCount,
-                  correctAnswers,
-                  score
-                });
-                
-                return {
-                  sessionId: conversationId || existingQuizData?.conversationId || 'local-session',
-                  score: score,
-                  correctAnswers: correctAnswers,
-                  incorrectAnswers: answeredCount - correctAnswers,
-                  totalQuestions: localQuestions.length,
-                  completedAt: new Date().toISOString(),
-                  answers,
-                  timeSpent: 0,
-                  isLocalCalculation: true,
-                };
-              }
-              
-              // Fallback for existing conversations without backend data
-              return {
-                sessionId: existingQuizData?.conversationId || 'local-session',
-                score: Math.round((answeredCount / totalQuestions) * 100),
-                correctAnswers: 0, // We don't have correct answer data for existing conversations
-                incorrectAnswers: 0,
-                totalQuestions,
-                completedAt: new Date().toISOString(),
-                answers,
-                timeSpent: 0,
-              };
-            })()}
-            onRestart={() => {
-              setPhase('introduction');
-              setConversationId(null);
-              setCurrentQuestionIndex(0);
-              setAnswers({});
-              setExistingQuestions([]);
-              setApiQuestions([]);
-              
-              // Add new=true parameter to start fresh quiz
-              const newSearchParams = new URLSearchParams(searchParams.toString());
-              newSearchParams.delete('conversationId');
-              newSearchParams.set('new', 'true');
-              const newUrl = `${pathname}?${newSearchParams.toString()}`;
-              router.replace(newUrl);
-            }}
             onReturnHome={onExit}
             isLoading={isLoadingResults}
           />

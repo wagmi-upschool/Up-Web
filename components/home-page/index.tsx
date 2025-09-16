@@ -100,6 +100,7 @@ function HomePage({}: Props) {
     [messageId: string]: "like" | "dislike" | null;
   }>({});
   const [isAiResponding, setIsAiResponding] = useState(false);
+  const [isMessageInserting, setIsMessageInserting] = useState(false);
   const [showMixpanelOption, setShowMixpanelOption] = useState(false);
   const [mixpanelDashboardUrl, setMixpanelDashboardUrl] = useState<
     string | null
@@ -148,7 +149,8 @@ function HomePage({}: Props) {
   );
   const [sendChatMessage, { isLoading: isSendingMessage }] =
     useSendChatMessageMutation();
-  const [saveConversation] = useSaveConversationMutation();
+  const [saveConversation, { isLoading: isSavingConversation }] =
+    useSaveConversationMutation();
 
   // Smart message merging: replace optimistic messages with real ones when identifiers match
   const messages = useMemo(() => {
@@ -344,7 +346,7 @@ function HomePage({}: Props) {
       });
 
       if (userGroupName) {
-        queryParams.append('groupName', userGroupName);
+        queryParams.append("groupName", userGroupName);
       }
 
       const response = await fetch(
@@ -478,6 +480,7 @@ function HomePage({}: Props) {
     // Journal mode - ONLY user message, NO AI response
     if (isReflectionJournalChat(currentActiveChat) && isJournalMode) {
       setCurrentMessage("");
+      setIsMessageInserting(true);
 
       // Add ONLY user message to optimistic messages
       setOptimisticMessages((prev) => [...prev, userMessage]);
@@ -507,6 +510,7 @@ function HomePage({}: Props) {
 
         setTimeout(scrollToBottom, 100);
         console.log("✅ Journal entry saved successfully", saveResult);
+        setIsMessageInserting(false);
       } catch (error) {
         console.error("❌ Error saving journal entry:", error);
         toast.error("Günlük kaydı başarısız oldu");
@@ -515,6 +519,7 @@ function HomePage({}: Props) {
         setOptimisticMessages((prev) =>
           prev.filter((msg) => msg.id !== userMessageId)
         );
+        setIsMessageInserting(false);
       }
       return; // Early return
     }
@@ -535,6 +540,7 @@ function HomePage({}: Props) {
     setOptimisticMessages([userMessage, typingMessage]);
     setCurrentMessage(""); // Clear input immediately
     setIsAiResponding(true);
+    setIsMessageInserting(true);
 
     try {
       console.log(
@@ -786,17 +792,20 @@ function HomePage({}: Props) {
             console.log(
               "[NORMAL MODE] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
             );
+            setIsMessageInserting(false);
           } else {
             console.error(
               "[NORMAL MODE] ❌ Step 3 failed: Failed to save conversation:",
               saveResult.error
             );
+            setIsMessageInserting(false);
           }
         } catch (saveError) {
           console.error(
             "[NORMAL MODE] ❌ Step 3 error: Error saving conversation:",
             saveError
           );
+          setIsMessageInserting(false);
         }
       }
     } catch (error) {
@@ -806,6 +815,7 @@ function HomePage({}: Props) {
       // Restore the message to input
       setCurrentMessage(messageText);
       setIsAiResponding(false);
+      setIsMessageInserting(false);
       toast.error("Mesaj gönderilemedi");
     }
   };
@@ -1428,34 +1438,44 @@ function HomePage({}: Props) {
         {/* Sidebar Header */}
         <div className="p-6 border-b border-message-box-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-normal text-black font-righteous">
-              Sohbetlerim
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-normal text-black font-righteous">
+                Sohbetlerim
+              </h1>
+              {/* {(isMessageInserting || isSendingMessage || isSavingConversation) && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-orange-100 rounded-full">
+                  <div className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs font-medium text-orange-700">Kaydediliyor</span>
+                </div>
+              )} */}
+            </div>
           </div>
 
           {/* Quiz Access Button */}
-          {showQuizAccess && quizData && (
+          {/* {showQuizAccess && quizData && (
             <div className="mb-4">
               <button
                 onClick={() => router.push(`/quiz/${quizData.testId}`)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl font-poppins font-medium hover:from-blue-600 hover:to-primary transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 <ClipboardList className="w-5 h-5" />
-                <span className="text-sm">Değerlendirme Testi seni bekliyor!</span>
+                <span className="text-sm">
+                  Değerlendirme Testi seni bekliyor!
+                </span>
               </button>
             </div>
-          )}
+          )} */}
 
           {/* Mock Results Button */}
-          <div className="mb-4">
+          {/* <div className="mb-4">
             <button
-              onClick={() => router.push('/quiz/results/mock')}
+              onClick={() => router.push("/quiz/results/mock")}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-poppins font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
               <Trophy className="w-5 h-5" />
               <span className="text-sm">Mock Sonuç Sayfası</span>
             </button>
-          </div>
+          </div> */}
         </div>
 
         {/* Chat List */}
@@ -1510,8 +1530,13 @@ function HomePage({}: Props) {
                         return;
                       }
 
-                      // Regular chat behavior
-                      if (activeChat !== chat.id) {
+                      // Regular chat behavior - prevent switching if message operations are in progress
+                      if (
+                        activeChat !== chat.id &&
+                        !isMessageInserting &&
+                        !isSendingMessage &&
+                        !isSavingConversation
+                      ) {
                         setIsTransitioningChat(true);
                         setActiveChat(chat.id);
                         // Defer clearing optimistic messages to avoid blocking UI
@@ -1519,9 +1544,25 @@ function HomePage({}: Props) {
                           setOptimisticMessages([]);
                           setIsTransitioningChat(false);
                         }, 100);
+                      } else if (
+                        isMessageInserting ||
+                        isSendingMessage ||
+                        isSavingConversation
+                      ) {
+                        // Show warning if user tries to switch while message operations are active
+                        toast.error(
+                          "Lütfen mesaj işlemi tamamlanana kadar bekleyiniz"
+                        );
                       }
                     }}
-                    className={`p-4 rounded-lg cursor-pointer transition-all duration-200 ease-in-out ${
+                    className={`p-4 rounded-lg transition-all duration-200 ease-in-out ${
+                      (isMessageInserting ||
+                        isSendingMessage ||
+                        isSavingConversation) &&
+                      !isActive
+                        ? "cursor-not-allowed opacity-50"
+                        : "cursor-pointer"
+                    } ${
                       isActive
                         ? "bg-message-box-bg shadow-md border-b-4 border-primary transform"
                         : "bg-message-box-bg shadow-sm hover:shadow-md"
@@ -1599,7 +1640,9 @@ function HomePage({}: Props) {
                     className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl font-poppins font-semibold hover:from-blue-600 hover:to-primary transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 whitespace-nowrap"
                   >
                     <ClipboardList className="w-5 h-5" />
-                    <span className="text-sm">Değerlendirme Testi seni bekliyor!</span>
+                    <span className="text-sm">
+                      Değerlendirme Testi seni bekliyor!
+                    </span>
                   </button>
                 )}
 
@@ -1639,7 +1682,17 @@ function HomePage({}: Props) {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out">
+          <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out relative">
+            {isMessageInserting && (
+              <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-20 flex items-center justify-center">
+                <div className="bg-white/90 rounded-lg px-4 py-3 flex items-center gap-3 shadow-lg">
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm font-medium text-text-black">
+                    Mesaj kaydediliyor...
+                  </span>
+                </div>
+              </div>
+            )}
             {!activeChat ? (
               <div className="flex items-center justify-center h-full text-center">
                 <div className="flex items-center gap-8">
@@ -1653,7 +1706,7 @@ function HomePage({}: Props) {
                   </div>
 
                   {/* Quiz Access Button */}
-                  {showQuizAccess && quizData && (
+                  {/* {showQuizAccess && quizData && (
                     <div className="ml-8">
                       <button
                         onClick={() => router.push(`/quiz/${quizData.testId}`)}
@@ -1661,11 +1714,13 @@ function HomePage({}: Props) {
                       >
                         <ClipboardList className="w-6 h-6" />
                         <span className="text-sm font-medium whitespace-nowrap">
-                          Değerlendirme Testi<br />seni bekliyor!
+                          Değerlendirme Testi
+                          <br />
+                          seni bekliyor!
                         </span>
                       </button>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
             ) : isLoadingMessages || isTransitioningChat ? (
@@ -1948,7 +2003,7 @@ function HomePage({}: Props) {
                     // Send message immediately
                     await handleSendMessageWithText(message);
                   }}
-                  disabled={isSendingMessage}
+                  disabled={isSendingMessage || isMessageInserting}
                   data-property-1="Desktop"
                   className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
@@ -1974,7 +2029,7 @@ function HomePage({}: Props) {
                     // Send message immediately
                     await handleSendMessageWithText(message);
                   }}
-                  disabled={isSendingMessage}
+                  disabled={isSendingMessage || isMessageInserting}
                   data-property-1="Desktop"
                   className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
@@ -2000,7 +2055,7 @@ function HomePage({}: Props) {
                     // Send message immediately
                     await handleSendMessageWithText(message);
                   }}
-                  disabled={isSendingMessage}
+                  disabled={isSendingMessage || isMessageInserting}
                   data-property-1="Desktop"
                   className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
@@ -2020,7 +2075,7 @@ function HomePage({}: Props) {
 
                 <button
                   onClick={handleToggleUp}
-                  disabled={isSendingMessage}
+                  disabled={isSendingMessage || isMessageInserting}
                   data-property-1="Desktop"
                   className="w-[189px] h-[38px] bg-white rounded-2xl rounded-br-none backdrop-blur-[4px] inline-flex flex-row items-center gap-2 px-3 py-2 hover:bg-white/70 transition-all duration-200 disabled:opacity-50"
                 >
@@ -2085,7 +2140,11 @@ function HomePage({}: Props) {
                           onChange={(e) => setCurrentMessage(e.target.value)}
                           onKeyDown={handleKeyPress}
                           placeholder="Buraya yazabilirsin"
-                          disabled={isSendingMessage || !activeChat}
+                          disabled={
+                            isSendingMessage ||
+                            !activeChat ||
+                            isMessageInserting
+                          }
                           className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
                         />
                       </div>
@@ -2095,7 +2154,8 @@ function HomePage({}: Props) {
                         disabled={
                           isSendingMessage ||
                           !activeChat ||
-                          !currentMessage.trim()
+                          !currentMessage.trim() ||
+                          isMessageInserting
                         }
                         className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
                       >
@@ -2135,7 +2195,11 @@ function HomePage({}: Props) {
                           value={currentMessage}
                           onChange={(e) => setCurrentMessage(e.target.value)}
                           onKeyDown={handleKeyPress}
-                          disabled={isSendingMessage || !activeChat}
+                          disabled={
+                            isSendingMessage ||
+                            !activeChat ||
+                            isMessageInserting
+                          }
                           className="flex-1 bg-transparent text-sm font-medium font-poppins leading-tight text-neutral-800 placeholder:text-neutral-400 border-none outline-none disabled:opacity-50"
                         />
                       </div>
@@ -2145,7 +2209,8 @@ function HomePage({}: Props) {
                         disabled={
                           isSendingMessage ||
                           !activeChat ||
-                          !currentMessage.trim()
+                          !currentMessage.trim() ||
+                          isMessageInserting
                         }
                         className="w-4 h-4 relative overflow-hidden flex-shrink-0 disabled:opacity-50 hover:opacity-70 transition-opacity flex items-center justify-center"
                       >
