@@ -78,7 +78,7 @@ const getServiceAccount = () => {
     console.log('🔑 Using Firebase service account from local file (development only)');
     const { readFileSync } = require('fs');
     const { join } = require('path');
-    const serviceAccountPath = join(process.cwd(), 'upcompaniontest-firebase-adminsdk-vfftg-d6ab1dfa67.json');
+    const serviceAccountPath = join(process.cwd(), 'upcompaniontest-3a44980fb26e.json');
     const serviceAccountData = readFileSync(serviceAccountPath, 'utf8');
     return JSON.parse(serviceAccountData);
   } catch (error) {

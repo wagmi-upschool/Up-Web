@@ -196,3 +196,6 @@ POST /api/chats/[chatId]/conversation-save
 ```
 
 This ensures all conversations are properly saved to the backend and available across sessions.
+
+
+search logs inside '/Users/yusuf/Software/Projects/Web-Development/Up-Web/dev.log' 

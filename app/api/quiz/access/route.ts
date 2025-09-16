@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFirebaseRemoteConfig } from "@/lib/firebase-config";
+import { getRemoteConfigValue } from "@/lib/firebase-admin";
 
 // Quiz access interface
 interface QuizConfig {
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     };
 
     try {
-      const remoteConfig = await getFirebaseRemoteConfig("UpWebMixpanelDashboard");
+      const remoteConfig = await getRemoteConfigValue("UpWebMixpanelDashboard");
 
       if (remoteConfig && typeof remoteConfig === "object") {
         console.log(
