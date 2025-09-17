@@ -105,8 +105,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // If no group access, check all groups for email
-    if (!hasAccess) {
+    // If no group access AND no specific group was provided, check all groups for email
+    if (!hasAccess && !userGroup) {
       for (const [groupName, config] of Object.entries(quizConfig)) {
         if (config.users.includes(userEmail)) {
           hasAccess = true;
