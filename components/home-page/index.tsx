@@ -1548,23 +1548,15 @@ function HomePage({}: Props) {
                           setOptimisticMessages([]);
                           setIsTransitioningChat(false);
                         }, 100);
-                      } else if (
-                        isMessageInserting ||
-                        isSendingMessage ||
-                        isSavingConversation
-                      ) {
-                        // Show warning if user tries to switch while message operations are active
-                        toast.error(
-                          "Lütfen mesaj işlemi tamamlanana kadar bekleyiniz"
-                        );
                       }
+                      // Note: Silent blocking - user cannot switch during message operations
                     }}
                     className={`p-4 rounded-lg transition-all duration-200 ease-in-out ${
                       (isMessageInserting ||
                         isSendingMessage ||
                         isSavingConversation) &&
                       !isActive
-                        ? "cursor-not-allowed opacity-50"
+                        ? "cursor-not-allowed"
                         : "cursor-pointer"
                     } ${
                       isActive
@@ -1687,16 +1679,6 @@ function HomePage({}: Props) {
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-6 transition-opacity duration-300 ease-in-out relative">
-            {isMessageInserting && (
-              <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-20 flex items-center justify-center">
-                <div className="bg-white/90 rounded-lg px-4 py-3 flex items-center gap-3 shadow-lg">
-                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm font-medium text-text-black">
-                    Mesaj kaydediliyor...
-                  </span>
-                </div>
-              </div>
-            )}
             {!activeChat ? (
               <div className="flex items-center justify-center h-full text-center">
                 <div className="flex items-center gap-8">
