@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRemoteConfigValue } from "@/lib/firebase-admin";
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // Quiz access interface
 interface QuizConfig {
   [groupName: string]: {

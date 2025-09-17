@@ -5401,3 +5401,4 @@ GET /api/admin/assistant/get called
  GET /api/admin/assistant/get/?assistantId=7417321a-8b76-4aab-897b-c45f023388b4 200 in 884ms
  GET /api/chats/ 200 in 1809ms
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, stat '/Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/cache/webpack/client-development/1.pack.gz'
+ ✓ Compiled in 626ms (2848 modules)
