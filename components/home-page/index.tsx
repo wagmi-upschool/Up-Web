@@ -327,9 +327,13 @@ function HomePage({}: Props) {
       }
 
       // Get user's custom attributes
-      const userAttributes = user.signInDetails?.loginId;
-      // For now, we'll check without groupName, later we can add Cognito custom attribute support
-      let userGroupName = null;
+      const { fetchUserAttributes } = await import('aws-amplify/auth');
+      const userAttributes = await fetchUserAttributes();
+
+      // Extract groupName from custom attributes
+      let userGroupName = userAttributes['custom:groupName'] || null;
+
+      console.log("User attributes:", { userEmail, userGroupName });
 
       // Get access token for API auth
       const session = await fetchAuthSession();
@@ -1452,7 +1456,7 @@ function HomePage({}: Props) {
           </div>
 
           {/* Quiz Access Button */}
-          {/* {showQuizAccess && quizData && (
+          {showQuizAccess && quizData && (
             <div className="mb-4">
               <button
                 onClick={() => router.push(`/quiz/${quizData.testId}`)}
@@ -1464,7 +1468,7 @@ function HomePage({}: Props) {
                 </span>
               </button>
             </div>
-          )} */}
+          )}
 
           {/* Mock Results Button */}
           {/* <div className="mb-4">
@@ -1634,7 +1638,7 @@ function HomePage({}: Props) {
               </h2>
               <div className="flex items-center gap-2">
                 {/* Quiz Access Button */}
-                {showQuizAccess && quizData && (
+                {/* {showQuizAccess && quizData && (
                   <button
                     onClick={() => router.push(`/quiz/${quizData.testId}`)}
                     className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-blue-600 text-white rounded-xl font-poppins font-semibold hover:from-blue-600 hover:to-primary transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 whitespace-nowrap"
@@ -1644,7 +1648,7 @@ function HomePage({}: Props) {
                       Değerlendirme Testi seni bekliyor!
                     </span>
                   </button>
-                )}
+                )} */}
 
                 <div className="relative" ref={dropdownRef}>
                   <button
@@ -1705,8 +1709,8 @@ function HomePage({}: Props) {
                     </p>
                   </div>
 
-                  {/* Quiz Access Button */}
-                  {/* {showQuizAccess && quizData && (
+                  {/* Quiz Access Button - Only show if testId exists */}
+                  {showQuizAccess && quizData && quizData.testId && (
                     <div className="ml-8">
                       <button
                         onClick={() => router.push(`/quiz/${quizData.testId}`)}
@@ -1720,7 +1724,7 @@ function HomePage({}: Props) {
                         </span>
                       </button>
                     </div>
-                  )} */}
+                  )}
                 </div>
               </div>
             ) : isLoadingMessages || isTransitioningChat ? (

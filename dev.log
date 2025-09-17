@@ -3,114 +3,136 @@
   - Environments: .env
 
  ✓ Starting...
- ✓ Ready in 1256ms
- ✓ Compiled /middleware in 67ms (116 modules)
- ○ Compiling / ...
- ✓ Compiled / in 1068ms (1787 modules)
- GET / 200 in 1240ms
- ✓ Compiled in 189ms (864 modules)
- ✓ Compiled /favicon.ico in 334ms (952 modules)
- GET /favicon.ico 200 in 381ms
- GET / 200 in 73ms
- GET /favicon.ico 200 in 6ms
+ ✓ Ready in 1163ms
+ ✓ Compiled /middleware in 72ms (116 modules)
  ○ Compiling /home ...
- ✓ Compiled /home in 599ms (2807 modules)
- ✓ Compiled /api/mixpanel/config in 98ms (1490 modules)
-🔑 Constructing Firebase service account from individual environment variables
-🔑 Private key format validated successfully
-✅ Firebase Admin initialized successfully
-🔍 Checking Mixpanel access for email: wagmiup@gmail.com
-📡 Fetching Mixpanel configuration from Firebase Remote Config
-🔄 Fetching Remote Config value for: UpWebMixpanelDashboard
- ✓ Compiled /api/chats in 244ms (1492 modules)
+ ✓ Compiled /home in 1748ms (2786 modules)
+ GET /home/ 200 in 1992ms
+ ✓ Compiled /_not-found in 644ms (2775 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 543ms
+ ✓ Compiled /favicon.ico in 130ms (1459 modules)
+ GET /favicon.ico 200 in 160ms
+ ✓ Compiled /api/chats in 205ms (1487 modules)
+ ✓ Compiled (1489 modules)
 GET /api/chats called
 Environment REMOTE_URL: https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv
 Auth header: Bearer eyJraWQiOiJnXC8wbmxQMnY4aEgzcTZVenRPVWdEeFR...
 ID Token header: eyJraWQiOiJFNzZEQjcwdCs4bkg1Z1I0NVpDd3ppalJYaEVjUU...
-User ID: 64489438-2061-7013-e9a7-b16d57108d0e
+User ID: 74a804b8-4061-7033-6fe7-a8001a770a63
 Using token: eyJraWQiOiJFNzZEQjcwdCs4bkg1Z1I0NVpDd3ppalJYaEVjUU...
-📦 Fetching batch 1/10 from URL: https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/conversation/user/64489438-2061-7013-e9a7-b16d57108d0e/get?limit=50 (Total so far: 0/500)
-✅ Retrieved Remote Config value for 'UpWebMixpanelDashboard'
-✅ Successfully loaded Mixpanel config from Firebase Remote Config
-✅ User wagmiup@gmail.com has access to denizbank dashboard
- GET /api/mixpanel/config/?email=wagmiup%40gmail.com 200 in 1043ms
-🔍 Checking Mixpanel access for email: wagmiup@gmail.com
+📦 Fetching batch 1/10 from URL: https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/conversation/user/74a804b8-4061-7033-6fe7-a8001a770a63/get?limit=50 (Total so far: 0/500)
+🔑 Constructing Firebase service account from individual environment variables
+🔑 Private key format validated successfully
+✅ Firebase Admin initialized successfully
+🔍 Checking Mixpanel access for email: yusuf@wagmitech.co
 📡 Fetching Mixpanel configuration from Firebase Remote Config
 🔄 Fetching Remote Config value for: UpWebMixpanelDashboard
- ✓ Compiled /api/quiz/access in 140ms (1494 modules)
-🔍 Checking quiz access for user: wagmiup@gmail.com group: null
-🔄 Fetching Remote Config value for: UpWebMixpanelDashboard
 ✅ Retrieved Remote Config value for 'UpWebMixpanelDashboard'
 ✅ Successfully loaded Mixpanel config from Firebase Remote Config
-✅ User wagmiup@gmail.com has access to denizbank dashboard
- GET /api/mixpanel/config/?email=wagmiup%40gmail.com 200 in 343ms
-✅ Retrieved Remote Config value for 'UpWebMixpanelDashboard'
-✅ Successfully loaded quiz config from Firebase Remote Config
-✅ User wagmiup@gmail.com has quiz access via group denizbank
- GET /api/quiz/access/?email=wagmiup%40gmail.com 200 in 636ms
-🔍 Checking quiz access for user: wagmiup@gmail.com group: null
+✅ User yusuf@wagmitech.co has access to default dashboard
+ GET /api/mixpanel/config/?email=yusuf%40wagmitech.co 200 in 884ms
+🔍 Checking Mixpanel access for email: yusuf@wagmitech.co
+📡 Fetching Mixpanel configuration from Firebase Remote Config
 📦 Using cached Remote Config value for: UpWebMixpanelDashboard
-✅ Successfully loaded quiz config from Firebase Remote Config
-✅ User wagmiup@gmail.com has quiz access via group denizbank
- GET /api/quiz/access/?email=wagmiup%40gmail.com 200 in 2ms
+✅ Successfully loaded Mixpanel config from Firebase Remote Config
+✅ User yusuf@wagmitech.co has access to default dashboard
+ GET /api/mixpanel/config/?email=yusuf%40wagmitech.co 200 in 5ms
+ ✓ Compiled /api/quiz/access in 130ms (1491 modules)
+🔍 Checking quiz access for user: yusuf@wagmitech.co group: null
+🔄 Fetching Remote Config value for: UpWebMixpanelDashboard
 Lambda response status: 200
-Batch 1: Next token: 01a9cd9d-deb1-43de-b04c-356ffb492b53, Total fetched: 50
-📦 Fetching batch 2/10 from URL: https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/conversation/user/64489438-2061-7013-e9a7-b16d57108d0e/get?limit=50&nextToken=01a9cd9d-deb1-43de-b04c-356ffb492b53 (Total so far: 50/500)
-Lambda response status: 200
-Batch 2: Next token: 01a9cd9d-deb1-43de-b04c-356ffb492b53, Total fetched: 100
-📦 Fetching batch 3/10 from URL: https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/conversation/user/64489438-2061-7013-e9a7-b16d57108d0e/get?limit=50&nextToken=01a9cd9d-deb1-43de-b04c-356ffb492b53 (Total so far: 100/500)
-Lambda response status: 200
-Batch 3: Next token: 01a9cd9d-deb1-43de-b04c-356ffb492b53, Total fetched: 150
-🔄 LOOP DETECTED! Same nextToken as previous: 01a9cd9d-deb1-43de-b04c-356ffb492b53
-✋ Breaking to prevent infinite loop
-✅ Fetch complete: 150 conversations in 3 batches (limited to 500 max)
-Fetching 13 assistants and 4 groups
+Batch 1: Next token: null, Total fetched: 2
+✅ Fetch complete: 2 conversations in 1 batches (limited to 500 max)
+Fetching 2 assistants and 2 groups
 Assistant IDs: [
-  '681c295a-3253-49cb-8354-3da490bfb6da',
   'f094ba99-3a39-4c2a-9af2-fbe058ceac4e',
-  '8cecea10-07e7-4572-9053-bd443091ef28',
-  '848a0a46-1bc3-42bf-8aa1-f5fe672907bc',
-  'ca33604c-0e0f-4130-b16e-e05676f63976',
-  'dd132685-2a56-4b69-a163-8a4512f90b14',
-  '59fd596a-1c7e-4b68-bb79-47413b338668',
-  '3cb8db28-e54e-46f7-b379-0c371c5160b7',
-  '4edebe53-5663-4e36-bb73-4b5696c168ca',
-  '7417321a-8b76-4aab-897b-c45f023388b4',
-  'd80601b4-8fd8-4b24-8bc5-2ba85f167151',
-  '2358d468-0c96-4fed-9639-ab3b0c4637b0',
-  '0777e23c-c4f7-4cd2-88cf-3f5136eee9b2'
+  '7079e261-4df2-4173-a2ad-bc957022947c'
 ]
 Group IDs: [
-  '06261033-dfa1-4196-8334-50592cb6490f',
   '06261033-dfa1-50592cb6490f-4196-8334',
-  'f2b835b2-139a-4ea4-a9a0-930d6baded6a',
-  '7c68ad5d-6092-4a4a-98bc-235e4553e332'
+  '7079e261-4df2-4173-a2ad-bc957022947c'
 ]
- ✓ Compiled /api/admin/assistant/get in 166ms (1496 modules)
+ ✓ Compiled /api/admin/assistant/get in 139ms (1493 modules)
 GET /api/admin/assistant/get called
 GET /api/admin/assistant/get called
+✅ Retrieved Remote Config value for 'UpWebMixpanelDashboard'
+✅ Successfully loaded quiz config from Firebase Remote Config
+✅ User yusuf@wagmitech.co has quiz access via group default
+ GET /api/quiz/access/?email=yusuf%40wagmitech.co 200 in 451ms
+🔍 Checking quiz access for user: yusuf@wagmitech.co group: null
+🔄 Fetching Remote Config value for: UpWebMixpanelDashboard
+✅ Retrieved Remote Config value for 'UpWebMixpanelDashboard'
+✅ Successfully loaded quiz config from Firebase Remote Config
+✅ User yusuf@wagmitech.co has quiz access via group default
+ GET /api/quiz/access/?email=yusuf%40wagmitech.co 200 in 301ms
+ GET /api/admin/assistant/get/?assistantId=7079e261-4df2-4173-a2ad-bc957022947c 200 in 779ms
+ GET /api/admin/assistant/get/?assistantId=f094ba99-3a39-4c2a-9af2-fbe058ceac4e 200 in 1055ms
+ GET /api/chats/ 200 in 2162ms
+ ✓ Compiled in 959ms (2786 modules)
+ GET /home/ 200 in 68ms
+ ✓ Compiled /_not-found in 220ms (2775 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 281ms
+ ✓ Compiled /favicon.ico in 59ms (1459 modules)
+ GET /favicon.ico 200 in 86ms
+ ✓ Compiled /api/mixpanel/config in 178ms (1484 modules)
+ ✓ Compiled (1489 modules)
+🔍 Checking Mixpanel access for email: yusuf@wagmitech.co
+📡 Fetching Mixpanel configuration from Firebase Remote Config
+🔄 Fetching Remote Config value for: UpWebMixpanelDashboard
+GET /api/chats called
+Environment REMOTE_URL: https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv
+Auth header: Bearer eyJraWQiOiJnXC8wbmxQMnY4aEgzcTZVenRPVWdEeFR...
+ID Token header: eyJraWQiOiJFNzZEQjcwdCs4bkg1Z1I0NVpDd3ppalJYaEVjUU...
+User ID: 74a804b8-4061-7033-6fe7-a8001a770a63
+Using token: eyJraWQiOiJFNzZEQjcwdCs4bkg1Z1I0NVpDd3ppalJYaEVjUU...
+📦 Fetching batch 1/10 from URL: https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/conversation/user/74a804b8-4061-7033-6fe7-a8001a770a63/get?limit=50 (Total so far: 0/500)
+✅ Retrieved Remote Config value for 'UpWebMixpanelDashboard'
+✅ Successfully loaded Mixpanel config from Firebase Remote Config
+✅ User yusuf@wagmitech.co has access to default dashboard
+ GET /api/mixpanel/config/?email=yusuf%40wagmitech.co 200 in 886ms
+🔍 Checking Mixpanel access for email: yusuf@wagmitech.co
+📡 Fetching Mixpanel configuration from Firebase Remote Config
+📦 Using cached Remote Config value for: UpWebMixpanelDashboard
+✅ Successfully loaded Mixpanel config from Firebase Remote Config
+✅ User yusuf@wagmitech.co has access to default dashboard
+ GET /api/mixpanel/config/?email=yusuf%40wagmitech.co 200 in 3ms
+Lambda response status: 200
+Batch 1: Next token: null, Total fetched: 2
+✅ Fetch complete: 2 conversations in 1 batches (limited to 500 max)
+Fetching 2 assistants and 2 groups
+Assistant IDs: [
+  'f094ba99-3a39-4c2a-9af2-fbe058ceac4e',
+  '7079e261-4df2-4173-a2ad-bc957022947c'
+]
+Group IDs: [
+  '06261033-dfa1-50592cb6490f-4196-8334',
+  '7079e261-4df2-4173-a2ad-bc957022947c'
+]
+ ✓ Compiled /api/admin/assistant/get in 159ms (1491 modules)
 GET /api/admin/assistant/get called
 GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
-GET /api/admin/assistant/get called
- GET /api/admin/assistant/get/?assistantId=f094ba99-3a39-4c2a-9af2-fbe058ceac4e 200 in 961ms
- GET /api/admin/assistant/get/?assistantId=ca33604c-0e0f-4130-b16e-e05676f63976 200 in 994ms
- GET /api/admin/assistant/get/?assistantId=d80601b4-8fd8-4b24-8bc5-2ba85f167151 200 in 1008ms
- GET /api/admin/assistant/get/?assistantId=8cecea10-07e7-4572-9053-bd443091ef28 200 in 1022ms
- GET /api/admin/assistant/get/?assistantId=0777e23c-c4f7-4cd2-88cf-3f5136eee9b2 200 in 1019ms
- GET /api/admin/assistant/get/?assistantId=848a0a46-1bc3-42bf-8aa1-f5fe672907bc 200 in 1160ms
- GET /api/admin/assistant/get/?assistantId=2358d468-0c96-4fed-9639-ab3b0c4637b0 200 in 2620ms
- GET /api/admin/assistant/get/?assistantId=59fd596a-1c7e-4b68-bb79-47413b338668 200 in 2651ms
- GET /api/admin/assistant/get/?assistantId=3cb8db28-e54e-46f7-b379-0c371c5160b7 200 in 2649ms
- GET /api/admin/assistant/get/?assistantId=681c295a-3253-49cb-8354-3da490bfb6da 200 in 2753ms
- GET /api/admin/assistant/get/?assistantId=dd132685-2a56-4b69-a163-8a4512f90b14 200 in 2799ms
- GET /api/admin/assistant/get/?assistantId=4edebe53-5663-4e36-bb73-4b5696c168ca 200 in 2885ms
- GET /api/admin/assistant/get/?assistantId=7417321a-8b76-4aab-897b-c45f023388b4 200 in 2940ms
- GET /api/chats/ 200 in 7625ms
+ ✓ Compiled /api/quiz/access in 143ms (1493 modules)
+🔍 Checking quiz access for user: yusuf@wagmitech.co group: default
+🔄 Fetching Remote Config value for: UpWebMixpanelDashboard
+ GET /api/admin/assistant/get/?assistantId=7079e261-4df2-4173-a2ad-bc957022947c 200 in 819ms
+✅ Retrieved Remote Config value for 'UpWebMixpanelDashboard'
+✅ Successfully loaded quiz config from Firebase Remote Config
+✅ User yusuf@wagmitech.co has quiz access via group default
+ GET /api/quiz/access/?email=yusuf%40wagmitech.co&groupName=default 200 in 493ms
+🔍 Checking quiz access for user: yusuf@wagmitech.co group: default
+📦 Using cached Remote Config value for: UpWebMixpanelDashboard
+✅ Successfully loaded quiz config from Firebase Remote Config
+✅ User yusuf@wagmitech.co has quiz access via group default
+ GET /api/quiz/access/?email=yusuf%40wagmitech.co&groupName=default 200 in 3ms
+ GET /api/admin/assistant/get/?assistantId=f094ba99-3a39-4c2a-9af2-fbe058ceac4e 200 in 1096ms
+ GET /api/chats/ 200 in 2407ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, stat '/Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/cache/webpack/client-development/1.pack.gz'
+ ○ Compiling /quiz/[assistantId] ...
+ ✓ Compiled /quiz/[assistantId] in 791ms (2828 modules)
+ GET /quiz/681c295a-3253-49cb-8354-3da490bfb6da/ 200 in 1135ms
+ ✓ Compiled /_not-found in 163ms (2831 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 223ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, stat '/Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/cache/webpack/client-development/14.pack.gz'
+ ✓ Compiled in 221ms (1384 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, stat '/Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/cache/webpack/client-development/1.pack.gz'
+ ✓ Compiled in 777ms (2842 modules)

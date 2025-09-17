@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
           "✅ Successfully loaded quiz config from Firebase Remote Config"
         );
         quizConfig = remoteConfig as QuizConfig;
+        console.log("Quiz Config:", quizConfig);
       } else {
         // Fallback configuration
         console.log("🔄 Using fallback quiz configuration");

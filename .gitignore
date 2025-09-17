@@ -9,6 +9,9 @@ node_modules/
 .env.development
 .env.test
 
+# Firebase service account files (sensitive)
+upcompaniontest-*.json
+
 .next/
 .amplify
 .playwright-mcp
