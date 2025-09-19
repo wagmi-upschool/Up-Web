@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-
 export async function POST(req: NextRequest) {
   console.log("POST /api/quiz/start called");
 
@@ -9,7 +8,11 @@ export async function POST(req: NextRequest) {
   const idTokenHeader = req.headers.get("x-id-token");
   const userId = req.headers.get("x-user-id");
 
-  console.log("Auth headers:", { authHeader: !!authHeader, idTokenHeader: !!idTokenHeader, userId });
+  console.log("Auth headers:", {
+    authHeader: !!authHeader,
+    idTokenHeader: !!idTokenHeader,
+    userId,
+  });
 
   if (!authHeader || !userId) {
     console.log("Missing auth headers");
@@ -27,15 +30,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { assistantId, assistantGroupId, type, title, questionCount } = body;
 
-    console.log("Quiz start request:", { assistantId, assistantGroupId, type, title, questionCount });
+    console.log("Quiz start request:", {
+      assistantId,
+      assistantGroupId,
+      type,
+      title,
+      questionCount,
+    });
 
     // Prepare request body for reinforcement API
     const reinforcementBody = {
       assistant_id: assistantId,
-      question_count: questionCount || 5,
+      question_count: 5,
       assistantGroupId: assistantGroupId,
       type: type || "fill-in-blanks",
-      title: title || "Quiz Session"
+      title: title || "Quiz Session",
     };
 
     console.log("Calling reinforcement API with:", reinforcementBody);
@@ -47,7 +56,7 @@ export async function POST(req: NextRequest) {
     const response = await fetch(reinforcementUrl, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${tokenToUse}`,
+        Authorization: `Bearer ${tokenToUse}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(reinforcementBody),
@@ -77,7 +86,10 @@ export async function POST(req: NextRequest) {
       statusMessage: "Quiz session created successfully",
       sessionId: reinforcementData.conversation_id, // Use conversation_id as session_id
       conversationId: reinforcementData.conversation_id,
-      totalQuestions: reinforcementData.total_questions || reinforcementData.questions?.length || 5,
+      totalQuestions:
+        reinforcementData.total_questions ||
+        reinforcementData.questions?.length ||
+        5,
       questions: reinforcementData.questions || [],
       assistantId: reinforcementData.assistant_id,
       agentType: reinforcementData.agent_type,
@@ -85,7 +97,6 @@ export async function POST(req: NextRequest) {
 
     console.log("Returning transformed response:", transformedResponse);
     return NextResponse.json(transformedResponse, { status: 200 });
-
   } catch (error: any) {
     console.error("Error in POST /api/quiz/start:", error);
     return NextResponse.json(

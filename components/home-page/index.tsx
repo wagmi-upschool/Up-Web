@@ -110,6 +110,8 @@ function HomePage({}: Props) {
     testId: string;
     groupName: string;
   } | null>(null);
+  const [isQuizCompleted, setIsQuizCompleted] = useState(false);
+  const [isCheckingQuizCompletion, setIsCheckingQuizCompletion] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
 
@@ -373,6 +375,9 @@ function HomePage({}: Props) {
             testId: data.testId,
             groupName: data.groupName,
           });
+
+          // Check quiz completion after confirming access
+          // await checkQuizCompletion(data.testId); // Disabled for now
         } else {
           console.log("❌ User does not have quiz access");
           setShowQuizAccess(false);
@@ -382,6 +387,67 @@ function HomePage({}: Props) {
       }
     } catch (error) {
       console.error("Error checking quiz access:", error);
+    }
+  };
+
+  // Check if user has completed the quiz
+  const checkQuizCompletion = async (assistantId: string) => {
+    if (!assistantId) {
+      console.warn("No assistantId provided for quiz completion check");
+      return;
+    }
+
+    setIsCheckingQuizCompletion(true);
+
+    try {
+      const session = await fetchAuthSession();
+      const { accessToken, idToken } = session.tokens ?? {};
+      const user = await getCurrentUser();
+
+      if (!accessToken || !user.userId) {
+        console.warn("No access token or user ID found");
+        return;
+      }
+
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'x-user-id': user.userId,
+      };
+
+      if (idToken) {
+        headers['x-id-token'] = idToken.toString();
+      }
+
+      const response = await fetch(
+        `/api/quiz/completion?assistantId=${assistantId}`,
+        {
+          headers,
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("📊 Quiz completion status:", data);
+
+        setIsQuizCompleted(data.isCompleted);
+
+        if (data.isCompleted) {
+          console.log("🎉 User has completed the quiz - hiding quiz buttons");
+        } else {
+          console.log("📝 User has not completed the quiz - showing quiz buttons");
+        }
+      } else {
+        console.error("Failed to check quiz completion:", response.status);
+        // On error, assume not completed (show quiz buttons)
+        setIsQuizCompleted(false);
+      }
+    } catch (error) {
+      console.error("Error checking quiz completion:", error);
+      // On error, assume not completed (show quiz buttons)
+      setIsQuizCompleted(false);
+    } finally {
+      setIsCheckingQuizCompletion(false);
     }
   };
 
@@ -1470,6 +1536,7 @@ function HomePage({}: Props) {
             </div>
           )}
 
+
           {/* Mock Results Button */}
           {/* <div className="mb-4">
             <button
@@ -1691,7 +1758,7 @@ function HomePage({}: Props) {
                     </p>
                   </div>
 
-                  {/* Quiz Access Button - Only show if testId exists */}
+                  {/* Quiz Access Button */}
                   {showQuizAccess && quizData && quizData.testId && (
                     <div className="ml-8">
                       <button
@@ -1707,6 +1774,7 @@ function HomePage({}: Props) {
                       </button>
                     </div>
                   )}
+
                 </div>
               </div>
             ) : isLoadingMessages || isTransitioningChat ? (

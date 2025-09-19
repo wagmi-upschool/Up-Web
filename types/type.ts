@@ -219,3 +219,15 @@ export interface ExistingQuizData {
   questions: any[]; // Questions from conversation response
   totalQuestions?: number;
 }
+
+// Quiz Completion Check Response
+export interface QuizCompletionResponse {
+  statusCode: number;
+  statusMessage: string;
+  userId: string;
+  assistantId: string;
+  isCompleted: boolean;
+  hasConversation: boolean;
+  lastConversationId: string | null;
+  lastUpdatedAt: string | null;
+}
