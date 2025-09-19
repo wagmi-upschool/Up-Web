@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     do {
       batchCount++;
-      const url: string = `${process.env.REMOTE_URL}/conversation/user/${userId}/get?limit=${batchSize}${nextToken ? `&nextToken=${nextToken}` : ""}`;
+      const url: string = `${process.env.REMOTE_URL}/conversation/user/${userId}/get?limit=${batchSize}&is_web=true${nextToken ? `&nextToken=${nextToken}` : ""}`;
       console.log(
         `📦 Fetching batch ${batchCount} from URL: ${url} (Total so far: ${totalFetched})`
       );
@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
             let bestResult = allConversations;
 
             for (const limit of batchSizes) {
-              const largeBatchUrl = `${process.env.REMOTE_URL}/conversation/user/${userId}/get?limit=${limit}`;
+              const largeBatchUrl = `${process.env.REMOTE_URL}/conversation/user/${userId}/get?limit=${limit}&is_web=true`;
               console.log(`📦 Trying large batch fetch with limit=${limit}: ${largeBatchUrl}`);
 
               const largeBatchResponse = await fetch(largeBatchUrl, {
