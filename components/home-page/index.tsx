@@ -111,7 +111,8 @@ function HomePage({}: Props) {
     groupName: string;
   } | null>(null);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
-  const [isCheckingQuizCompletion, setIsCheckingQuizCompletion] = useState(false);
+  const [isCheckingQuizCompletion, setIsCheckingQuizCompletion] =
+    useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
 
@@ -329,11 +330,11 @@ function HomePage({}: Props) {
       }
 
       // Get user's custom attributes
-      const { fetchUserAttributes } = await import('aws-amplify/auth');
+      const { fetchUserAttributes } = await import("aws-amplify/auth");
       const userAttributes = await fetchUserAttributes();
 
       // Extract groupName from custom attributes
-      let userGroupName = userAttributes['custom:groupName'] || null;
+      let userGroupName = userAttributes["custom:groupName"] || null;
 
       console.log("User attributes:", { userEmail, userGroupName });
 
@@ -410,13 +411,13 @@ function HomePage({}: Props) {
       }
 
       const headers: Record<string, string> = {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'x-user-id': user.userId,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "x-user-id": user.userId,
       };
 
       if (idToken) {
-        headers['x-id-token'] = idToken.toString();
+        headers["x-id-token"] = idToken.toString();
       }
 
       const response = await fetch(
@@ -435,7 +436,9 @@ function HomePage({}: Props) {
         if (data.isCompleted) {
           console.log("🎉 User has completed the quiz - hiding quiz buttons");
         } else {
-          console.log("📝 User has not completed the quiz - showing quiz buttons");
+          console.log(
+            "📝 User has not completed the quiz - showing quiz buttons"
+          );
         }
       } else {
         console.error("Failed to check quiz completion:", response.status);
@@ -1536,7 +1539,6 @@ function HomePage({}: Props) {
             </div>
           )}
 
-
           {/* Mock Results Button */}
           {/* <div className="mb-4">
             <button
@@ -1759,7 +1761,7 @@ function HomePage({}: Props) {
                   </div>
 
                   {/* Quiz Access Button */}
-                  {showQuizAccess && quizData && quizData.testId && (
+                  {/* {showQuizAccess && quizData && quizData.testId && (
                     <div className="ml-8">
                       <button
                         onClick={() => router.push(`/quiz/${quizData.testId}`)}
@@ -1773,8 +1775,7 @@ function HomePage({}: Props) {
                         </span>
                       </button>
                     </div>
-                  )}
-
+                  )} */}
                 </div>
               </div>
             ) : isLoadingMessages || isTransitioningChat ? (
