@@ -79,7 +79,7 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
                     Toplam Soru
                   </h3>
                   <p className="font-poppins text-2xl font-bold text-primary">
-                    20
+                    {totalQuestions}
                   </p>
                 </div>
               </div>

@@ -491,7 +491,11 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
 
   // Calculate progress
   const answeredCount = Object.keys(answers).length;
-  const totalQuestions = activeQuestions.length;
+  
+  // For introduction phase, show expected question count; for other phases, show actual loaded questions
+  const totalQuestions = phase === 'introduction' 
+    ? (existingQuizData?.questions?.length || 15) // Use existing data or default expected count
+    : activeQuestions.length;
   const hasAnswerForCurrentQuestion = currentQuestion 
     ? !!answers[currentQuestion.questionId] 
     : false;
