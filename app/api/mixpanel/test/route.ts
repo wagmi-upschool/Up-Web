@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRemoteConfigValue, setRemoteConfigValue, clearConfigCache } from "@/lib/firebase-admin";
 
+const readDefaultConfig = () => {
+  const rawConfig = process.env.MIXPANEL_DEFAULT_CONFIG;
+  if (rawConfig) {
+    try {
+      return JSON.parse(rawConfig);
+    } catch (error) {
+      console.error("❌ Failed to parse MIXPANEL_DEFAULT_CONFIG:", error);
+    }
+  }
+
+  return {};
+};
+
 export async function GET(request: NextRequest) {
   try {
     const action = request.nextUrl.searchParams.get('action') || 'get';
@@ -21,15 +34,7 @@ export async function GET(request: NextRequest) {
       case 'init':
         // Initialize default configuration
         console.log("🧪 Testing Firebase Remote Config initialization");
-        const defaultConfig = {
-          "denizbank": {
-            "users": [
-              "yusuff2403@gmail.com",
-              "5d18830e-f1b9-c898-793c-6fa65120c44f"
-            ],
-            "url": "https://eu.mixpanel.com/project/3422744/view/3926876/app/events"
-          }
-        };
+        const defaultConfig = readDefaultConfig();
         
         const success = await setRemoteConfigValue(
           'UpWebMixpanelDashboard', 
@@ -75,14 +80,19 @@ export async function GET(request: NextRequest) {
         // Step 3: If no config, create default
         let finalConfig = currentConfig;
         if (!currentConfig) {
-          const testConfig = {
-            "test-org": {
-              "users": [
-                "test@example.com"
-              ],
-              "url": "https://eu.mixpanel.com/project/test/view/test/app/events"
-            }
-          };
+          const defaultConfig = readDefaultConfig();
+          const fallbackUrl =
+            process.env.MIXPANEL_TEST_FALLBACK_URL ||
+            "https://example.com/mixpanel";
+          const testConfig =
+            Object.keys(defaultConfig).length > 0
+              ? defaultConfig
+              : {
+                  "test-org": {
+                    users: ["test@example.com"],
+                    url: fallbackUrl,
+                  },
+                };
           
           const created = await setRemoteConfigValue(
             'UpWebMixpanelDashboard', 

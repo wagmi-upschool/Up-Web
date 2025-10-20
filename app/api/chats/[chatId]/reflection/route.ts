@@ -48,8 +48,18 @@ export async function POST(
       chatId,
     });
 
-    // Use the correct reflection stream endpoint like Flutter does
-    const REFLECTION_URL = `https://ai-api.wagmidev.com/user/${userId}/conversation/${chatId}/reflection/stream`;
+    const reflectionBaseUrl =
+      process.env.REFLECTION_API_BASE_URL ||
+      process.env.NEXT_PUBLIC_REFLECTION_API_BASE_URL;
+
+    if (!reflectionBaseUrl) {
+      throw new Error(
+        "REFLECTION_API_BASE_URL environment variable is not configured."
+      );
+    }
+
+    const normalizedBaseUrl = reflectionBaseUrl.replace(/\/+$/, "");
+    const REFLECTION_URL = `${normalizedBaseUrl}/user/${userId}/conversation/${chatId}/reflection/stream`;
     console.log(
       "[REFLECTION STREAM] 🌐 Calling reflection stream URL:",
       REFLECTION_URL

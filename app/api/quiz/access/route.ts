@@ -47,13 +47,16 @@ export async function GET(request: NextRequest) {
 
     // Fetch quiz configuration from Firebase Remote Config
     // Initialize with fallback configuration to prevent undefined errors
-    let quizConfig: QuizConfig = {
-      default: {
-        users: ["wagmiup@gmail.com"],
-        url: "https://www.linkedin.com/feed/",
-        testId: "681c295a-3253-49cb-8354-3da490bfb6da",
-      },
-    };
+    const fallbackEnvConfig = process.env.QUIZ_DEFAULT_CONFIG;
+    let quizConfig: QuizConfig = {};
+
+    if (fallbackEnvConfig) {
+      try {
+        quizConfig = JSON.parse(fallbackEnvConfig) as QuizConfig;
+      } catch (error) {
+        console.error("❌ Failed to parse QUIZ_DEFAULT_CONFIG:", error);
+      }
+    }
 
     try {
       const remoteConfig = await getRemoteConfigValue("UpWebMixpanelDashboard");
@@ -67,23 +70,15 @@ export async function GET(request: NextRequest) {
       } else {
         // Fallback configuration
         console.log("🔄 Using fallback quiz configuration");
-        quizConfig = {
-          default: {
-            users: [
-              "yusuffx03@gmail.com",
-              "onat@wagmitech.co",
-              "wagmiup@gmail.com",
-              "yusuff2403@gmail.com",
-            ],
-            url: "https://www.linkedin.com/feed/",
-            testId: "681c295a-3253-49cb-8354-3da490bfb6da",
-          },
-        };
+        if (Object.keys(quizConfig).length === 0) {
+          quizConfig = {};
+        }
       }
     } catch (error) {
       console.error("❌ Error fetching quiz config:", error);
-      // Use fallback config on error (already initialized above)
-      console.log("🔄 Using fallback quiz configuration");
+      if (Object.keys(quizConfig).length === 0) {
+        console.log("🔄 No fallback quiz configuration available");
+      }
     }
 
     // Check user access based on group or email
