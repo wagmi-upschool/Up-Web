@@ -33,13 +33,13 @@ frontend:
         - 'echo "🚀 Starting Next.js build..."'
         - npm run build
         - 'echo "✅ Build completed successfully"'
-        - 'echo "📦 Build output summary:"'
-        - ls -la out/
-        - 'echo "📊 Build size analysis:"'
-        - du -sh out/*
+        - 'echo "📦 Build output summary (from .next):"'
+        - ls -la .next
+        - 'echo "📊 Build size analysis (from .next):"'
+        - du -sh .next/*
 
   artifacts:
-    baseDirectory: out
+    baseDirectory: .next
     files:
       - "**/*"
   cache:
