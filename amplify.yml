@@ -41,9 +41,14 @@ frontend:
         - du -sh .next/*
 
   artifacts:
-    baseDirectory: .next
+    baseDirectory: .
     files:
-      - "**/*"
+      - ".next/**/*"
+      - "public/**/*"
+      - "amplify-hosting/**/*"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.mjs"
   cache:
     paths:
       - node_modules/**/*
