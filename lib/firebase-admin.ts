@@ -1,12 +1,54 @@
 import admin from 'firebase-admin';
 
-// Get service account from environment variables or fallback to file
-const getServiceAccount = () => {
+type RawServiceAccount = {
+  project_id?: string;
+  projectId?: string;
+  client_email?: string;
+  clientEmail?: string;
+  private_key?: string;
+  privateKey?: string;
+};
+
+type LoadedServiceAccount = admin.ServiceAccount & {
+  projectId: string;
+  clientEmail: string;
+  privateKey: string;
+};
+
+const normalizeServiceAccount = (raw: RawServiceAccount): LoadedServiceAccount => {
+  const projectId = raw.projectId ?? raw.project_id ?? process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = raw.clientEmail ?? raw.client_email ?? process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = raw.privateKey ?? raw.private_key ?? process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId) {
+    throw new Error('Firebase service account is missing projectId/project_id');
+  }
+  if (!clientEmail) {
+    throw new Error('Firebase service account is missing clientEmail/client_email');
+  }
+  if (!privateKey) {
+    throw new Error('Firebase service account is missing privateKey/private_key');
+  }
+
+  return {
+    projectId,
+    clientEmail,
+    privateKey,
+  };
+};
+
+// Get service account from environment variables
+const getServiceAccount = (): LoadedServiceAccount => {
   try {
     // Try environment variables first (for production/Vercel)
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (rawServiceAccount) {
       console.log('🔑 Using Firebase service account from environment variables');
-      return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      const normalized =
+        rawServiceAccount.trim().startsWith('{')
+          ? rawServiceAccount
+          : Buffer.from(rawServiceAccount, 'base64').toString('utf8');
+      return normalizeServiceAccount(JSON.parse(normalized) as RawServiceAccount);
     }
     
     // Try individual environment variables
@@ -59,42 +101,31 @@ const getServiceAccount = () => {
 
       console.log('🔑 Private key format validated successfully');
 
-      return {
-        type: "service_account",
+      return normalizeServiceAccount({
         project_id: process.env.FIREBASE_PROJECT_ID,
-        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
         private_key: privateKey,
         client_email: process.env.FIREBASE_CLIENT_EMAIL,
-        client_id: process.env.FIREBASE_CLIENT_ID,
-        auth_uri: "https://accounts.google.com/o/oauth2/auth",
-        token_uri: "https://oauth2.googleapis.com/token",
-        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-        client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
-        universe_domain: "googleapis.com"
-      };
+      });
     }
-    
-    // Fallback to local file (for development)
-    console.log('🔑 Using Firebase service account from local file (development only)');
-    const { readFileSync } = require('fs');
-    const { join } = require('path');
-    const serviceAccountPath = join(process.cwd(), 'upcompaniontest-8693f9c0c79f.json');
-    const serviceAccountData = readFileSync(serviceAccountPath, 'utf8');
-    return JSON.parse(serviceAccountData);
+
+    throw new Error('Firebase service account env vars are missing. Set FIREBASE_SERVICE_ACCOUNT_KEY or the individual FIREBASE_* credentials.');
   } catch (error) {
     console.error('❌ Error loading Firebase service account:', error);
     throw error;
   }
 };
 
+let remoteConfigInstance: admin.remoteConfig.RemoteConfig | null = null;
+
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
   try {
     const serviceAccount = getServiceAccount();
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
-      projectId: 'upcompaniontest',
+      credential: admin.credential.cert(serviceAccount),
+      projectId: serviceAccount.projectId,
     });
+    remoteConfigInstance = admin.remoteConfig();
     console.log('✅ Firebase Admin initialized successfully');
   } catch (error) {
     console.error('❌ Failed to initialize Firebase Admin:', error);
@@ -103,7 +134,7 @@ if (!admin.apps.length) {
 }
 
 export { admin };
-export const remoteConfig = admin.remoteConfig();
+export const remoteConfig = remoteConfigInstance;
 
 // Cache for remote config values
 const configCache = new Map<string, { value: any; timestamp: number }>();
@@ -117,6 +148,11 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
  */
 export async function getRemoteConfigValue(parameter: string, useCache: boolean = true): Promise<any> {
   try {
+    if (!remoteConfig) {
+      console.warn('⚠️ Firebase Remote Config is unavailable; returning null');
+      return null;
+    }
+
     // Check cache first
     if (useCache) {
       const cached = configCache.get(parameter);
@@ -181,6 +217,11 @@ export async function setRemoteConfigValue(
   description?: string
 ): Promise<boolean> {
   try {
+    if (!remoteConfig) {
+      console.warn('⚠️ Firebase Remote Config is unavailable; cannot set parameter.');
+      return false;
+    }
+
     console.log(`📝 Setting Remote Config value for: ${parameter}`);
     
     const template = await remoteConfig.getTemplate();
