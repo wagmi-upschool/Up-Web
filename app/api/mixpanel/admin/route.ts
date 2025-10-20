@@ -13,6 +13,21 @@ interface MixpanelConfig {
   };
 }
 
+function readDefaultConfig(): MixpanelConfig {
+  const rawConfig = process.env.MIXPANEL_DEFAULT_CONFIG;
+
+  if (rawConfig) {
+    try {
+      const parsed = JSON.parse(rawConfig) as MixpanelConfig;
+      return parsed;
+    } catch (error) {
+      console.error("❌ [ADMIN] Failed to parse MIXPANEL_DEFAULT_CONFIG:", error);
+    }
+  }
+
+  return {};
+}
+
 // Get current configuration from Firebase Remote Config
 async function getCurrentConfig(): Promise<MixpanelConfig> {
   try {
@@ -22,17 +37,10 @@ async function getCurrentConfig(): Promise<MixpanelConfig> {
       return config as MixpanelConfig;
     }
 
-    // Return default config if nothing is found
-    const defaultConfig = {
-      denizbank: {
-        users: [],
-        url: "https://eu.mixpanel.com/project/3422744/view/3926876/app/events",
-      },
-    };
-    return defaultConfig;
+    return readDefaultConfig();
   } catch (error) {
     console.error("❌ [ADMIN] Error fetching current config:", error);
-    return {};
+    return readDefaultConfig();
   }
 }
 

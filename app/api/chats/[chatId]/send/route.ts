@@ -67,9 +67,14 @@ export async function POST(
       conversationId: chatId,
     };
 
-    // Use STREAM_URL from environment (Lambda URL expects no additional path)
-    const STREAM_URL = process.env.STREAM_URL || "https://yxctstyidhdjvs5cvt57zewzlm0yownl.lambda-url.us-east-1.on.aws/";
-    const url = STREAM_URL; // Lambda function handles routing internally
+    const streamUrl =
+      process.env.STREAM_URL || process.env.NEXT_PUBLIC_STREAM_URL;
+
+    if (!streamUrl) {
+      throw new Error("STREAM_URL environment variable is not configured.");
+    }
+
+    const url = streamUrl.replace(/\/+$/, "/"); // Lambda function handles routing internally
 
     console.log("[CHAT REQ] Streaming URL:", url);
     console.log("[CHAT REQ] Request headers:", {

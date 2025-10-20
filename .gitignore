@@ -11,6 +11,7 @@ node_modules/
 
 # Firebase service account files (sensitive)
 upcompaniontest-*.json
+upcompanion-*.json
 
 .next/
 .amplify
