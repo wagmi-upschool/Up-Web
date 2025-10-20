@@ -32,6 +32,8 @@ frontend:
         - cat .env
         - 'echo "🚀 Starting Next.js build..."'
         - npm run build
+        - 'echo "🔧 Preparing Amplify SSR artifacts..."'
+        - npx amplify-hosting-nextjs --platform server
         - 'echo "✅ Build completed successfully"'
         - 'echo "📦 Build output summary (from .next):"'
         - ls -la .next
