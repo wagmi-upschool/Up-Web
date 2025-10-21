@@ -14,38 +14,23 @@ interface RemoteConfig {
 
 // Fetch remote configuration from Firebase Remote Config
 async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
-  // Try Firebase Remote Config first
   try {
     console.log("📡 Fetching Mixpanel configuration from Firebase Remote Config");
 
-    const mixpanelConfig = await getRemoteConfigValue('UpWebMixpanelDashboard');
+    const mixpanelConfig = await getRemoteConfigValue("UpWebMixpanelDashboard", false);
 
-    if (mixpanelConfig && typeof mixpanelConfig === 'object') {
+    if (mixpanelConfig && typeof mixpanelConfig === "object") {
       console.log("✅ Successfully loaded Mixpanel config from Firebase Remote Config");
       return mixpanelConfig as RemoteConfig;
     }
+
+    console.warn("⚠️ Firebase Remote Config returned no Mixpanel configuration");
+    return null;
   } catch (firebaseError) {
-    console.warn("⚠️ Firebase Remote Config unavailable:", firebaseError instanceof Error ? firebaseError.message : "Unknown error");
-    // Continue to fallbacks instead of throwing
+    const message = firebaseError instanceof Error ? firebaseError.message : "Unknown error";
+    console.error("❌ Failed to load Mixpanel config from Firebase Remote Config:", message);
+    return null;
   }
-
-  // Fallback: Use environment variable
-  try {
-    const envConfig = process.env.MIXPANEL_REMOTE_CONFIG;
-    if (envConfig) {
-      console.log("📡 Using environment variable config");
-      const parsed = JSON.parse(envConfig);
-      if (parsed && typeof parsed === 'object') {
-        return parsed as RemoteConfig;
-      }
-    }
-  } catch (envError) {
-    console.warn("⚠️ Environment config invalid:", envError instanceof Error ? envError.message : "Unknown error");
-  }
-
-  // No config available
-  console.error("❌ No Mixpanel configuration available from any source");
-  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -76,15 +61,16 @@ export async function GET(request: NextRequest) {
     // Fetch remote configuration with error handling
     const remoteConfig = await fetchRemoteConfig();
 
-    // Check if configuration is available
     if (!remoteConfig) {
-      console.error("❌ No configuration available");
-      return NextResponse.json({
-        enabled: false,
-        userEmail,
-        dashboardUrl: null,
-        message: "Mixpanel configuration unavailable"
-      });
+      return NextResponse.json(
+        {
+          enabled: false,
+          userEmail,
+          dashboardUrl: null,
+          message: "Mixpanel configuration unavailable",
+        },
+        { status: 200 }
+      );
     }
 
     console.log("📊 Remote config loaded successfully");
@@ -132,15 +118,13 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error("❌ Error in Mixpanel config API:", error);
-    // Return a more graceful error response
     return NextResponse.json(
       {
         enabled: false,
         error: "Configuration service unavailable",
-        details: error instanceof Error ? error.message : "Unknown error"
+        details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
-
