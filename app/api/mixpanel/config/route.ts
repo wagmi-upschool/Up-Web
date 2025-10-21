@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRemoteConfigValue } from "@/lib/firebase-admin";
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -9,28 +8,49 @@ interface RemoteConfig {
   [key: string]: {
     users: string[];
     url: string;
+    testId?: string;
   };
 }
 
-// Fetch remote configuration from Firebase Remote Config
+// Fetch remote configuration with graceful fallbacks
 async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
+  // Try Firebase Remote Config first (but don't let it crash)
   try {
-    console.log("📡 Fetching Mixpanel configuration from Firebase Remote Config");
-
+    console.log("📡 Attempting to load Mixpanel config from Firebase Remote Config");
+    const { getRemoteConfigValue } = await import("@/lib/firebase-admin");
     const mixpanelConfig = await getRemoteConfigValue("UpWebMixpanelDashboard", false);
 
     if (mixpanelConfig && typeof mixpanelConfig === "object") {
       console.log("✅ Successfully loaded Mixpanel config from Firebase Remote Config");
       return mixpanelConfig as RemoteConfig;
     }
-
-    console.warn("⚠️ Firebase Remote Config returned no Mixpanel configuration");
-    return null;
   } catch (firebaseError) {
-    const message = firebaseError instanceof Error ? firebaseError.message : "Unknown error";
-    console.error("❌ Failed to load Mixpanel config from Firebase Remote Config:", message);
-    return null;
+    console.warn("⚠️ Firebase Remote Config unavailable, falling back to env vars:", firebaseError instanceof Error ? firebaseError.message : "Unknown error");
   }
+
+  // Fallback to environment variables
+  const envKeys = ["MIXPANEL_REMOTE_CONFIG", "MIXPANEL_DEFAULT_CONFIG"] as const;
+
+  for (const key of envKeys) {
+    try {
+      const value = process.env[key];
+      if (!value) continue;
+
+      console.log(`📡 Using environment variable config from ${key}`);
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object") {
+        return parsed as RemoteConfig;
+      }
+    } catch (envError) {
+      console.warn(
+        `⚠️ Environment config ${key} invalid:`,
+        envError instanceof Error ? envError.message : "Unknown error"
+      );
+    }
+  }
+
+  console.error("❌ No Mixpanel configuration available from any source");
+  return null;
 }
 
 export async function GET(request: NextRequest) {

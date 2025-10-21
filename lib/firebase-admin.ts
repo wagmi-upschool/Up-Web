@@ -160,6 +160,14 @@ if (!admin.apps.length) {
     console.error("❌ Failed to initialize Firebase Admin:", error);
     throw error;
   }
+} else {
+  // Firebase already initialized, get remoteConfig from existing app
+  try {
+    remoteConfigInstance = admin.remoteConfig();
+    console.log("✅ Using existing Firebase Admin instance for Remote Config");
+  } catch (error) {
+    console.error("❌ Failed to get Remote Config from existing Firebase Admin:", error);
+  }
 }
 
 export { admin };
