@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 // Quiz access interface
 interface QuizConfig {
   [groupName: string]: {
-    users: string[];
+    users?: string[]; // Optional for backward compatibility
     url: string;
     testId: string;
   };
@@ -60,14 +60,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user email from query parameter
-    // In production, this should be extracted from the verified JWT token
+    // Get user email and group from query parameters
+    // In production, groupName should be extracted from the verified JWT token (Cognito custom attributes)
     const userEmail = request.nextUrl.searchParams.get("email");
     const userGroup = request.nextUrl.searchParams.get("groupName");
 
     if (!userEmail) {
       return NextResponse.json(
         { error: "User email is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!userGroup) {
+      return NextResponse.json(
+        { error: "Group name is required (from Cognito custom attributes)" },
         { status: 400 }
       );
     }
@@ -82,57 +89,30 @@ export async function GET(request: NextRequest) {
     // Fetch quiz configuration with graceful error handling
     const quizConfig = await fetchQuizConfig();
 
-    // Check user access based on group or email
-    let hasAccess = false;
-    let matchedGroup = null;
-    let testId = null;
-    let testUrl = null;
+    // Group-based access: If the group exists in config and has a testId, grant access
+    if (quizConfig[userGroup] && quizConfig[userGroup].testId) {
+      const config = quizConfig[userGroup];
+      console.log(
+        `✅ User ${userEmail} has quiz access via group ${userGroup} (testId: ${config.testId})`
+      );
 
-    // If user has a group, check that group first
-    if (userGroup && quizConfig[userGroup]) {
-      if (quizConfig[userGroup].users.includes(userEmail)) {
-        hasAccess = true;
-        matchedGroup = userGroup;
-        testId = quizConfig[userGroup].testId;
-        testUrl = quizConfig[userGroup].url;
-        console.log(
-          `✅ User ${userEmail} has quiz access via group ${userGroup}`
-        );
-      }
-    }
-
-    // If no group access AND no specific group was provided, check all groups for email
-    if (!hasAccess && !userGroup) {
-      for (const [groupName, config] of Object.entries(quizConfig)) {
-        if (config.users.includes(userEmail)) {
-          hasAccess = true;
-          matchedGroup = groupName;
-          testId = config.testId;
-          testUrl = config.url;
-          console.log(
-            `✅ User ${userEmail} has quiz access via group ${groupName}`
-          );
-          break;
-        }
-      }
-    }
-
-    if (!hasAccess) {
-      console.log(`❌ User ${userEmail} has no quiz access`);
       return NextResponse.json({
-        hasAccess: false,
+        hasAccess: true,
         userEmail,
-        message: "No quiz access configured for this user",
+        groupName: userGroup,
+        testId: config.testId,
+        testUrl: config.url,
+        message: "Quiz access granted",
       });
     }
 
+    // No access - group doesn't exist or doesn't have testId
+    console.log(`❌ User ${userEmail} has no quiz access (group: ${userGroup} not found or no testId)`);
     return NextResponse.json({
-      hasAccess: true,
+      hasAccess: false,
       userEmail,
-      groupName: matchedGroup,
-      testId,
-      testUrl,
-      message: "Quiz access granted",
+      groupName: userGroup,
+      message: "No quiz access configured for this group",
     });
   } catch (error) {
     console.error("❌ Error in quiz access API:", error);
