@@ -21,13 +21,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const assistantId = searchParams.get("assistantId");
 
+    const lambdaAuthHeader = idTokenHeader.startsWith("Bearer ")
+      ? idTokenHeader
+      : `Bearer ${idTokenHeader}`;
+
     const lambda = await fetch(
       `${process.env.REMOTE_URL}/assistant/get${assistantId ? `/${assistantId}` : ""}?sortByCreatedAt=desc`,
       {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: idTokenHeader,
+          Authorization: lambdaAuthHeader,
         },
       }
     );

@@ -142,14 +142,18 @@ export async function POST(
     );
 
     // Use idToken like Flutter does
-    const tokenToUse = idTokenHeader || authHeader.replace("Bearer ", "");
+    const lambdaAuthHeader = idTokenHeader
+      ? idTokenHeader.startsWith("Bearer ")
+        ? idTokenHeader
+        : `Bearer ${idTokenHeader}`
+      : authHeader;
 
     // Call both endpoints like Flutter does (Future.wait)
     const [backendResponse, vectorResponse] = await Promise.all([
       fetch(`${process.env.REMOTE_URL}/user/${userId}/conversation/save`, {
         method: "POST",
         headers: {
-          Authorization: tokenToUse,
+          Authorization: lambdaAuthHeader,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(flutterStyleBody),
@@ -157,7 +161,7 @@ export async function POST(
       fetch(`${process.env.REMOTE_URL}/user/${userId}/vector/save`, {
         method: "POST",
         headers: {
-          Authorization: tokenToUse,
+          Authorization: lambdaAuthHeader,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(vectorData),

@@ -38,9 +38,17 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Use idToken if available, otherwise access token
-    const tokenToUse = idTokenHeader || authHeader.replace("Bearer ", "");
-    console.log("Using token:", tokenToUse.substring(0, 50) + "...");
+    const rawTokenForProxy =
+      idTokenHeader || authHeader.replace("Bearer ", "");
+    const lambdaAuthHeader = idTokenHeader
+      ? idTokenHeader.startsWith("Bearer ")
+        ? idTokenHeader
+        : `Bearer ${idTokenHeader}`
+      : authHeader;
+    console.log(
+      "Using token:",
+      lambdaAuthHeader.substring(0, 50) + "..."
+    );
 
     let allConversations: any[] = [];
     let nextToken: string | null = null;
@@ -60,7 +68,7 @@ export async function GET(req: NextRequest) {
       const lambda = await fetch(url, {
         method: "GET",
         headers: {
-          Authorization: tokenToUse,
+          Authorization: lambdaAuthHeader,
           "Content-Type": "application/json",
         },
       });
@@ -161,7 +169,7 @@ export async function GET(req: NextRequest) {
               const largeBatchResponse = await fetch(largeBatchUrl, {
                 method: "GET",
                 headers: {
-                  Authorization: tokenToUse,
+                  Authorization: lambdaAuthHeader,
                   "Content-Type": "application/json",
                 },
               });
@@ -280,7 +288,7 @@ export async function GET(req: NextRequest) {
             method: "GET",
             headers: {
               Authorization: authHeader,
-              "x-id-token": idTokenHeader || tokenToUse,
+              "x-id-token": idTokenHeader || rawTokenForProxy,
               "Content-Type": "application/json",
             },
           }
@@ -311,7 +319,7 @@ export async function GET(req: NextRequest) {
           {
             method: "GET",
             headers: {
-              Authorization: tokenToUse,
+              Authorization: lambdaAuthHeader,
               "Content-Type": "application/json",
             },
           }

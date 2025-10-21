@@ -22,13 +22,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const assistantGroupId = searchParams.get("assistantGroupId");
 
+    const lambdaAuthHeader = idTokenHeader.startsWith("Bearer ")
+      ? idTokenHeader
+      : `Bearer ${idTokenHeader}`;
+
     const lambda = await fetch(
       `${process.env.REMOTE_URL}/assistant/groups/get${assistantGroupId ? `/${assistantGroupId}?assistantGroupId=${assistantGroupId}` : ""}`,
       {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: idTokenHeader,
+          Authorization: lambdaAuthHeader,
         },
       }
     );

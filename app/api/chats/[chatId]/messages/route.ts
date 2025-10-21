@@ -47,11 +47,15 @@ export async function GET(
     const url = `${process.env.REMOTE_URL}/user/${userId}/conversation/${chatId}/messages?limit=${limit}`;
     console.log("Fetching from URL:", url);
 
+    const lambdaAuthHeader = idTokenHeader.startsWith("Bearer ")
+      ? idTokenHeader
+      : `Bearer ${idTokenHeader}`;
+
     // Use idToken for Lambda authentication
     const lambda = await fetch(url, {
       method: "GET",
       headers: {
-        Authorization: idTokenHeader,
+        Authorization: lambdaAuthHeader,
         "Content-Type": "application/json",
       },
     });

@@ -89,7 +89,9 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             messages: messagesJson // Use filtered messages for vector
         };
         
-        const tokenToUse = idTokenHeader || authHeader.replace('Bearer ', '');
+        const tokenToUse = idTokenHeader
+            ? (idTokenHeader.startsWith('Bearer ') ? idTokenHeader : `Bearer ${idTokenHeader}`)
+            : authHeader;
         
         // Parallel requests like Flutter Future.wait
         const [conversationSave, vectorSave] = await Promise.allSettled([
