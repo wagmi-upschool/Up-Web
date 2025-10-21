@@ -40,7 +40,9 @@ export async function POST(req: NextRequest, { params }: { params: { messageId: 
         }
 
         // Use idToken if available, otherwise access token
-        const tokenToUse = idTokenHeader || authHeader.replace('Bearer ', '');
+        const tokenToUse = idTokenHeader
+            ? (idTokenHeader.startsWith('Bearer ') ? idTokenHeader : `Bearer ${idTokenHeader}`)
+            : authHeader;
         
         // Call the real backend API
         const backendUrl = `${process.env.REMOTE_URL}/user/${userId}/conversation/${conversationId}/message/${params.messageId}/changeLikeStatus`;

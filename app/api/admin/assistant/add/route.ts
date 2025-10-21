@@ -67,11 +67,15 @@ export async function POST(req: NextRequest) {
       requestBody["id"] = id;
     }
 
+    const lambdaAuthHeader = idTokenHeader.startsWith("Bearer ")
+      ? idTokenHeader
+      : `Bearer ${idTokenHeader}`;
+
     const lambda = await fetch(`${process.env.REMOTE_URL}/assistant/insert`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: idTokenHeader,
+        Authorization: lambdaAuthHeader,
       },
       body: JSON.stringify(requestBody),
     });
