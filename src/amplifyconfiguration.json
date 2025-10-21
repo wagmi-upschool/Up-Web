@@ -1,17 +1,17 @@
 {
   "aws_project_region": "us-east-1",
-  "aws_mobile_analytics_app_id": "55341b7171614f8cb0043719479a7e52",
+  "aws_mobile_analytics_app_id": "1bcb5563048740be86ea583712f18de5",
   "aws_mobile_analytics_app_region": "us-east-1",
   "Analytics": {
     "AWSPinpoint": {
-      "appId": "55341b7171614f8cb0043719479a7e52",
+      "appId": "1bcb5563048740be86ea583712f18de5",
       "region": "us-east-1"
     }
   },
   "Notifications": {
     "Push": {
       "AWSPinpoint": {
-        "appId": "55341b7171614f8cb0043719479a7e52",
+        "appId": "1bcb5563048740be86ea583712f18de5",
         "region": "us-east-1"
       }
     }
@@ -19,16 +19,16 @@
   "aws_cloud_logic_custom": [
     {
       "name": "upWagmiUserApi",
-      "endpoint": "https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv",
+      "endpoint": "https://dj56p3u1qe.execute-api.us-east-1.amazonaws.com/upwagmitec",
       "region": "us-east-1"
     }
   ],
-  "aws_cognito_identity_pool_id": "us-east-1:1a6f71e1-a993-4a11-85cc-800577e409f2",
+  "aws_cognito_identity_pool_id": "us-east-1:3ac931ac-c305-46a1-9ef1-f9e9ead1ad2d",
   "aws_cognito_region": "us-east-1",
-  "aws_user_pools_id": "us-east-1_akkBktCUt",
-  "aws_user_pools_web_client_id": "a5ulkgpppnij4cmhtohg0krrs",
+  "aws_user_pools_id": "us-east-1_tTejiiLwi",
+  "aws_user_pools_web_client_id": "44id390v77t1qvgc0hm5j9t1b2",
   "oauth": {
-    "domain": "upwagmidev4016790c-4016790c-myenv.auth.us-east-1.amazoncognito.com",
+    "domain": "upwagmidev3462d23d-3462d23d-upwagmitec.auth.us-east-1.amazoncognito.com",
     "scope": [
       "phone",
       "email",
@@ -36,159 +36,40 @@
       "profile",
       "aws.cognito.signin.user.admin"
     ],
-    "redirectSignIn": "io.upschool.upapp://callback/",
+    "redirectSignIn": "io.upschool.upapp://callback/,io.upschool.upapp://callback/",
     "redirectSignOut": "io.upschool.upapp://signout/",
     "responseType": "code"
   },
-  "federationTarget": "COGNITO_USER_AND_IDENTITY_POOLS",
-  "aws_cognito_username_attributes": [
-    "EMAIL"
-  ],
-  "aws_cognito_social_providers": [
-    "GOOGLE",
-    "APPLE"
-  ],
-  "aws_cognito_signup_attributes": [
-    "EMAIL"
-  ],
+  "federationTarget": "COGNITO_USER_POOLS",
+  "aws_cognito_username_attributes": ["EMAIL"],
+  "aws_cognito_social_providers": ["GOOGLE"],
+  "aws_cognito_signup_attributes": ["EMAIL"],
   "aws_cognito_mfa_configuration": "OFF",
-  "aws_cognito_mfa_types": [
-    "SMS"
-  ],
+  "aws_cognito_mfa_types": ["SMS"],
   "aws_cognito_password_protection_settings": {
     "passwordPolicyMinLength": 8,
     "passwordPolicyCharacters": []
   },
-  "aws_cognito_verification_mechanisms": [
-    "EMAIL"
-  ],
+  "aws_cognito_verification_mechanisms": ["EMAIL"],
   "aws_dynamodb_all_tables_region": "us-east-1",
   "aws_dynamodb_table_schemas": [
     {
-      "tableName": "AccountabilityPartners-myenv",
+      "tableName": "UpConversationMessage-upwagmitec",
       "region": "us-east-1"
     },
     {
-      "tableName": "AccountabilityPartnersProgress-myenv",
+      "tableName": "UpConversations-upwagmitec",
       "region": "us-east-1"
     },
     {
-      "tableName": "AssistantGroup-myenv",
+      "tableName": "User-upwagmitec",
       "region": "us-east-1"
     },
     {
-      "tableName": "Badges-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "ConsumedToken-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "ContextScope-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "ContextScopeType-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "ConversationQuestions-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "ConversationRecaps-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "ElectionOptions-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "Notifications-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "Path-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "PathPopUp-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "PromoCode-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "PromoCodeUserMapping-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "QuestionPool-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "SubscriptionRequests-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UpAssistant-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "User-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UserGroup-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UserGroupAssistants-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UserGroupRequest-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UserNotificationSchedule-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UserSessions-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UserSubscriptions-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "analysisResults-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UpConversationMessage-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "UpConversations-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "realtimeCache-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "spaceRepetitionAssistants-myenv",
-      "region": "us-east-1"
-    },
-    {
-      "tableName": "userProfile-myenv",
+      "tableName": "Badges-upwagmitec",
       "region": "us-east-1"
     }
   ],
-  "aws_user_files_s3_bucket": "upwagmidevcontentc4a48-myenv",
+  "aws_user_files_s3_bucket": "upwagmidevcontent234355-upwagmitec",
   "aws_user_files_s3_bucket_region": "us-east-1"
 }
