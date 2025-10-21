@@ -5,7 +5,7 @@ import { getCurrentUser, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import React, { useState, useEffect, createContext, useContext } from "react";
 import LoginComponent from "@/components/auth/Login";
-import outputs from '../../../src/amplifyconfiguration.json';
+import outputs from "../../../src/amplifyconfiguration.json";
 
 type Props = {
   children: React.ReactNode;
@@ -28,9 +28,20 @@ export const useAuth = () => {
   return context;
 };
 
+// Allow environment variables to override static Amplify outputs so each
+// deployment can supply its own Cognito pool/client configuration.
+const amplifyConfig = {
+  ...outputs,
+  aws_user_pools_id:
+    process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? outputs.aws_user_pools_id,
+  aws_user_pools_web_client_id:
+    process.env.NEXT_PUBLIC_COGNITO_USER_CLIENT_ID ??
+    outputs.aws_user_pools_web_client_id,
+};
+
 // Configure Amplify with Gen 2 outputs
-Amplify.configure(outputs, {
-  ssr: true // Enable SSR support
+Amplify.configure(amplifyConfig, {
+  ssr: true, // Enable SSR support
 });
 
 function AuthProvider({ children }: Props) {
