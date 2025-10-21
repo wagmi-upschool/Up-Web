@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRemoteConfigValue } from "@/lib/firebase-admin";
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -11,6 +10,41 @@ interface QuizConfig {
     url: string;
     testId: string;
   };
+}
+
+// Fetch quiz configuration with graceful fallbacks
+async function fetchQuizConfig(): Promise<QuizConfig> {
+  // Start with environment variable as primary source
+  let quizConfig: QuizConfig = {};
+
+  const fallbackEnvConfig = process.env.QUIZ_DEFAULT_CONFIG;
+  if (fallbackEnvConfig) {
+    try {
+      quizConfig = JSON.parse(fallbackEnvConfig) as QuizConfig;
+      console.log("📡 Loaded quiz config from QUIZ_DEFAULT_CONFIG");
+    } catch (error) {
+      console.error("❌ Failed to parse QUIZ_DEFAULT_CONFIG:", error);
+    }
+  }
+
+  // Try Firebase Remote Config as optional enhancement (but don't let it crash)
+  try {
+    console.log("📡 Attempting to load quiz config from Firebase Remote Config");
+    const { getRemoteConfigValue } = await import("@/lib/firebase-admin");
+    const remoteConfig = await getRemoteConfigValue("UpWebQuizDashboard", false);
+
+    if (remoteConfig && typeof remoteConfig === "object") {
+      console.log("✅ Successfully loaded quiz config from Firebase Remote Config");
+      quizConfig = remoteConfig as QuizConfig;
+    }
+  } catch (firebaseError) {
+    console.warn(
+      "⚠️ Firebase Remote Config unavailable, using fallback:",
+      firebaseError instanceof Error ? firebaseError.message : "Unknown error"
+    );
+  }
+
+  return quizConfig;
 }
 
 // Check if user has quiz access based on their group
@@ -45,41 +79,8 @@ export async function GET(request: NextRequest) {
       userGroup
     );
 
-    // Fetch quiz configuration from Firebase Remote Config
-    // Initialize with fallback configuration to prevent undefined errors
-    const fallbackEnvConfig = process.env.QUIZ_DEFAULT_CONFIG;
-    let quizConfig: QuizConfig = {};
-
-    if (fallbackEnvConfig) {
-      try {
-        quizConfig = JSON.parse(fallbackEnvConfig) as QuizConfig;
-      } catch (error) {
-        console.error("❌ Failed to parse QUIZ_DEFAULT_CONFIG:", error);
-      }
-    }
-
-    try {
-      const remoteConfig = await getRemoteConfigValue("UpWebMixpanelDashboard");
-
-      if (remoteConfig && typeof remoteConfig === "object") {
-        console.log(
-          "✅ Successfully loaded quiz config from Firebase Remote Config"
-        );
-        quizConfig = remoteConfig as QuizConfig;
-        console.log("Quiz Config:", quizConfig);
-      } else {
-        // Fallback configuration
-        console.log("🔄 Using fallback quiz configuration");
-        if (Object.keys(quizConfig).length === 0) {
-          quizConfig = {};
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error fetching quiz config:", error);
-      if (Object.keys(quizConfig).length === 0) {
-        console.log("🔄 No fallback quiz configuration available");
-      }
-    }
+    // Fetch quiz configuration with graceful error handling
+    const quizConfig = await fetchQuizConfig();
 
     // Check user access based on group or email
     let hasAccess = false;
@@ -137,10 +138,11 @@ export async function GET(request: NextRequest) {
     console.error("❌ Error in quiz access API:", error);
     return NextResponse.json(
       {
-        error: "Internal server error",
+        hasAccess: false,
+        error: "Configuration service unavailable",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
