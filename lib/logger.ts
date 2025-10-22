@@ -3,9 +3,6 @@
  * Provides structured logging for production environments with proper metadata
  */
 
-import fs from 'fs';
-import path from 'path';
-
 export enum LogLevel {
   DEBUG = 'DEBUG',
   INFO = 'INFO',
@@ -45,14 +42,6 @@ interface LogEntry {
 }
 
 class ProductionLogger {
-  private isProduction: boolean;
-  private logFilePath: string;
-
-  constructor() {
-    this.isProduction = process.env.NODE_ENV === 'production';
-    this.logFilePath = path.join(process.cwd(), 'production.log');
-  }
-
   /**
    * Core logging method
    */
@@ -86,50 +75,10 @@ class ProductionLogger {
       };
     }
 
-    // Console output with emoji prefixes (for development)
-    if (!this.isProduction) {
-      const emoji = this.getEmojiForLevel(level);
-      console.log(`${emoji} [${category}] ${message}`, data || '');
-      if (error) {
-        console.error(error);
-      }
-    }
-
-    // Structured JSON output for production
-    const jsonLog = JSON.stringify(logEntry);
-
-    if (this.isProduction) {
-      // Write to production log file
-      this.writeToFile(jsonLog);
-    } else {
-      // Also log structured JSON in development for testing
-      console.log('📋 Structured log:', jsonLog);
-    }
+    // Always log to console
+    console.log(JSON.stringify(logEntry));
   }
 
-  /**
-   * Write log entry to file
-   */
-  private writeToFile(logEntry: string): void {
-    try {
-      fs.appendFileSync(this.logFilePath, logEntry + '\n', 'utf8');
-    } catch (error) {
-      console.error('Failed to write to log file:', error);
-    }
-  }
-
-  /**
-   * Get emoji prefix for log level
-   */
-  private getEmojiForLevel(level: LogLevel): string {
-    const emojiMap = {
-      [LogLevel.DEBUG]: '🔍',
-      [LogLevel.INFO]: '📡',
-      [LogLevel.WARN]: '⚠️',
-      [LogLevel.ERROR]: '❌',
-    };
-    return emojiMap[level] || '📝';
-  }
 
   // Generic logging methods
   debug(category: LogCategory, message: string, data?: Record<string, unknown>): void {
