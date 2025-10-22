@@ -3,15 +3,24 @@ import admin from "firebase-admin";
 type RawServiceAccount = {
   project_id?: string;
   projectId?: string;
+  private_key_id?: string;
+  privateKeyId?: string;
   client_email?: string;
   clientEmail?: string;
+  client_id?: string;
+  clientId?: string;
+  client_x509_cert_url?: string;
+  clientX509CertUrl?: string;
   private_key?: string;
   privateKey?: string;
 };
 
 type LoadedServiceAccount = admin.ServiceAccount & {
   projectId: string;
+  privateKeyId?: string;
   clientEmail: string;
+  clientId?: string;
+  clientX509CertUrl?: string;
   privateKey: string;
 };
 
@@ -20,8 +29,14 @@ const normalizeServiceAccount = (
 ): LoadedServiceAccount => {
   const projectId =
     raw.projectId ?? raw.project_id ?? process.env.FIREBASE_PROJECT_ID;
+  const privateKeyId =
+    raw.privateKeyId ?? raw.private_key_id ?? process.env.FIREBASE_PRIVATE_KEY_ID;
   const clientEmail =
     raw.clientEmail ?? raw.client_email ?? process.env.FIREBASE_CLIENT_EMAIL;
+  const clientId =
+    raw.clientId ?? raw.client_id ?? process.env.FIREBASE_CLIENT_ID;
+  const clientX509CertUrl =
+    raw.clientX509CertUrl ?? raw.client_x509_cert_url ?? process.env.FIREBASE_CLIENT_X509_CERT_URL;
   const privateKey =
     raw.privateKey ?? raw.private_key ?? process.env.FIREBASE_PRIVATE_KEY;
 
@@ -41,7 +56,10 @@ const normalizeServiceAccount = (
 
   return {
     projectId,
+    privateKeyId,
     clientEmail,
+    clientId,
+    clientX509CertUrl,
     privateKey,
   };
 };

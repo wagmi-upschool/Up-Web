@@ -1,51 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
+import { fetchQuizConfig } from "./quizConfig";
 import crypto from "crypto";
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
-
-// Quiz access interface
-interface QuizConfig {
-  [groupName: string]: {
-    users?: string[]; // Optional for backward compatibility
-    url: string;
-    testId: string;
-  };
-}
-
-// Fetch quiz configuration from Firebase Remote Config only
-async function fetchQuizConfig(): Promise<QuizConfig> {
-  let quizConfig: QuizConfig = {};
-
-  try {
-    console.log("📡 Attempting to load quiz config from Firebase Remote Config");
-    const { getRemoteConfigValue } = await import("@/lib/firebase-admin");
-    const remoteConfig = await getRemoteConfigValue("UpWebQuizDashboard", false);
-
-    if (remoteConfig && typeof remoteConfig === "object") {
-      quizConfig = remoteConfig as QuizConfig;
-      const groupCount = Object.keys(quizConfig).length;
-      logger.quizAccess.configLoadSuccess("Firebase Remote Config", groupCount);
-      console.log("✅ Successfully loaded quiz config from Firebase Remote Config");
-    } else {
-      logger.quizAccess.configLoadFailed(
-        "Firebase Remote Config",
-        new Error("Config not found or invalid format")
-      );
-      console.warn("⚠️ Firebase Remote Config returned empty or invalid config");
-    }
-  } catch (firebaseError) {
-    const err = firebaseError instanceof Error ? firebaseError : new Error(String(firebaseError));
-    logger.quizAccess.configLoadFailed("Firebase Remote Config", err);
-    console.error(
-      "❌ Firebase Remote Config unavailable:",
-      firebaseError instanceof Error ? firebaseError.message : "Unknown error"
-    );
-  }
-
-  return quizConfig;
-}
 
 // Check if user has quiz access based on their group
 export async function GET(request: NextRequest) {
