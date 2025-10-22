@@ -17,3 +17,4 @@ upcompanion-*.json
 .amplify
 .playwright-mcp
 dev.log
+production.log
