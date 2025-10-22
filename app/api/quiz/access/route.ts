@@ -14,26 +14,10 @@ interface QuizConfig {
   };
 }
 
-// Fetch quiz configuration with graceful fallbacks
+// Fetch quiz configuration from Firebase Remote Config only
 async function fetchQuizConfig(): Promise<QuizConfig> {
-  // Start with environment variable as primary source
   let quizConfig: QuizConfig = {};
 
-  const fallbackEnvConfig = process.env.QUIZ_DEFAULT_CONFIG;
-  if (fallbackEnvConfig) {
-    try {
-      quizConfig = JSON.parse(fallbackEnvConfig) as QuizConfig;
-      const groupCount = Object.keys(quizConfig).length;
-      logger.quizAccess.configLoadSuccess("QUIZ_DEFAULT_CONFIG", groupCount);
-      console.log("📡 Loaded quiz config from QUIZ_DEFAULT_CONFIG");
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      logger.quizAccess.configLoadFailed("QUIZ_DEFAULT_CONFIG", err);
-      console.error("❌ Failed to parse QUIZ_DEFAULT_CONFIG:", error);
-    }
-  }
-
-  // Try Firebase Remote Config as optional enhancement (but don't let it crash)
   try {
     console.log("📡 Attempting to load quiz config from Firebase Remote Config");
     const { getRemoteConfigValue } = await import("@/lib/firebase-admin");
@@ -44,12 +28,18 @@ async function fetchQuizConfig(): Promise<QuizConfig> {
       const groupCount = Object.keys(quizConfig).length;
       logger.quizAccess.configLoadSuccess("Firebase Remote Config", groupCount);
       console.log("✅ Successfully loaded quiz config from Firebase Remote Config");
+    } else {
+      logger.quizAccess.configLoadFailed(
+        "Firebase Remote Config",
+        new Error("Config not found or invalid format")
+      );
+      console.warn("⚠️ Firebase Remote Config returned empty or invalid config");
     }
   } catch (firebaseError) {
     const err = firebaseError instanceof Error ? firebaseError : new Error(String(firebaseError));
     logger.quizAccess.configLoadFailed("Firebase Remote Config", err);
-    console.warn(
-      "⚠️ Firebase Remote Config unavailable, using fallback:",
+    console.error(
+      "❌ Firebase Remote Config unavailable:",
       firebaseError instanceof Error ? firebaseError.message : "Unknown error"
     );
   }

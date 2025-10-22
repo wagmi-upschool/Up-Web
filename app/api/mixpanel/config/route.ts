@@ -14,9 +14,8 @@ interface RemoteConfig {
   };
 }
 
-// Fetch remote configuration with graceful fallbacks
+// Fetch remote configuration from Firebase Remote Config only
 async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
-  // Try Firebase Remote Config first (but don't let it crash)
   try {
     console.log("📡 Attempting to load Mixpanel config from Firebase Remote Config");
     const { getRemoteConfigValue } = await import("@/lib/firebase-admin");
@@ -27,40 +26,23 @@ async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
       logger.mixpanelAccess.configLoadSuccess("Firebase Remote Config", orgCount);
       console.log("✅ Successfully loaded Mixpanel config from Firebase Remote Config");
       return mixpanelConfig as RemoteConfig;
+    } else {
+      logger.mixpanelAccess.configLoadFailed(
+        "Firebase Remote Config",
+        new Error("Config not found or invalid format")
+      );
+      console.warn("⚠️ Firebase Remote Config returned empty or invalid config");
+      return null;
     }
   } catch (firebaseError) {
     const err = firebaseError instanceof Error ? firebaseError : new Error(String(firebaseError));
     logger.mixpanelAccess.configLoadFailed("Firebase Remote Config", err);
-    console.warn("⚠️ Firebase Remote Config unavailable, falling back to env vars:", firebaseError instanceof Error ? firebaseError.message : "Unknown error");
+    console.error(
+      "❌ Firebase Remote Config unavailable:",
+      firebaseError instanceof Error ? firebaseError.message : "Unknown error"
+    );
+    return null;
   }
-
-  // Fallback to environment variables
-  const envKeys = ["MIXPANEL_REMOTE_CONFIG", "MIXPANEL_DEFAULT_CONFIG"] as const;
-
-  for (const key of envKeys) {
-    try {
-      const value = process.env[key];
-      if (!value) continue;
-
-      console.log(`📡 Using environment variable config from ${key}`);
-      const parsed = JSON.parse(value);
-      if (parsed && typeof parsed === "object") {
-        const orgCount = Object.keys(parsed).length;
-        logger.mixpanelAccess.configLoadSuccess(key, orgCount);
-        return parsed as RemoteConfig;
-      }
-    } catch (envError) {
-      const err = envError instanceof Error ? envError : new Error(String(envError));
-      logger.mixpanelAccess.configLoadFailed(key, err);
-      console.warn(
-        `⚠️ Environment config ${key} invalid:`,
-        envError instanceof Error ? envError.message : "Unknown error"
-      );
-    }
-  }
-
-  console.error("❌ No Mixpanel configuration available from any source");
-  return null;
 }
 
 export async function GET(request: NextRequest) {
