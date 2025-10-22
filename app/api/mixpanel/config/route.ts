@@ -19,21 +19,40 @@ async function fetchRemoteConfig(): Promise<RemoteConfig | null> {
   try {
     console.log("📡 Attempting to load Mixpanel config from Firebase Remote Config");
     const { getRemoteConfigValue } = await import("@/lib/firebase-admin");
-    const mixpanelConfig = await getRemoteConfigValue("UpWebMixpanelDashboard", false);
 
-    if (mixpanelConfig && typeof mixpanelConfig === "object") {
-      const orgCount = Object.keys(mixpanelConfig).length;
-      logger.mixpanelAccess.configLoadSuccess("Firebase Remote Config", orgCount);
-      console.log("✅ Successfully loaded Mixpanel config from Firebase Remote Config");
-      return mixpanelConfig as RemoteConfig;
-    } else {
-      logger.mixpanelAccess.configLoadFailed(
-        "Firebase Remote Config",
-        new Error("Config not found or invalid format")
-      );
-      console.warn("⚠️ Firebase Remote Config returned empty or invalid config");
-      return null;
+    const parameterKeys = [
+      process.env.UP_WEB_MIXPANEL_REMOTE_CONFIG_KEY,
+      process.env.MIXPANEL_REMOTE_CONFIG_KEY,
+      "UpWebMixpanelDashboard",
+    ].filter((key): key is string => Boolean(key));
+
+    for (const parameterKey of parameterKeys) {
+      console.log(`🔄 Fetching Remote Config value for: ${parameterKey}`);
+      const mixpanelConfig = await getRemoteConfigValue(parameterKey, false);
+
+      if (mixpanelConfig && typeof mixpanelConfig === "object") {
+        const orgCount = Object.keys(mixpanelConfig).length;
+        logger.mixpanelAccess.configLoadSuccess(
+          `Firebase Remote Config (${parameterKey})`,
+          orgCount
+        );
+        console.log(
+          `✅ Successfully loaded Mixpanel config from Firebase Remote Config parameter ${parameterKey}`
+        );
+        return mixpanelConfig as RemoteConfig;
+      } else {
+        const warningMessage = `Config not found or invalid format for parameter ${parameterKey}`;
+        logger.mixpanelAccess.configLoadFailed(
+          `Firebase Remote Config (${parameterKey})`,
+          new Error(warningMessage)
+        );
+        console.warn(
+          `⚠️ Firebase Remote Config returned empty or invalid config for ${parameterKey}`
+        );
+      }
     }
+
+    return null;
   } catch (firebaseError) {
     const err = firebaseError instanceof Error ? firebaseError : new Error(String(firebaseError));
     logger.mixpanelAccess.configLoadFailed("Firebase Remote Config", err);

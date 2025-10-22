@@ -17,6 +17,8 @@ frontend:
         - 'echo "🌍 Setting up environment variables..."'
         - 'echo "REMOTE_URL=$REMOTE_URL" >> .env'
         - 'echo "STREAM_URL=$STREAM_URL" >> .env'
+        - 'echo "UP_WEB_MIXPANEL_REMOTE_CONFIG_KEY=$UP_WEB_MIXPANEL_REMOTE_CONFIG_KEY" >> .env'
+        - 'echo "UP_WEB_QUIZ_REMOTE_CONFIG_KEY=$UP_WEB_QUIZ_REMOTE_CONFIG_KEY" >> .env'
         - npm run build
   artifacts:
     baseDirectory: .next

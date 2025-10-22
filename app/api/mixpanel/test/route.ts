@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRemoteConfigValue, setRemoteConfigValue, clearConfigCache } from "@/lib/firebase-admin";
+import {
+  getRemoteConfigValue,
+  setRemoteConfigValue,
+  clearConfigCache,
+} from "@/lib/firebase-admin";
+
+const MIXPANEL_REMOTE_CONFIG_PARAM =
+  process.env.UP_WEB_MIXPANEL_REMOTE_CONFIG_KEY ||
+  process.env.MIXPANEL_REMOTE_CONFIG_KEY ||
+  "UpWebMixpanelDashboard";
 
 const readDefaultConfig = () => {
   const rawConfig = process.env.MIXPANEL_DEFAULT_CONFIG;
@@ -22,7 +31,7 @@ export async function GET(request: NextRequest) {
       case 'get':
         // Test reading from Remote Config
         console.log("🧪 Testing Firebase Remote Config read");
-        const config = await getRemoteConfigValue('UpWebMixpanelDashboard');
+        const config = await getRemoteConfigValue(MIXPANEL_REMOTE_CONFIG_PARAM);
         
         return NextResponse.json({
           success: true,
@@ -37,14 +46,14 @@ export async function GET(request: NextRequest) {
         const defaultConfig = readDefaultConfig();
         
         const success = await setRemoteConfigValue(
-          'UpWebMixpanelDashboard', 
-          defaultConfig, 
+          MIXPANEL_REMOTE_CONFIG_PARAM,
+          defaultConfig,
           'Mixpanel dashboard URLs and user access configuration for Up Web'
         );
         
         if (success) {
           // Clear cache to force fresh read
-          clearConfigCache('UpWebMixpanelDashboard');
+          clearConfigCache(MIXPANEL_REMOTE_CONFIG_PARAM);
         }
         
         return NextResponse.json({
@@ -59,7 +68,7 @@ export async function GET(request: NextRequest) {
       case 'clear-cache':
         // Clear cache for testing
         console.log("🧪 Clearing Firebase Remote Config cache");
-        clearConfigCache('UpWebMixpanelDashboard');
+        clearConfigCache(MIXPANEL_REMOTE_CONFIG_PARAM);
         
         return NextResponse.json({
           success: true,
@@ -72,10 +81,10 @@ export async function GET(request: NextRequest) {
         console.log("🧪 Testing complete Remote Config flow");
         
         // Step 1: Clear cache
-        clearConfigCache('UpWebMixpanelDashboard');
+        clearConfigCache(MIXPANEL_REMOTE_CONFIG_PARAM);
         
         // Step 2: Try to read config
-        const currentConfig = await getRemoteConfigValue('UpWebMixpanelDashboard');
+        const currentConfig = await getRemoteConfigValue(MIXPANEL_REMOTE_CONFIG_PARAM);
         
         // Step 3: If no config, create default
         let finalConfig = currentConfig;
@@ -95,14 +104,14 @@ export async function GET(request: NextRequest) {
                 };
           
           const created = await setRemoteConfigValue(
-            'UpWebMixpanelDashboard', 
+            MIXPANEL_REMOTE_CONFIG_PARAM,
             testConfig, 
             'Test configuration for Up Web Mixpanel integration'
           );
           
           if (created) {
-            clearConfigCache('UpWebMixpanelDashboard');
-            finalConfig = await getRemoteConfigValue('UpWebMixpanelDashboard');
+            clearConfigCache(MIXPANEL_REMOTE_CONFIG_PARAM);
+            finalConfig = await getRemoteConfigValue(MIXPANEL_REMOTE_CONFIG_PARAM);
           }
         }
         
@@ -152,13 +161,13 @@ export async function POST(request: NextRequest) {
     console.log("🧪 Testing Firebase Remote Config write with custom config");
     
     const success = await setRemoteConfigValue(
-      'UpWebMixpanelDashboard', 
-      config, 
-      'Custom test configuration for Up Web Mixpanel integration'
+      MIXPANEL_REMOTE_CONFIG_PARAM,
+      config,
+      "Custom test configuration for Up Web Mixpanel integration"
     );
     
     if (success) {
-      clearConfigCache('UpWebMixpanelDashboard');
+      clearConfigCache(MIXPANEL_REMOTE_CONFIG_PARAM);
     }
     
     return NextResponse.json({
