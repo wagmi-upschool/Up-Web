@@ -42,6 +42,12 @@ type JournalModeEntry = {
 const MANUAL_OVERRIDE_WINDOW_MS = 1500;
 const DETECTION_DEBOUNCE_MS = 120;
 
+const debugLog = (...args: Parameters<typeof console.log>) => {
+  if (process.env.NODE_ENV === "development") {
+    console.log(...args);
+  }
+};
+
 // Helper function to format date like mobile (local timezone)
 const formatMobileDateTime = (date?: Date | string): string => {
   const d = date ? new Date(date) : new Date();
@@ -232,7 +238,7 @@ function HomePage({}: Props) {
     const rawRealMessages = baseMessagesPayload?.messages || [];
 
     // if (process.env.NODE_ENV === 'development') {
-    //   console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
+    //   debugLog('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
     //     id: m.id,
     //     identifier: m.identifier,
     //     role: m.role,
@@ -256,7 +262,7 @@ function HomePage({}: Props) {
     );
 
     // if (process.env.NODE_ENV === "development") {
-    //   console.log(
+    //   debugLog(
     //     "[DEBUG] Deduplicated real messages:",
     //     realMessages.map((m) => ({
     //       id: m.id,
@@ -266,7 +272,7 @@ function HomePage({}: Props) {
     //     }))
     //   );
 
-    //   console.log(
+    //   debugLog(
     //     "[DEBUG] Real message identifiers:",
     //     Array.from(realMessageIdentifiers)
     //   );
@@ -278,7 +284,7 @@ function HomePage({}: Props) {
       const isAlreadySaved = realMessageIdentifiers.has(optIdentifier);
 
       // if (isAlreadySaved && process.env.NODE_ENV === "development") {
-      //   console.log("[DEBUG] Optimistic message replaced by real message:", {
+      //   debugLog("[DEBUG] Optimistic message replaced by real message:", {
       //     identifier: optIdentifier,
       //     role: opt.role,
       //     content: opt.content?.substring(0, 30),
@@ -299,7 +305,7 @@ function HomePage({}: Props) {
     });
 
     if (process.env.NODE_ENV === "development") {
-      // console.log(
+      // debugLog(
       //   "[DEBUG] Pending optimistic messages:",
       //   pendingOptimisticMessages.map((m) => ({
       //     id: m.id,
@@ -308,7 +314,7 @@ function HomePage({}: Props) {
       //     content: m.content?.substring(0, 30),
       //   }))
       // );
-      // console.log(
+      // debugLog(
       //   "[DEBUG] Final merged messages:",
       //   finalMessages.map((m) => ({
       //     id: m.id,
@@ -363,11 +369,11 @@ function HomePage({}: Props) {
 
   const handleSignOut = async () => {
     try {
-      console.log("🚪 Starting logout process...");
+      debugLog("🚪 Starting logout process...");
 
       // 1. Clear all RTK Query cache
       dispatch(api.util.resetApiState());
-      console.log("✅ RTK Query cache cleared");
+      debugLog("✅ RTK Query cache cleared");
 
       // 2. Clear local component state
       setActiveChat(null);
@@ -376,11 +382,11 @@ function HomePage({}: Props) {
       setMessageLikes({});
       setIsAiResponding(false);
       setIsTransitioningChat(false);
-      console.log("✅ Local state cleared");
+      debugLog("✅ Local state cleared");
 
       // 3. Sign out from Amplify
       await signOut();
-      console.log("✅ Amplify signout completed");
+      debugLog("✅ Amplify signout completed");
 
       setShowDropdown(false);
 
@@ -388,12 +394,12 @@ function HomePage({}: Props) {
       try {
         localStorage.clear();
         sessionStorage.clear();
-        console.log("✅ Browser storage cleared");
+        debugLog("✅ Browser storage cleared");
       } catch (storageError) {
         console.warn("⚠️ Could not clear storage:", storageError);
       }
 
-      console.log("🎉 Logout completed successfully");
+      debugLog("🎉 Logout completed successfully");
     } catch (error) {
       console.error("❌ Error during logout:", error);
       toast.error("Çıkış yapılırken bir hata oluştu");
@@ -418,7 +424,7 @@ function HomePage({}: Props) {
       // Extract groupName from custom attributes
       let userGroupName = userAttributes["custom:groupName"] || null;
 
-      console.log("User attributes:", { userEmail, userGroupName });
+      debugLog("User attributes:", { userEmail, userGroupName });
 
       // Get access token for API auth
       const session = await fetchAuthSession();
@@ -452,7 +458,7 @@ function HomePage({}: Props) {
         const data = await response.json();
 
         if (data.hasAccess) {
-          console.log("✅ User has quiz access:", data);
+          debugLog("✅ User has quiz access:", data);
           setShowQuizAccess(true);
           setQuizData({
             testId: data.testId,
@@ -462,7 +468,7 @@ function HomePage({}: Props) {
           // Check quiz completion after confirming access
           // await checkQuizCompletion(data.testId); // Disabled for now
         } else {
-          console.log("❌ User does not have quiz access");
+          debugLog("❌ User does not have quiz access");
           setShowQuizAccess(false);
         }
       } else {
@@ -511,14 +517,14 @@ function HomePage({}: Props) {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("📊 Quiz completion status:", data);
+        debugLog("📊 Quiz completion status:", data);
 
         setIsQuizCompleted(data.isCompleted);
 
         if (data.isCompleted) {
-          console.log("🎉 User has completed the quiz - hiding quiz buttons");
+          debugLog("🎉 User has completed the quiz - hiding quiz buttons");
         } else {
-          console.log(
+          debugLog(
             "📝 User has not completed the quiz - showing quiz buttons"
           );
         }
@@ -543,7 +549,7 @@ function HomePage({}: Props) {
       const userEmail = user?.signInDetails?.loginId;
 
       if (!userEmail) {
-        console.log("No user email found, skipping Mixpanel check");
+        debugLog("No user email found, skipping Mixpanel check");
         return;
       }
 
@@ -563,21 +569,21 @@ function HomePage({}: Props) {
 
         if (response.ok) {
           const config = await response.json();
-          console.log("Mixpanel config response:", config);
+          debugLog("Mixpanel config response:", config);
 
           if (config.enabled && config.dashboardUrl) {
             setShowMixpanelOption(true);
             setMixpanelDashboardUrl(config.dashboardUrl);
-            console.log("✅ Mixpanel dashboard access granted for:", userEmail);
+            debugLog("✅ Mixpanel dashboard access granted for:", userEmail);
           } else {
-            console.log("❌ No Mixpanel dashboard access for:", userEmail);
+            debugLog("❌ No Mixpanel dashboard access for:", userEmail);
           }
         } else {
-          console.log("Mixpanel config request failed:", response.status);
+          debugLog("Mixpanel config request failed:", response.status);
         }
       }
     } catch (error) {
-      console.log("Mixpanel configuration check failed:", error);
+      debugLog("Mixpanel configuration check failed:", error);
       // Silently fail - this is not critical functionality
     }
   };
@@ -647,7 +653,7 @@ function HomePage({}: Props) {
       setOptimisticMessages((prev) => [...prev, userMessage]);
 
       try {
-        console.log(
+        debugLog(
           "📝 Journal mode: Saving user message only, no AI response"
         );
 
@@ -670,7 +676,7 @@ function HomePage({}: Props) {
         });
 
         setTimeout(scrollToBottom, 100);
-        console.log("✅ Journal entry saved successfully", saveResult);
+        debugLog("✅ Journal entry saved successfully", saveResult);
         setIsMessageInserting(false);
       } catch (error) {
         console.error("❌ Error saving journal entry:", error);
@@ -704,7 +710,7 @@ function HomePage({}: Props) {
     setIsMessageInserting(true);
 
     try {
-      console.log(
+      debugLog(
         "[NORMAL MODE] 🚀 Sending message (both message request + conversation save):",
         {
           chatId: activeChat,
@@ -734,7 +740,7 @@ function HomePage({}: Props) {
 
       // Normal mode: BOTH message request AND conversation save
       // Step 1: Send message request (using RTK Query)
-      console.log(
+      debugLog(
         "[NORMAL MODE] 📤 Step 1: Sending message request via RTK Query..."
       );
       const messageResult = await sendChatMessage({
@@ -751,7 +757,7 @@ function HomePage({}: Props) {
         throw new Error("Message request failed");
       }
 
-      console.log(
+      debugLog(
         "[NORMAL MODE] ✅ Step 1 completed: Message request sent successfully"
       );
 
@@ -833,7 +839,7 @@ function HomePage({}: Props) {
             buffer += chunk.replace("[DONE-UP]", "");
             const isDone = chunk.includes("[DONE-UP]");
 
-            console.log(
+            debugLog(
               "[MESSAGE STREAM TEST] 📝 Chunk processed, buffer length:",
               buffer.length
             );
@@ -849,7 +855,7 @@ function HomePage({}: Props) {
             setOptimisticMessages([userMessage, aiMessage]);
 
             if (isDone) {
-              console.log(
+              debugLog(
                 "[MESSAGE STREAM TEST] ✅ Stream completed with [DONE-UP]"
               );
               break;
@@ -866,9 +872,9 @@ function HomePage({}: Props) {
         // Use buffer as final response content
         aiResponseContent = buffer;
 
-        console.log("Streaming completed, final response:", aiResponseContent);
+        debugLog("Streaming completed, final response:", aiResponseContent);
 
-        console.log(
+        debugLog(
           "[MESSAGE STREAM TEST] ✅ Streaming completed, final response length:",
           aiResponseContent.length
         );
@@ -878,7 +884,7 @@ function HomePage({}: Props) {
 
         // Step 3: Save the conversation using conversation-save endpoint (completing normal mode)
         try {
-          console.log(
+          debugLog(
             "[NORMAL MODE] 💾 Step 3: Saving conversation via conversation-save endpoint..."
           );
 
@@ -942,15 +948,15 @@ function HomePage({}: Props) {
           });
 
           if ("data" in saveResult) {
-            console.log(
+            debugLog(
               "[NORMAL MODE] ✅ Step 3 completed: Conversation saved successfully"
             );
-            console.log(
+            debugLog(
               "[NORMAL MODE] 🎉 Normal mode complete: Both message request AND conversation save finished"
             );
 
             // RTK Query will automatically refetch and merge with optimistic messages
-            console.log(
+            debugLog(
               "[NORMAL MODE] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
             );
             setIsMessageInserting(false);
@@ -1070,7 +1076,7 @@ function HomePage({}: Props) {
 
       // Save widgets to backend immediately
       if (widgetsToSave.length > 0) {
-        console.log(
+        debugLog(
           "🔧 BUTTON TOGGLE - Saving widgets:",
           widgetsToSave.map((w) => ({
             id: w.id,
@@ -1097,7 +1103,7 @@ function HomePage({}: Props) {
             conversationId: activeChat,
           });
 
-          console.log("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
+          debugLog("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
           toast.success(
             newJournalMode
               ? "Günlük modu başlatıldı!"
@@ -1120,23 +1126,23 @@ function HomePage({}: Props) {
   const handleLikeDislike = useCallback(
     async (messageId: string, type: "like" | "dislike", messageObj?: any) => {
       try {
-        console.log("Rating messageId:", messageId, "type:", type);
-        console.log("Message object received:", messageObj);
+        debugLog("Rating messageId:", messageId, "type:", type);
+        debugLog("Message object received:", messageObj);
 
         // Use identifier or id for backend API call
         const backendMessageId = messageObj?.identifier || messageObj?.id;
-        console.log("Backend messageId:", backendMessageId);
+        debugLog("Backend messageId:", backendMessageId);
 
         // Skip rating if no valid backend ID
         if (!backendMessageId) {
-          console.log("No backend messageId available:", backendMessageId);
+          debugLog("No backend messageId available:", backendMessageId);
           toast.error("Mesaj ID'si bulunamadı");
           return;
         }
 
         // Use the conversationId from the message object, or fall back to activeChat
         const conversationId = messageObj?.conversationId || activeChat;
-        console.log("Using conversationId:", conversationId);
+        debugLog("Using conversationId:", conversationId);
 
         if (!conversationId) {
           console.error("No conversationId available");
@@ -1205,7 +1211,7 @@ function HomePage({}: Props) {
   );
 
   useEffect(() => {
-    console.log(
+    debugLog(
       "[MESSAGE STREAM TEST] 🔄 HomePage component mounted/remounted"
     );
 
@@ -1263,14 +1269,14 @@ function HomePage({}: Props) {
           type: "reflectionJournal", // Infer from assistantGroupId and title
           assistantId: firstMessage.assistantId,
         };
-        console.log(
+        debugLog(
           "🔧 Created synthetic chat object from message data:",
           currentActiveChat
         );
       }
 
       // Debug: Check if currentActiveChat has type field
-      console.log(`🔧 WIDGET DEBUG - Current active chat:`, {
+      debugLog(`🔧 WIDGET DEBUG - Current active chat:`, {
         chatId: activeChat,
         title: currentActiveChat?.title,
         type: currentActiveChat?.type,
@@ -1300,11 +1306,11 @@ function HomePage({}: Props) {
             msg.content?.includes('"widgetType": "JournalDate"')
         );
 
-        console.log(`🔧 Widget check - Chat: ${activeChat}`);
-        console.log(`🔧 Existing messages count: ${existingMessages.length}`);
-        console.log(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
-        console.log(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
-        console.log(
+        debugLog(`🔧 Widget check - Chat: ${activeChat}`);
+        debugLog(`🔧 Existing messages count: ${existingMessages.length}`);
+        debugLog(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
+        debugLog(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
+        debugLog(
           `🔧 Widget type messages:`,
           existingMessages.filter((m) => m.type === "widget")
         );
@@ -1326,13 +1332,13 @@ function HomePage({}: Props) {
         const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
 
         if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
-          console.log(
+          debugLog(
             `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
           );
-          console.log(
+          debugLog(
             `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
           );
-          console.log(`🔧 Already saved for chat: ${alreadySavedForChat}`);
+          debugLog(`🔧 Already saved for chat: ${alreadySavedForChat}`);
 
           const baseDateTime = new Date();
           const currentDateOnly = formatJournalDate();
@@ -1405,15 +1411,15 @@ function HomePage({}: Props) {
               try {
                 const user = await getCurrentUser();
 
-                console.log(
+                debugLog(
                   "💾 Attempting to save widgets:",
                   widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
                 );
-                console.log(
+                debugLog(
                   "💾 Existing messages count:",
                   existingMessages.length
                 );
-                console.log(
+                debugLog(
                   "💾 Existing widget IDs:",
                   existingMessages
                     .filter((m) => m.type === "widget")
@@ -1422,8 +1428,8 @@ function HomePage({}: Props) {
 
                 // Combine existing messages with new widgets for complete save
                 const allMessages = [...existingMessages, ...widgetsToAdd];
-                console.log("💾 Total messages to save:", allMessages.length);
-                console.log(
+                debugLog("💾 Total messages to save:", allMessages.length);
+                debugLog(
                   "💾 All widget IDs in payload:",
                   allMessages
                     .filter((m) => m.type === "widget")
@@ -1448,7 +1454,7 @@ function HomePage({}: Props) {
                   new Set(prev).add(activeChat)
                 );
 
-                console.log(
+                debugLog(
                   "✅ Auto-saved missing widgets successfully",
                   saveResult
                 );
@@ -1465,7 +1471,7 @@ function HomePage({}: Props) {
             // Save widgets automatically after a short delay
             setTimeout(autoSaveWidgets, 500);
           } else {
-            console.log("✅ All widgets already exist, skipping creation");
+            debugLog("✅ All widgets already exist, skipping creation");
           }
         }
       } else {
@@ -1956,7 +1962,7 @@ function HomePage({}: Props) {
               <div className="space-y-4 max-w-4xl mx-auto">
                 {messages.map((message, index) => {
                   // Console log for debugging
-                  // console.log(`[MESSAGE DEBUG] Index ${index}:`, {
+                  // debugLog(`[MESSAGE DEBUG] Index ${index}:`, {
                   //   role: message.role,
                   //   content: message.content?.substring(0, 100),
                   //   sender: message.sender,
@@ -1974,7 +1980,7 @@ function HomePage({}: Props) {
                     `${message.role}-${index}-${message.content?.substring(0, 50) || "no-content"}-${message.createdAt}`;
 
                   // if (process.env.NODE_ENV === "development") {
-                  //   console.log(`[DEBUG] Message ${index} key:`, messageKey, {
+                  //   debugLog(`[DEBUG] Message ${index} key:`, messageKey, {
                   //     id: message.id,
                   //     identifier: message.identifier,
                   //     role: message.role,
@@ -1994,7 +2000,7 @@ function HomePage({}: Props) {
                       message.content?.includes('"widgetType": "JournalDate"'));
 
                   if (isAyracWidget || isJournalDateWidget) {
-                    console.log(`🎯 Rendering widget - Index ${index}:`, {
+                    debugLog(`🎯 Rendering widget - Index ${index}:`, {
                       isAyracWidget,
                       isJournalDateWidget,
                       messageType: message.type,
