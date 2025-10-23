@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiLog, apiError } from '@/lib/logging-utils';
 
 export async function POST(req: NextRequest, { params }: { params: { chatId: string } }) {
-    console.log('[MESSAGE STREAM TEST] 📝 POST /api/chats/[chatId]/save called');
-    
+    apiLog('📝 POST /api/chats/[chatId]/save called');
+
     const { chatId } = params;
-    console.log('[MESSAGE STREAM TEST] 📝 Chat ID:', chatId);
-    
+    apiLog('📝 Chat ID:', chatId);
+
     // Get both access token and id token
     const authHeader = req.headers.get('Authorization');
     const idTokenHeader = req.headers.get('x-id-token');
-    
-    console.log('Auth header:', authHeader?.substring(0, 50) + '...');
-    console.log('ID Token header:', idTokenHeader?.substring(0, 50) + '...');
+
+    apiLog('Auth header:', authHeader?.substring(0, 50) + '...');
+    apiLog('ID Token header:', idTokenHeader?.substring(0, 50) + '...');
     
     if (!authHeader || !idTokenHeader) {
         return NextResponse.json({
@@ -21,27 +22,27 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
     }
     
     const userId = req.headers.get('x-user-id');
-    console.log('User ID:', userId);
-    
+    apiLog('User ID:', userId);
+
     if (!userId) {
         return NextResponse.json({
             status: '401',
             message: 'User ID not found',
         }, { status: 401 });
     }
-    
+
     try {
         const body = await req.json();
         const { messages, assistantId, assistantGroupId } = body;
-        
+
         if (!messages || !Array.isArray(messages)) {
             return NextResponse.json({
                 status: '400',
                 message: 'Messages array is required',
             }, { status: 400 });
         }
-        
-        console.log(`Saving ${messages.length} messages for chat ${chatId}`);
+
+        apiLog(`Saving ${messages.length} messages for chat ${chatId}`);
         
         // Find latest non-widget message (like Flutter ChatUtils.findLatestNonWidgetMessage)
         const latestMessage = messages
@@ -56,8 +57,8 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             message.role === 'journal'
         ).length;
         
-        console.log(`[MESSAGE STREAM TEST] 💬 Saving ${messages.length} messages, ${userMessageCount} are user messages`);
-        console.log('[MESSAGE STREAM TEST] 📤 Received messages data:', JSON.stringify(messages, null, 2));
+        apiLog(`💬 Saving ${messages.length} messages, ${userMessageCount} are user messages`);
+        apiLog('📤 Received messages data:', JSON.stringify(messages, null, 2));
         
         // Filter out widget messages for JSON (like Flutter)
         const messagesJson = messages
@@ -116,19 +117,19 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
             })
         ]);
         
-        console.log('[MESSAGE STREAM TEST] 💾 Conversation save result:', conversationSave.status);
-        console.log('[MESSAGE STREAM TEST] 💾 Vector save result:', vectorSave.status);
-        
+        apiLog('💾 Conversation save result:', conversationSave.status);
+        apiLog('💾 Vector save result:', vectorSave.status);
+
         // Check if both operations succeeded
         const conversationResult = conversationSave.status === 'fulfilled' ? await conversationSave.value.json() : null;
         const vectorResult = vectorSave.status === 'fulfilled' ? await vectorSave.value.json() : null;
-        
+
         // Log any failures
         if (conversationSave.status === 'rejected') {
-            console.error('Conversation save failed:', conversationSave.reason);
+            apiError('Conversation save failed:', conversationSave.reason);
         }
         if (vectorSave.status === 'rejected') {
-            console.error('Vector save failed:', vectorSave.reason);
+            apiError('Vector save failed:', vectorSave.reason);
         }
         
         return NextResponse.json({
@@ -142,10 +143,10 @@ export async function POST(req: NextRequest, { params }: { params: { chatId: str
         }, { status: 200 });
         
     } catch (error: any) {
-        console.error('Error in POST /api/chats/[chatId]/save:', error);
-        return NextResponse.json({ 
-            error: 'Failed to save messages', 
-            details: error?.message || 'Unknown error' 
+        apiError('Error in POST /api/chats/[chatId]/save:', error);
+        return NextResponse.json({
+            error: 'Failed to save messages',
+            details: error?.message || 'Unknown error'
         }, { status: 500 });
     }
 }
