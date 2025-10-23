@@ -1,24 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiLog, apiError } from "@/lib/logging-utils";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { chatId: string } }
 ) {
-  console.log("GET /api/chats/[chatId]/messages called");
+  apiLog("GET /api/chats/[chatId]/messages called");
 
   const { chatId } = params;
   const { searchParams } = new URL(req.url);
   const limit = searchParams.get("limit") || "50";
 
-  console.log("Chat ID:", chatId);
-  console.log("Limit:", limit);
+  apiLog("Chat ID:", chatId);
+  apiLog("Limit:", limit);
 
   // Get both access token and id token
   const authHeader = req.headers.get("Authorization"); // access token
   const idTokenHeader = req.headers.get("x-id-token"); // id token
 
-  console.log("Auth header:", authHeader?.substring(0, 50) + "...");
-  console.log("ID Token header:", idTokenHeader?.substring(0, 50) + "...");
+  apiLog("Auth header:", authHeader?.substring(0, 50) + "...");
+  apiLog("ID Token header:", idTokenHeader?.substring(0, 50) + "...");
 
   if (!authHeader || !idTokenHeader) {
     return NextResponse.json(
@@ -31,7 +32,7 @@ export async function GET(
   }
 
   const userId = req.headers.get("x-user-id");
-  console.log("User ID:", userId);
+  apiLog("User ID:", userId);
 
   if (!userId) {
     return NextResponse.json(
@@ -45,7 +46,7 @@ export async function GET(
 
   try {
     const url = `${process.env.REMOTE_URL}/user/${userId}/conversation/${chatId}/messages?limit=${limit}`;
-    console.log("Fetching from URL:", url);
+    apiLog("Fetching from URL:", url);
 
     const lambdaAuthHeader = idTokenHeader.startsWith("Bearer ")
       ? idTokenHeader
@@ -60,10 +61,10 @@ export async function GET(
       },
     });
 
-    console.log("Lambda response status:", lambda.status);
+    apiLog("Lambda response status:", lambda.status);
 
     if (lambda.status === 401) {
-      console.log("Lambda returned 401 Unauthorized");
+      apiLog("Lambda returned 401 Unauthorized");
       return NextResponse.json(
         {
           status: "401",
@@ -74,7 +75,7 @@ export async function GET(
     }
 
     const rawData = await lambda.json();
-    console.log("/api/chats/[chatId]/messages Raw Lambda response:", rawData);
+    apiLog("/api/chats/[chatId]/messages Raw Lambda response:", rawData);
 
     // Handle nested body structure like in chats API
     let data;
@@ -86,11 +87,9 @@ export async function GET(
       data = rawData;
     }
 
-    // console.log('Parsed response data:', data);
-    data.messages.map((msg: any) => {
-      console.log(
-        `[MESSAGE STREAM TEST] Message ID: ${msg.type}, Created At: ${msg.content}`
-      );
+    // Log first few messages for debugging
+    data.messages.slice(0, 3).map((msg: any) => {
+      apiLog(`Message ID: ${msg.type}, Created At: ${msg.content}`);
     });
 
     if (data && data.message === "Internal server error") {
@@ -105,11 +104,8 @@ export async function GET(
       return dateA - dateB;
     });
 
-    console.log(`Total messages fetched: ${sortedMessages.length}`);
-    console.log(
-      "[MESSAGE STREAM TEST] 📄 Sample message structure:",
-      sortedMessages[0]
-    );
+    apiLog(`Total messages fetched: ${sortedMessages.length}`);
+    apiLog("📄 Sample message structure:", sortedMessages[0]);
 
     // Add content field to messages if missing but message field exists
     const processedMessages = sortedMessages.map((msg: any) => {
@@ -119,14 +115,14 @@ export async function GET(
       return msg;
     });
 
-    console.log(
-      "[MESSAGE CONTENT DEBUG] After processing - content field exists:",
+    apiLog(
+      "After processing - content field exists:",
       !!processedMessages[0]?.content
     );
 
     return NextResponse.json({ messages: processedMessages }, { status: 200 });
   } catch (error: any) {
-    console.error("Error in GET /api/chats/[chatId]/messages:", error);
+    apiError("Error in GET /api/chats/[chatId]/messages:", error);
     return NextResponse.json(
       {
         error: "Failed to fetch messages",
@@ -180,9 +176,9 @@ export async function DELETE(
     await lambda.json();
     return NextResponse.json({ message: "Success" }, { status: 200 });
   } catch (error) {
-    console.log(error);
+    apiError("Error in DELETE /api/chats/[chatId]/messages:", error);
     return NextResponse.json(
-      { error: "Failed to create message" },
+      { error: "Failed to delete messages" },
       { status: 500 }
     );
   }

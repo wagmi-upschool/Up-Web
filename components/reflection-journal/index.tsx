@@ -3,34 +3,96 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import MessageRenderer from "@/components/messages/MessageRenderer";
-import { useGetChatMessagesQuery, useSendChatMessageMutation } from "@/state/api";
+import { useGetChatMessagesQuery, useSendChatMessageMutation, api } from "@/state/api";
+import { clientLog, clientError } from "@/lib/logging-utils";
+import { useDispatch } from "react-redux";
 
 interface ReflectionJournalProps {
   chatId?: string;
 }
 
 const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
+  const dispatch = useDispatch();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const prevChatIdRef = useRef<string | undefined>(chatId);
 
   // Fetch messages if chatId is provided
   const {
     data: messagesData,
     isLoading: messagesLoading,
+    isFetching,
   } = useGetChatMessagesQuery(
     { chatId: chatId || "", limit: "50" },
     { skip: !chatId }
   );
-  
+
   const [sendMessage] = useSendChatMessageMutation();
 
+  // Clear messages immediately on mount if no chatId
   useEffect(() => {
-    if (messagesData?.messages) {
-      setMessages(messagesData.messages);
+    if (!chatId) {
+      clientLog("🧹 Journal mounted without chatId - clearing all messages and cache");
+      setMessages([]);
+      // Invalidate all message cache to ensure no stale data
+      dispatch(api.util.invalidateTags(['Messages']));
     }
-  }, [messagesData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on mount
+
+  // Handle chatId changes and clear messages when transitioning
+  useEffect(() => {
+    const prevChatId = prevChatIdRef.current;
+
+    // chatId changed (including undefined -> chatId or chatId -> undefined)
+    if (prevChatId !== chatId) {
+      clientLog("🔄 ChatId transition detected", {
+        from: prevChatId,
+        to: chatId,
+      });
+
+      // Clear messages immediately when chatId changes or becomes undefined
+      setMessages([]);
+
+      if (!chatId) {
+        clientLog("🧹 Clearing journal messages - no chatId provided");
+        // Invalidate cache when transitioning to no-chat state
+        dispatch(api.util.invalidateTags(['Messages']));
+      } else {
+        clientLog("📝 Journal chatId changed to:", chatId);
+        // Invalidate previous chat's cache to ensure fresh data
+        if (prevChatId) {
+          dispatch(api.util.invalidateTags([{ type: 'Messages', id: prevChatId }]));
+        }
+      }
+
+      prevChatIdRef.current = chatId;
+    }
+  }, [chatId, dispatch]);
+
+  // Only update messages from query data when we have both chatId and data
+  useEffect(() => {
+    if (chatId && messagesData?.messages) {
+      clientLog("📥 Updating messages from query data:", {
+        chatId,
+        messageCount: messagesData.messages.length,
+      });
+      setMessages(messagesData.messages);
+    } else if (!chatId) {
+      // Extra safety: ensure messages are empty when no chatId
+      setMessages([]);
+    }
+  }, [chatId, messagesData]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clientLog("🧹 Journal component unmounting - cleanup");
+      setMessages([]);
+    };
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !chatId) return;
@@ -46,12 +108,12 @@ const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
 
       if ("data" in result) {
         setInputValue("");
-        console.log("Journal message sent successfully");
+        clientLog("✅ Journal message sent successfully");
       } else {
-        console.error("Failed to send journal message:", result.error);
+        clientError("❌ Failed to send journal message:", result.error);
       }
     } catch (error) {
-      console.error("Error sending journal message:", error);
+      clientError("❌ Error sending journal message:", error);
     } finally {
       setIsLoading(false);
     }

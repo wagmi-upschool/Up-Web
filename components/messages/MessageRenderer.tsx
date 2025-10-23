@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Image from "next/image";
 import AssistantInputOption from "@/services/AssistantInputOption";
+import { clientError, clientWarn } from "@/lib/logging-utils";
 
 interface MessageRendererProps {
   content: string;
@@ -340,7 +341,7 @@ const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => {
         [stageIndex]: false,
       }));
     } catch (error) {
-      console.error("Error saving option selection:", error);
+      clientError("Error saving option selection:", error);
     }
   };
 
@@ -667,7 +668,7 @@ const MessageRenderer: React.FC<
   const parseMessageContent = (content: string) => {
     // Handle undefined, null, or empty content
     if (!content || typeof content !== "string") {
-      console.warn("MessageRenderer: Invalid content received:", content);
+      clientWarn("MessageRenderer: Invalid content received:", content);
       return { type: "text", data: "Mesaj içeriği yok" };
     }
 
@@ -701,7 +702,7 @@ const MessageRenderer: React.FC<
         </div>
       );
     } catch (error) {
-      console.error("Error rendering widget:", error);
+      clientError("Error rendering widget:", error);
       return (
         <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-600">
           Widget render hatası:{" "}

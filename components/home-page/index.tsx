@@ -28,6 +28,7 @@ import { ChatMessage } from "@/types/type";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
+import { clientLog, clientError } from "@/lib/logging-utils";
 
 type Props = {};
 
@@ -41,12 +42,6 @@ type JournalModeEntry = {
 
 const MANUAL_OVERRIDE_WINDOW_MS = 1500;
 const DETECTION_DEBOUNCE_MS = 120;
-
-const debugLog = (...args: Parameters<typeof console.log>) => {
-  if (process.env.NODE_ENV === "development") {
-    console.log(...args);
-  }
-};
 
 // Helper function to format date like mobile (local timezone)
 const formatMobileDateTime = (date?: Date | string): string => {
@@ -235,10 +230,16 @@ function HomePage({}: Props) {
     !isTransitioningChat ? currentMessagesData ?? messagesData : undefined;
 
   const messages = useMemo(() => {
+    // During chat transitions, return empty array to prevent showing old messages
+    if (isTransitioningChat) {
+      clientLog("🔄 Chat transitioning - returning empty messages array");
+      return [];
+    }
+
     const rawRealMessages = baseMessagesPayload?.messages || [];
 
     // if (process.env.NODE_ENV === 'development') {
-    //   debugLog('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
+    //   clientLog('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
     //     id: m.id,
     //     identifier: m.identifier,
     //     role: m.role,
@@ -262,7 +263,7 @@ function HomePage({}: Props) {
     );
 
     // if (process.env.NODE_ENV === "development") {
-    //   debugLog(
+    //   clientLog(
     //     "[DEBUG] Deduplicated real messages:",
     //     realMessages.map((m) => ({
     //       id: m.id,
@@ -272,7 +273,7 @@ function HomePage({}: Props) {
     //     }))
     //   );
 
-    //   debugLog(
+    //   clientLog(
     //     "[DEBUG] Real message identifiers:",
     //     Array.from(realMessageIdentifiers)
     //   );
@@ -284,7 +285,7 @@ function HomePage({}: Props) {
       const isAlreadySaved = realMessageIdentifiers.has(optIdentifier);
 
       // if (isAlreadySaved && process.env.NODE_ENV === "development") {
-      //   debugLog("[DEBUG] Optimistic message replaced by real message:", {
+      //   clientLog("[DEBUG] Optimistic message replaced by real message:", {
       //     identifier: optIdentifier,
       //     role: opt.role,
       //     content: opt.content?.substring(0, 30),
@@ -305,7 +306,7 @@ function HomePage({}: Props) {
     });
 
     if (process.env.NODE_ENV === "development") {
-      // debugLog(
+      // clientLog(
       //   "[DEBUG] Pending optimistic messages:",
       //   pendingOptimisticMessages.map((m) => ({
       //     id: m.id,
@@ -314,7 +315,7 @@ function HomePage({}: Props) {
       //     content: m.content?.substring(0, 30),
       //   }))
       // );
-      // debugLog(
+      // clientLog(
       //   "[DEBUG] Final merged messages:",
       //   finalMessages.map((m) => ({
       //     id: m.id,
@@ -327,7 +328,7 @@ function HomePage({}: Props) {
     }
 
     return finalMessages;
-  }, [baseMessagesPayload, optimisticMessages]);
+  }, [baseMessagesPayload, optimisticMessages, isTransitioningChat]);
 
   // Clear optimistic messages when switching chats
   useEffect(() => {
@@ -369,11 +370,11 @@ function HomePage({}: Props) {
 
   const handleSignOut = async () => {
     try {
-      debugLog("🚪 Starting logout process...");
+      clientLog("🚪 Starting logout process...");
 
       // 1. Clear all RTK Query cache
       dispatch(api.util.resetApiState());
-      debugLog("✅ RTK Query cache cleared");
+      clientLog("✅ RTK Query cache cleared");
 
       // 2. Clear local component state
       setActiveChat(null);
@@ -382,11 +383,11 @@ function HomePage({}: Props) {
       setMessageLikes({});
       setIsAiResponding(false);
       setIsTransitioningChat(false);
-      debugLog("✅ Local state cleared");
+      clientLog("✅ Local state cleared");
 
       // 3. Sign out from Amplify
       await signOut();
-      debugLog("✅ Amplify signout completed");
+      clientLog("✅ Amplify signout completed");
 
       setShowDropdown(false);
 
@@ -394,12 +395,12 @@ function HomePage({}: Props) {
       try {
         localStorage.clear();
         sessionStorage.clear();
-        debugLog("✅ Browser storage cleared");
+        clientLog("✅ Browser storage cleared");
       } catch (storageError) {
         console.warn("⚠️ Could not clear storage:", storageError);
       }
 
-      debugLog("🎉 Logout completed successfully");
+      clientLog("🎉 Logout completed successfully");
     } catch (error) {
       console.error("❌ Error during logout:", error);
       toast.error("Çıkış yapılırken bir hata oluştu");
@@ -424,7 +425,7 @@ function HomePage({}: Props) {
       // Extract groupName from custom attributes
       let userGroupName = userAttributes["custom:groupName"] || null;
 
-      debugLog("User attributes:", { userEmail, userGroupName });
+      clientLog("User attributes:", { userEmail, userGroupName });
 
       // Get access token for API auth
       const session = await fetchAuthSession();
@@ -458,7 +459,7 @@ function HomePage({}: Props) {
         const data = await response.json();
 
         if (data.hasAccess) {
-          debugLog("✅ User has quiz access:", data);
+          clientLog("✅ User has quiz access:", data);
           setShowQuizAccess(true);
           setQuizData({
             testId: data.testId,
@@ -468,7 +469,7 @@ function HomePage({}: Props) {
           // Check quiz completion after confirming access
           // await checkQuizCompletion(data.testId); // Disabled for now
         } else {
-          debugLog("❌ User does not have quiz access");
+          clientLog("❌ User does not have quiz access");
           setShowQuizAccess(false);
         }
       } else {
@@ -517,14 +518,14 @@ function HomePage({}: Props) {
 
       if (response.ok) {
         const data = await response.json();
-        debugLog("📊 Quiz completion status:", data);
+        clientLog("📊 Quiz completion status:", data);
 
         setIsQuizCompleted(data.isCompleted);
 
         if (data.isCompleted) {
-          debugLog("🎉 User has completed the quiz - hiding quiz buttons");
+          clientLog("🎉 User has completed the quiz - hiding quiz buttons");
         } else {
-          debugLog(
+          clientLog(
             "📝 User has not completed the quiz - showing quiz buttons"
           );
         }
@@ -549,7 +550,7 @@ function HomePage({}: Props) {
       const userEmail = user?.signInDetails?.loginId;
 
       if (!userEmail) {
-        debugLog("No user email found, skipping Mixpanel check");
+        clientLog("No user email found, skipping Mixpanel check");
         return;
       }
 
@@ -569,21 +570,21 @@ function HomePage({}: Props) {
 
         if (response.ok) {
           const config = await response.json();
-          debugLog("Mixpanel config response:", config);
+          clientLog("Mixpanel config response:", config);
 
           if (config.enabled && config.dashboardUrl) {
             setShowMixpanelOption(true);
             setMixpanelDashboardUrl(config.dashboardUrl);
-            debugLog("✅ Mixpanel dashboard access granted for:", userEmail);
+            clientLog("✅ Mixpanel dashboard access granted for:", userEmail);
           } else {
-            debugLog("❌ No Mixpanel dashboard access for:", userEmail);
+            clientLog("❌ No Mixpanel dashboard access for:", userEmail);
           }
         } else {
-          debugLog("Mixpanel config request failed:", response.status);
+          clientLog("Mixpanel config request failed:", response.status);
         }
       }
     } catch (error) {
-      debugLog("Mixpanel configuration check failed:", error);
+      clientLog("Mixpanel configuration check failed:", error);
       // Silently fail - this is not critical functionality
     }
   };
@@ -653,7 +654,7 @@ function HomePage({}: Props) {
       setOptimisticMessages((prev) => [...prev, userMessage]);
 
       try {
-        debugLog(
+        clientLog(
           "📝 Journal mode: Saving user message only, no AI response"
         );
 
@@ -676,7 +677,7 @@ function HomePage({}: Props) {
         });
 
         setTimeout(scrollToBottom, 100);
-        debugLog("✅ Journal entry saved successfully", saveResult);
+        clientLog("✅ Journal entry saved successfully", saveResult);
         setIsMessageInserting(false);
       } catch (error) {
         console.error("❌ Error saving journal entry:", error);
@@ -710,7 +711,7 @@ function HomePage({}: Props) {
     setIsMessageInserting(true);
 
     try {
-      debugLog(
+      clientLog(
         "[NORMAL MODE] 🚀 Sending message (both message request + conversation save):",
         {
           chatId: activeChat,
@@ -740,7 +741,7 @@ function HomePage({}: Props) {
 
       // Normal mode: BOTH message request AND conversation save
       // Step 1: Send message request (using RTK Query)
-      debugLog(
+      clientLog(
         "[NORMAL MODE] 📤 Step 1: Sending message request via RTK Query..."
       );
       const messageResult = await sendChatMessage({
@@ -757,7 +758,7 @@ function HomePage({}: Props) {
         throw new Error("Message request failed");
       }
 
-      debugLog(
+      clientLog(
         "[NORMAL MODE] ✅ Step 1 completed: Message request sent successfully"
       );
 
@@ -825,10 +826,7 @@ function HomePage({}: Props) {
             if (chunk.includes("error")) {
               try {
                 const errorMap = JSON.parse(chunk);
-                console.error(
-                  "[MESSAGE STREAM TEST] ❌ Stream error:",
-                  errorMap
-                );
+                clientError("❌ Stream error:", errorMap);
                 throw new Error("Stream error received");
               } catch (e) {
                 // Continue if not valid JSON
@@ -839,10 +837,7 @@ function HomePage({}: Props) {
             buffer += chunk.replace("[DONE-UP]", "");
             const isDone = chunk.includes("[DONE-UP]");
 
-            debugLog(
-              "[MESSAGE STREAM TEST] 📝 Chunk processed, buffer length:",
-              buffer.length
-            );
+            clientLog("📝 Chunk processed, buffer length:", buffer.length);
 
             // Update AI message with accumulated buffer content (like Flutter MessageReceivedEvent)
             aiMessage = {
@@ -855,27 +850,21 @@ function HomePage({}: Props) {
             setOptimisticMessages([userMessage, aiMessage]);
 
             if (isDone) {
-              debugLog(
-                "[MESSAGE STREAM TEST] ✅ Stream completed with [DONE-UP]"
-              );
+              clientLog("✅ Stream completed with [DONE-UP]");
               break;
             }
           }
         } catch (error) {
-          console.error(
-            "[MESSAGE STREAM TEST] ❌ Stream processing error:",
-            error
-          );
+          clientError("❌ Stream processing error:", error);
           throw error;
         }
 
         // Use buffer as final response content
         aiResponseContent = buffer;
 
-        debugLog("Streaming completed, final response:", aiResponseContent);
-
-        debugLog(
-          "[MESSAGE STREAM TEST] ✅ Streaming completed, final response length:",
+        clientLog("Streaming completed, final response:", aiResponseContent);
+        clientLog(
+          "✅ Streaming completed, final response length:",
           aiResponseContent.length
         );
 
@@ -884,7 +873,7 @@ function HomePage({}: Props) {
 
         // Step 3: Save the conversation using conversation-save endpoint (completing normal mode)
         try {
-          debugLog(
+          clientLog(
             "[NORMAL MODE] 💾 Step 3: Saving conversation via conversation-save endpoint..."
           );
 
@@ -948,15 +937,15 @@ function HomePage({}: Props) {
           });
 
           if ("data" in saveResult) {
-            debugLog(
+            clientLog(
               "[NORMAL MODE] ✅ Step 3 completed: Conversation saved successfully"
             );
-            debugLog(
+            clientLog(
               "[NORMAL MODE] 🎉 Normal mode complete: Both message request AND conversation save finished"
             );
 
             // RTK Query will automatically refetch and merge with optimistic messages
-            debugLog(
+            clientLog(
               "[NORMAL MODE] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
             );
             setIsMessageInserting(false);
@@ -1076,7 +1065,7 @@ function HomePage({}: Props) {
 
       // Save widgets to backend immediately
       if (widgetsToSave.length > 0) {
-        debugLog(
+        clientLog(
           "🔧 BUTTON TOGGLE - Saving widgets:",
           widgetsToSave.map((w) => ({
             id: w.id,
@@ -1103,7 +1092,7 @@ function HomePage({}: Props) {
             conversationId: activeChat,
           });
 
-          debugLog("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
+          clientLog("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
           toast.success(
             newJournalMode
               ? "Günlük modu başlatıldı!"
@@ -1126,23 +1115,23 @@ function HomePage({}: Props) {
   const handleLikeDislike = useCallback(
     async (messageId: string, type: "like" | "dislike", messageObj?: any) => {
       try {
-        debugLog("Rating messageId:", messageId, "type:", type);
-        debugLog("Message object received:", messageObj);
+        clientLog("Rating messageId:", messageId, "type:", type);
+        clientLog("Message object received:", messageObj);
 
         // Use identifier or id for backend API call
         const backendMessageId = messageObj?.identifier || messageObj?.id;
-        debugLog("Backend messageId:", backendMessageId);
+        clientLog("Backend messageId:", backendMessageId);
 
         // Skip rating if no valid backend ID
         if (!backendMessageId) {
-          debugLog("No backend messageId available:", backendMessageId);
+          clientLog("No backend messageId available:", backendMessageId);
           toast.error("Mesaj ID'si bulunamadı");
           return;
         }
 
         // Use the conversationId from the message object, or fall back to activeChat
         const conversationId = messageObj?.conversationId || activeChat;
-        debugLog("Using conversationId:", conversationId);
+        clientLog("Using conversationId:", conversationId);
 
         if (!conversationId) {
           console.error("No conversationId available");
@@ -1211,9 +1200,7 @@ function HomePage({}: Props) {
   );
 
   useEffect(() => {
-    debugLog(
-      "[MESSAGE STREAM TEST] 🔄 HomePage component mounted/remounted"
-    );
+    clientLog("🔄 HomePage component mounted/remounted");
 
     const fetchUser = async () => {
       try {
@@ -1269,14 +1256,14 @@ function HomePage({}: Props) {
           type: "reflectionJournal", // Infer from assistantGroupId and title
           assistantId: firstMessage.assistantId,
         };
-        debugLog(
+        clientLog(
           "🔧 Created synthetic chat object from message data:",
           currentActiveChat
         );
       }
 
       // Debug: Check if currentActiveChat has type field
-      debugLog(`🔧 WIDGET DEBUG - Current active chat:`, {
+      clientLog(`🔧 WIDGET DEBUG - Current active chat:`, {
         chatId: activeChat,
         title: currentActiveChat?.title,
         type: currentActiveChat?.type,
@@ -1306,11 +1293,11 @@ function HomePage({}: Props) {
             msg.content?.includes('"widgetType": "JournalDate"')
         );
 
-        debugLog(`🔧 Widget check - Chat: ${activeChat}`);
-        debugLog(`🔧 Existing messages count: ${existingMessages.length}`);
-        debugLog(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
-        debugLog(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
-        debugLog(
+        clientLog(`🔧 Widget check - Chat: ${activeChat}`);
+        clientLog(`🔧 Existing messages count: ${existingMessages.length}`);
+        clientLog(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
+        clientLog(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
+        clientLog(
           `🔧 Widget type messages:`,
           existingMessages.filter((m) => m.type === "widget")
         );
@@ -1332,13 +1319,13 @@ function HomePage({}: Props) {
         const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
 
         if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
-          debugLog(
+          clientLog(
             `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
           );
-          debugLog(
+          clientLog(
             `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
           );
-          debugLog(`🔧 Already saved for chat: ${alreadySavedForChat}`);
+          clientLog(`🔧 Already saved for chat: ${alreadySavedForChat}`);
 
           const baseDateTime = new Date();
           const currentDateOnly = formatJournalDate();
@@ -1411,15 +1398,15 @@ function HomePage({}: Props) {
               try {
                 const user = await getCurrentUser();
 
-                debugLog(
+                clientLog(
                   "💾 Attempting to save widgets:",
                   widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
                 );
-                debugLog(
+                clientLog(
                   "💾 Existing messages count:",
                   existingMessages.length
                 );
-                debugLog(
+                clientLog(
                   "💾 Existing widget IDs:",
                   existingMessages
                     .filter((m) => m.type === "widget")
@@ -1428,8 +1415,8 @@ function HomePage({}: Props) {
 
                 // Combine existing messages with new widgets for complete save
                 const allMessages = [...existingMessages, ...widgetsToAdd];
-                debugLog("💾 Total messages to save:", allMessages.length);
-                debugLog(
+                clientLog("💾 Total messages to save:", allMessages.length);
+                clientLog(
                   "💾 All widget IDs in payload:",
                   allMessages
                     .filter((m) => m.type === "widget")
@@ -1454,7 +1441,7 @@ function HomePage({}: Props) {
                   new Set(prev).add(activeChat)
                 );
 
-                debugLog(
+                clientLog(
                   "✅ Auto-saved missing widgets successfully",
                   saveResult
                 );
@@ -1471,7 +1458,7 @@ function HomePage({}: Props) {
             // Save widgets automatically after a short delay
             setTimeout(autoSaveWidgets, 500);
           } else {
-            debugLog("✅ All widgets already exist, skipping creation");
+            clientLog("✅ All widgets already exist, skipping creation");
           }
         }
       } else {
@@ -1962,7 +1949,7 @@ function HomePage({}: Props) {
               <div className="space-y-4 max-w-4xl mx-auto">
                 {messages.map((message, index) => {
                   // Console log for debugging
-                  // debugLog(`[MESSAGE DEBUG] Index ${index}:`, {
+                  // clientLog(`[MESSAGE DEBUG] Index ${index}:`, {
                   //   role: message.role,
                   //   content: message.content?.substring(0, 100),
                   //   sender: message.sender,
@@ -1980,7 +1967,7 @@ function HomePage({}: Props) {
                     `${message.role}-${index}-${message.content?.substring(0, 50) || "no-content"}-${message.createdAt}`;
 
                   // if (process.env.NODE_ENV === "development") {
-                  //   debugLog(`[DEBUG] Message ${index} key:`, messageKey, {
+                  //   clientLog(`[DEBUG] Message ${index} key:`, messageKey, {
                   //     id: message.id,
                   //     identifier: message.identifier,
                   //     role: message.role,
@@ -2000,7 +1987,7 @@ function HomePage({}: Props) {
                       message.content?.includes('"widgetType": "JournalDate"'));
 
                   if (isAyracWidget || isJournalDateWidget) {
-                    debugLog(`🎯 Rendering widget - Index ${index}:`, {
+                    clientLog(`🎯 Rendering widget - Index ${index}:`, {
                       isAyracWidget,
                       isJournalDateWidget,
                       messageType: message.type,
