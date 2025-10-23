@@ -148,6 +148,7 @@ export const api = createApi({
         { type: 'Messages', id: chatId },
         'Messages'
       ],
+      keepUnusedDataFor: 5,
     }),
     deleteChat: build.mutation<void, string>({
       query: (chatId) => ({

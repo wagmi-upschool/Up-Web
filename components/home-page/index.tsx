@@ -145,20 +145,50 @@ function HomePage({}: Props) {
   }, [chatsData]);
   const {
     data: messagesData,
+    currentData: currentMessagesData,
     isLoading: isLoadingMessages,
+    isFetching: isFetchingMessages,
     error: messagesError,
   } = useGetChatMessagesQuery(
     { chatId: activeChat!, limit: "50" },
-    { skip: !activeChat }
+    {
+      skip: !activeChat,
+      refetchOnMountOrArgChange: true,
+    }
   );
+
+  useEffect(() => {
+    if (!activeChat) {
+      setIsTransitioningChat(false);
+      return;
+    }
+
+    if (isLoadingMessages || isFetchingMessages) {
+      return;
+    }
+
+    if (messagesError || currentMessagesData || messagesData) {
+      setIsTransitioningChat(false);
+    }
+  }, [
+    activeChat,
+    isLoadingMessages,
+    isFetchingMessages,
+    currentMessagesData,
+    messagesData,
+    messagesError,
+  ]);
   const [sendChatMessage, { isLoading: isSendingMessage }] =
     useSendChatMessageMutation();
   const [saveConversation, { isLoading: isSavingConversation }] =
     useSaveConversationMutation();
 
   // Smart message merging: replace optimistic messages with real ones when identifiers match
+  const baseMessagesPayload =
+    !isTransitioningChat ? currentMessagesData ?? messagesData : undefined;
+
   const messages = useMemo(() => {
-    const rawRealMessages = messagesData?.messages || [];
+    const rawRealMessages = baseMessagesPayload?.messages || [];
 
     // if (process.env.NODE_ENV === 'development') {
     //   console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
@@ -250,7 +280,7 @@ function HomePage({}: Props) {
     }
 
     return finalMessages;
-  }, [messagesData?.messages, optimisticMessages]);
+  }, [baseMessagesPayload, optimisticMessages]);
 
   // Clear optimistic messages when switching chats
   useEffect(() => {
@@ -1619,11 +1649,7 @@ function HomePage({}: Props) {
                       ) {
                         setIsTransitioningChat(true);
                         setActiveChat(chat.id);
-                        // Defer clearing optimistic messages to avoid blocking UI
-                        setTimeout(() => {
-                          setOptimisticMessages([]);
-                          setIsTransitioningChat(false);
-                        }, 100);
+                        setOptimisticMessages([]);
                       }
                       // Note: Silent blocking - user cannot switch during message operations
                     }}
