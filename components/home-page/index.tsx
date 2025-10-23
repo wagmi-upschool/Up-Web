@@ -134,6 +134,7 @@ function HomePage({}: Props) {
   >(new Map());
   const detectionTimeoutRef =
     useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastReflectionSyncChatRef = useRef<string | null>(null);
 
   const applyJournalModeForChat = useCallback(
     (chatId: string | null, nextValue: boolean, source: JournalModeSource) => {
@@ -1234,242 +1235,283 @@ function HomePage({}: Props) {
     };
   }, []);
 
+  const hasOptimisticAyrac = useMemo(
+    () =>
+      optimisticMessages.some(
+        (msg) =>
+          msg.content?.includes('"widgetType":"Ayrac"') ||
+          msg.content?.includes('"widgetType": "Ayrac"')
+      ),
+    [optimisticMessages]
+  );
+
+  const hasOptimisticJournalDate = useMemo(
+    () =>
+      optimisticMessages.some(
+        (msg) =>
+          msg.content?.includes('"widgetType":"JournalDate"') ||
+          msg.content?.includes('"widgetType": "JournalDate"')
+      ),
+    [optimisticMessages]
+  );
+
   // Clear optimistic messages and add automatic widgets when switching chats
   useEffect(() => {
-    if (activeChat) {
-      let currentActiveChat = chats.find((chat) => chat.id === activeChat);
-
-      // If chat not found in main chats array, check if we can create a synthetic one from message data
-      if (
-        !currentActiveChat &&
-        messagesData?.messages &&
-        messagesData.messages.length > 0
-      ) {
-        const firstMessage = messagesData.messages[0];
-        // Create synthetic chat object from message data
-        currentActiveChat = {
-          id: activeChat,
-          title: "YGA Zirvesi Notlarım", // From conversation-save logs
-          assistantGroupId:
-            (firstMessage as any).assistantGroupId ||
-            "f2b835b2-139a-4ea4-a9a0-930d6baded6a",
-          type: "reflectionJournal", // Infer from assistantGroupId and title
-          assistantId: firstMessage.assistantId,
-        };
-        clientLog(
-          "🔧 Created synthetic chat object from message data:",
-          currentActiveChat
-        );
-      }
-
-      // Debug: Check if currentActiveChat has type field
-      clientLog(`🔧 WIDGET DEBUG - Current active chat:`, {
-        chatId: activeChat,
-        title: currentActiveChat?.title,
-        type: currentActiveChat?.type,
-        isReflectionJournal: isReflectionJournalChat(currentActiveChat),
-        chatObject: currentActiveChat,
-        chatsArrayLength: chats.length,
-        chatFound: !!currentActiveChat,
-        isSynthetic: !chats.find((chat) => chat.id === activeChat),
-      });
-
-      // Only for reflection journal chats
-      if (currentActiveChat && isReflectionJournalChat(currentActiveChat)) {
-        setOptimisticMessages([]);
-
-        // Check if widgets already exist in messages to avoid duplicates
-        const existingMessages = messagesData?.messages || [];
-        const hasAyracWidget = existingMessages.some(
-          (msg) =>
-            (msg.type === "widget" &&
-              msg.content?.includes('"widgetType":"Ayrac"')) ||
-            msg.content?.includes('"widgetType": "Ayrac"')
-        );
-        const hasJournalDateWidget = existingMessages.some(
-          (msg) =>
-            (msg.type === "widget" &&
-              msg.content?.includes('"widgetType":"JournalDate"')) ||
-            msg.content?.includes('"widgetType": "JournalDate"')
-        );
-
-        clientLog(`🔧 Widget check - Chat: ${activeChat}`);
-        clientLog(`🔧 Existing messages count: ${existingMessages.length}`);
-        clientLog(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
-        clientLog(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
-        clientLog(
-          `🔧 Widget type messages:`,
-          existingMessages.filter((m) => m.type === "widget")
-        );
-
-        // Also check if widgets are already in optimistic messages to prevent duplicates
-        const hasOptimisticAyrac = optimisticMessages.some((msg) =>
-          msg.content?.includes('"widgetType":"Ayrac"')
-        );
-        const hasOptimisticJournalDate = optimisticMessages.some((msg) =>
-          msg.content?.includes('"widgetType":"JournalDate"')
-        );
-
-        // Only add widgets if they don't already exist in both existing and optimistic messages
-        const needsAyrac = !hasAyracWidget && !hasOptimisticAyrac;
-        const needsJournalDate =
-          !hasJournalDateWidget && !hasOptimisticJournalDate;
-
-        // Also check if we've already saved widgets for this chat to prevent duplicate saves
-        const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
-
-        if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
-          clientLog(
-            `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
-          );
-          clientLog(
-            `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
-          );
-          clientLog(`🔧 Already saved for chat: ${alreadySavedForChat}`);
-
-          const baseDateTime = new Date();
-          const currentDateOnly = formatJournalDate();
-          const widgetsToAdd: ChatMessage[] = [];
-
-          // Add Ayrac widget if missing
-          if (needsAyrac) {
-            const ayracId = crypto.randomUUID();
-            const ayracDateTime = formatMobileDateTime(baseDateTime);
-            const openAyracWidget = {
-              id: ayracId,
-              identifier: ayracId,
-              content: JSON.stringify({
-                widgetType: "Ayrac",
-                isOpen: true,
-              }),
-              role: "user" as const,
-              type: "widget" as const,
-              sender: "user" as const,
-              createdAt: ayracDateTime,
-              assistantId: currentActiveChat.assistantId || "",
-            };
-            widgetsToAdd.push(openAyracWidget);
-          }
-
-          // Add JournalDate widget if missing with 1ms offset
-          if (needsJournalDate) {
-            const dateId = crypto.randomUUID();
-            const journalDateTime = formatMobileDateTime(
-              new Date(baseDateTime.getTime() + 1)
-            );
-            const dateWidget = {
-              id: dateId,
-              identifier: dateId,
-              content: JSON.stringify({
-                widgetType: "JournalDate",
-                date: currentDateOnly,
-              }),
-              role: "user" as const,
-              type: "widget" as const,
-              sender: "user" as const,
-              createdAt: journalDateTime,
-              assistantId: currentActiveChat.assistantId || "",
-            };
-            widgetsToAdd.push(dateWidget);
-          }
-
-          // Add missing widgets to optimistic messages
-          if (widgetsToAdd.length > 0) {
-            setOptimisticMessages((prev) => {
-              const existingIds = new Set(
-                prev
-                  .map((message) => message.identifier || message.id)
-                  .filter(Boolean)
-              );
-              const deduped = widgetsToAdd.filter((widget) => {
-                const identifier = widget.identifier || widget.id;
-                return identifier ? !existingIds.has(identifier) : true;
-              });
-
-              if (deduped.length === 0) {
-                return prev;
-              }
-
-              return [...prev, ...deduped];
-            });
-
-            // Auto-save the missing widgets
-            const autoSaveWidgets = async () => {
-              try {
-                const user = await getCurrentUser();
-
-                clientLog(
-                  "💾 Attempting to save widgets:",
-                  widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
-                );
-                clientLog(
-                  "💾 Existing messages count:",
-                  existingMessages.length
-                );
-                clientLog(
-                  "💾 Existing widget IDs:",
-                  existingMessages
-                    .filter((m) => m.type === "widget")
-                    .map((m) => m.id)
-                );
-
-                // Combine existing messages with new widgets for complete save
-                const allMessages = [...existingMessages, ...widgetsToAdd];
-                clientLog("💾 Total messages to save:", allMessages.length);
-                clientLog(
-                  "💾 All widget IDs in payload:",
-                  allMessages
-                    .filter((m) => m.type === "widget")
-                    .map((m) => m.id)
-                );
-
-                const saveResult = await saveConversation({
-                  chatId: activeChat,
-                  messages: allMessages,
-                  assistantId: currentActiveChat.assistantId || "",
-                  assistantGroupId: currentActiveChat.assistantGroupId || "",
-                  type: "journal",
-                  userId: user.userId,
-                  localDateTime: formatMobileDateTime(baseDateTime),
-                  title: currentActiveChat.title,
-                  lastMessage: "Günlük widget'ları eklendi",
-                  conversationId: activeChat,
-                });
-
-                // Mark this chat as having widgets saved to prevent duplicates
-                setWidgetsSavedForChats((prev) =>
-                  new Set(prev).add(activeChat)
-                );
-
-                clientLog(
-                  "✅ Auto-saved missing widgets successfully",
-                  saveResult
-                );
-              } catch (error) {
-                console.error("❌ Error auto-saving widgets:", error);
-                // Don't remove widgets from optimistic messages even if save failed
-                // They should remain visible to user
-                console.warn(
-                  "⚠️ Widget save failed, keeping widgets visible in UI"
-                );
-              }
-            };
-
-            // Save widgets automatically after a short delay
-            setTimeout(autoSaveWidgets, 500);
-          } else {
-            clientLog("✅ All widgets already exist, skipping creation");
-          }
-        }
-      } else {
-        setOptimisticMessages([]);
-        applyJournalModeForChat(activeChat, false, "detected");
-      }
-    } else {
+    if (!activeChat) {
+      lastReflectionSyncChatRef.current = null;
       setOptimisticMessages([]);
       setIsJournalMode(false);
+      return;
     }
-  }, [activeChat, chats, messagesData]);
+
+    if (isTransitioningChat) {
+      clientLog(
+        "⏳ Skipping widget sync while chat transition is in progress to avoid stale data"
+      );
+      return;
+    }
+
+    let currentActiveChat = chats.find((chat) => chat.id === activeChat);
+
+    // If chat not found in main chats array, check if we can create a synthetic one from message data
+    if (
+      !currentActiveChat &&
+      messagesData?.messages &&
+      messagesData.messages.length > 0
+    ) {
+      const firstMessage = messagesData.messages[0];
+      // Create synthetic chat object from message data
+      currentActiveChat = {
+        id: activeChat,
+        title: "YGA Zirvesi Notlarım", // From conversation-save logs
+        assistantGroupId:
+          (firstMessage as any).assistantGroupId ||
+          "f2b835b2-139a-4ea4-a9a0-930d6baded6a",
+        type: "reflectionJournal", // Infer from assistantGroupId and title
+        assistantId: firstMessage.assistantId,
+      };
+      clientLog(
+        "🔧 Created synthetic chat object from message data:",
+        currentActiveChat
+      );
+    }
+
+    // Debug: Check if currentActiveChat has type field
+    clientLog(`🔧 WIDGET DEBUG - Current active chat:`, {
+      chatId: activeChat,
+      title: currentActiveChat?.title,
+      type: currentActiveChat?.type,
+      isReflectionJournal: isReflectionJournalChat(currentActiveChat),
+      chatObject: currentActiveChat,
+      chatsArrayLength: chats.length,
+      chatFound: !!currentActiveChat,
+      isSynthetic: !chats.find((chat) => chat.id === activeChat),
+    });
+
+    const chatChanged = lastReflectionSyncChatRef.current !== activeChat;
+
+    // Only for reflection journal chats
+    if (currentActiveChat && isReflectionJournalChat(currentActiveChat)) {
+      if (chatChanged) {
+        setOptimisticMessages([]);
+        lastReflectionSyncChatRef.current = activeChat;
+      }
+
+      const messageSource =
+        currentMessagesData?.messages ?? messagesData?.messages ?? [];
+
+      // Check if widgets already exist in messages to avoid duplicates
+      const existingMessages = messageSource;
+      const hasAyracWidget = existingMessages.some(
+        (msg) =>
+          (msg.type === "widget" &&
+            msg.content?.includes('"widgetType":"Ayrac"')) ||
+          msg.content?.includes('"widgetType": "Ayrac"')
+      );
+      const hasJournalDateWidget = existingMessages.some(
+        (msg) =>
+          (msg.type === "widget" &&
+            msg.content?.includes('"widgetType":"JournalDate"')) ||
+          msg.content?.includes('"widgetType": "JournalDate"')
+      );
+
+      clientLog(`🔧 Widget check - Chat: ${activeChat}`);
+      clientLog(`🔧 Existing messages count: ${existingMessages.length}`);
+      clientLog(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
+      clientLog(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
+      clientLog(
+        `🔧 Widget type messages:`,
+        existingMessages.filter((m) => m.type === "widget")
+      );
+
+      // Only add widgets if they don't already exist in both existing and optimistic messages
+      const needsAyrac = !hasAyracWidget && !hasOptimisticAyrac;
+      const needsJournalDate =
+        !hasJournalDateWidget && !hasOptimisticJournalDate;
+
+      // Also check if we've already saved widgets for this chat to prevent duplicate saves
+      const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
+
+      if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
+        clientLog(
+          `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
+        );
+        clientLog(
+          `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
+        );
+        clientLog(`🔧 Already saved for chat: ${alreadySavedForChat}`);
+
+        const baseDateTime = new Date();
+        const currentDateOnly = formatJournalDate();
+        const widgetsToAdd: ChatMessage[] = [];
+
+        // Add Ayrac widget if missing
+        if (needsAyrac) {
+          const ayracId = crypto.randomUUID();
+          const ayracDateTime = formatMobileDateTime(baseDateTime);
+          const openAyracWidget = {
+            id: ayracId,
+            identifier: ayracId,
+            content: JSON.stringify({
+              widgetType: "Ayrac",
+              isOpen: true,
+            }),
+            role: "user" as const,
+            type: "widget" as const,
+            sender: "user" as const,
+            createdAt: ayracDateTime,
+            assistantId: currentActiveChat.assistantId || "",
+          };
+          widgetsToAdd.push(openAyracWidget);
+        }
+
+        // Add JournalDate widget if missing with 1ms offset
+        if (needsJournalDate) {
+          const dateId = crypto.randomUUID();
+          const journalDateTime = formatMobileDateTime(
+            new Date(baseDateTime.getTime() + 1)
+          );
+          const dateWidget = {
+            id: dateId,
+            identifier: dateId,
+            content: JSON.stringify({
+              widgetType: "JournalDate",
+              date: currentDateOnly,
+            }),
+            role: "user" as const,
+            type: "widget" as const,
+            sender: "user" as const,
+            createdAt: journalDateTime,
+            assistantId: currentActiveChat.assistantId || "",
+          };
+          widgetsToAdd.push(dateWidget);
+        }
+
+        // Add missing widgets to optimistic messages
+        if (widgetsToAdd.length > 0) {
+          setOptimisticMessages((prev) => {
+            const existingIds = new Set(
+              prev
+                .map((message) => message.identifier || message.id)
+                .filter(Boolean)
+            );
+            const deduped = widgetsToAdd.filter((widget) => {
+              const identifier = widget.identifier || widget.id;
+              return identifier ? !existingIds.has(identifier) : true;
+            });
+
+            if (deduped.length === 0) {
+              return prev;
+            }
+
+            return [...prev, ...deduped];
+          });
+
+          // Auto-save the missing widgets
+          const autoSaveWidgets = async () => {
+            try {
+              const user = await getCurrentUser();
+
+              clientLog(
+                "💾 Attempting to save widgets:",
+                widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
+              );
+              clientLog(
+                "💾 Existing messages count:",
+                existingMessages.length
+              );
+              clientLog(
+                "💾 Existing widget IDs:",
+                existingMessages
+                  .filter((m) => m.type === "widget")
+                  .map((m) => m.id)
+              );
+
+              // Combine existing messages with new widgets for complete save
+              const allMessages = [...existingMessages, ...widgetsToAdd];
+              clientLog("💾 Total messages to save:", allMessages.length);
+              clientLog(
+                "💾 All widget IDs in payload:",
+                allMessages
+                  .filter((m) => m.type === "widget")
+                  .map((m) => m.id)
+              );
+
+              const saveResult = await saveConversation({
+                chatId: activeChat,
+                messages: allMessages,
+                assistantId: currentActiveChat.assistantId || "",
+                assistantGroupId: currentActiveChat.assistantGroupId || "",
+                type: "journal",
+                userId: user.userId,
+                localDateTime: formatMobileDateTime(baseDateTime),
+                title: currentActiveChat.title,
+                lastMessage: "Günlük widget'ları eklendi",
+                conversationId: activeChat,
+              });
+
+              // Mark this chat as having widgets saved to prevent duplicates
+              setWidgetsSavedForChats((prev) => new Set(prev).add(activeChat));
+
+              clientLog(
+                "✅ Auto-saved missing widgets successfully",
+                saveResult
+              );
+            } catch (error) {
+              console.error("❌ Error auto-saving widgets:", error);
+              // Don't remove widgets from optimistic messages even if save failed
+              // They should remain visible to user
+              console.warn(
+                "⚠️ Widget save failed, keeping widgets visible in UI"
+              );
+            }
+          };
+
+          // Save widgets automatically after a short delay
+          setTimeout(autoSaveWidgets, 500);
+        } else {
+          clientLog("✅ All widgets already exist, skipping creation");
+        }
+      }
+    } else {
+      if (chatChanged || lastReflectionSyncChatRef.current !== null) {
+        setOptimisticMessages([]);
+        applyJournalModeForChat(activeChat, false, "detected");
+        lastReflectionSyncChatRef.current = activeChat;
+      }
+    }
+  }, [
+    activeChat,
+    chats,
+    currentMessagesData,
+    messagesData,
+    widgetsSavedForChats,
+    isTransitioningChat,
+    applyJournalModeForChat,
+    saveConversation,
+    hasOptimisticAyrac,
+    hasOptimisticJournalDate,
+  ]);
 
   // Detect journal mode state from messages while avoiding race conditions
   useEffect(() => {
