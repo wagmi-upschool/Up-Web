@@ -90,6 +90,7 @@ function HomePage({}: Props) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isJournalMode, setIsJournalMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>(
     []
   );
@@ -509,6 +510,12 @@ function HomePage({}: Props) {
       toast.error("Dashboard URL bulunamadı");
     }
   };
+
+  const handleInsertMessage = useCallback((messageText: string) => {
+    setCurrentMessage(messageText);
+    // Bring keyboard focus back to the message input for quick edits
+    inputRef.current?.focus();
+  }, []);
 
   const handleSendMessageWithText = async (messageText: string) => {
     // Set the message and then call the existing handleSendMessage logic
@@ -1890,6 +1897,7 @@ function HomePage({}: Props) {
                           sender={isUser ? "user" : "ai"}
                           messageType={message.type}
                           role={message.role}
+                          onInsertMessage={handleInsertMessage}
                         />
                       </div>
                     );
@@ -1962,6 +1970,7 @@ function HomePage({}: Props) {
                             sender={isUser ? "user" : "ai"}
                             messageType={message.type}
                             role={message.role}
+                            onInsertMessage={handleInsertMessage}
                           />
                         </div>
 
@@ -2191,6 +2200,7 @@ function HomePage({}: Props) {
                       <div className="flex-1 flex justify-start items-center gap-2">
                         <input
                           type="text"
+                          ref={inputRef}
                           value={currentMessage}
                           onChange={(e) => setCurrentMessage(e.target.value)}
                           onKeyDown={handleKeyPress}
@@ -2246,6 +2256,7 @@ function HomePage({}: Props) {
                       <div className="flex-1 flex justify-start items-center gap-2">
                         <input
                           type="text"
+                          ref={inputRef}
                           placeholder="Buraya yazabilirsin"
                           value={currentMessage}
                           onChange={(e) => setCurrentMessage(e.target.value)}

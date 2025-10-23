@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 import { useGetChatMessagesQuery, useSendChatMessageMutation } from "@/state/api";
@@ -13,6 +13,7 @@ const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Fetch messages if chatId is provided
   const {
@@ -62,6 +63,11 @@ const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
       handleSendMessage();
     }
   };
+
+  const handleInsertMessage = useCallback((messageText: string) => {
+    setInputValue(messageText);
+    inputRef.current?.focus();
+  }, []);
 
   return (
     <div className="flex h-screen relative">
@@ -125,6 +131,7 @@ const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
                     <MessageRenderer
                       content={message.content}
                       sender={message.role === "user" ? "user" : "ai"}
+                      onInsertMessage={handleInsertMessage}
                     />
                   </div>
                 </div>
@@ -183,6 +190,7 @@ const ReflectionJournal: React.FC<ReflectionJournalProps> = ({ chatId }) => {
                   <div className="flex-1 flex justify-start items-center gap-2">
                     <input
                       type="text"
+                      ref={inputRef}
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       onKeyDown={handleKeyDown}
