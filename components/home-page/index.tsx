@@ -31,6 +31,17 @@ import { v4 as uuidv4 } from "uuid";
 
 type Props = {};
 
+type JournalModeSource = "manual" | "detected";
+
+type JournalModeEntry = {
+  value: boolean;
+  source: JournalModeSource;
+  updatedAt: number;
+};
+
+const MANUAL_OVERRIDE_WINDOW_MS = 1500;
+const DETECTION_DEBOUNCE_MS = 120;
+
 // Helper function to format date like mobile (local timezone)
 const formatMobileDateTime = (date?: Date | string): string => {
   const d = date ? new Date(date) : new Date();
@@ -116,6 +127,36 @@ function HomePage({}: Props) {
     useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
+  const journalModeStateRef = useRef<Map<string, JournalModeEntry>>(new Map());
+  const manualOverrideRef = useRef<
+    Map<string, { value: boolean; expiresAt: number }>
+  >(new Map());
+  const detectionTimeoutRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyJournalModeForChat = useCallback(
+    (chatId: string | null, nextValue: boolean, source: JournalModeSource) => {
+      if (!chatId) return;
+
+      const timestamp = Date.now();
+      journalModeStateRef.current.set(chatId, {
+        value: nextValue,
+        source,
+        updatedAt: timestamp,
+      });
+
+      if (activeChat === chatId) {
+        setIsJournalMode(nextValue);
+      }
+    },
+    [activeChat]
+  );
+
+  const getJournalModeForChat = useCallback((chatId: string | null) => {
+    if (!chatId) return false;
+
+    return journalModeStateRef.current.get(chatId)?.value ?? false;
+  }, []);
 
   // Auto scroll to bottom function
   const scrollToBottom = () => {
@@ -285,6 +326,16 @@ function HomePage({}: Props) {
   // Clear optimistic messages when switching chats
   useEffect(() => {
     setOptimisticMessages([]);
+  }, [activeChat]);
+
+  useEffect(() => {
+    if (!activeChat) {
+      setIsJournalMode(false);
+      return;
+    }
+
+    const cached = journalModeStateRef.current.get(activeChat);
+    setIsJournalMode(cached?.value ?? false);
   }, [activeChat]);
 
   // Auto scroll when messages change
@@ -949,6 +1000,12 @@ function HomePage({}: Props) {
       const baseDateTime = new Date();
       const timestamp = formatMobileDateTime(baseDateTime);
 
+      manualOverrideRef.current.set(activeChat, {
+        value: newJournalMode,
+        expiresAt: Date.now() + MANUAL_OVERRIDE_WINDOW_MS,
+      });
+      applyJournalModeForChat(activeChat, newJournalMode, "manual");
+
       const widgetsToSave: ChatMessage[] = [];
 
       if (newJournalMode) {
@@ -1051,9 +1108,6 @@ function HomePage({}: Props) {
           toast.error("Widget'lar kaydedilemedi");
         }
       }
-
-      // Toggle the journal mode
-      setIsJournalMode(newJournalMode);
 
       // Scroll to bottom to show new widgets
       setTimeout(scrollToBottom, 100);
@@ -1328,7 +1382,23 @@ function HomePage({}: Props) {
 
           // Add missing widgets to optimistic messages
           if (widgetsToAdd.length > 0) {
-            setOptimisticMessages(widgetsToAdd);
+            setOptimisticMessages((prev) => {
+              const existingIds = new Set(
+                prev
+                  .map((message) => message.identifier || message.id)
+                  .filter(Boolean)
+              );
+              const deduped = widgetsToAdd.filter((widget) => {
+                const identifier = widget.identifier || widget.id;
+                return identifier ? !existingIds.has(identifier) : true;
+              });
+
+              if (deduped.length === 0) {
+                return prev;
+              }
+
+              return [...prev, ...deduped];
+            });
 
             // Auto-save the missing widgets
             const autoSaveWidgets = async () => {
@@ -1400,7 +1470,7 @@ function HomePage({}: Props) {
         }
       } else {
         setOptimisticMessages([]);
-        setIsJournalMode(false);
+        applyJournalModeForChat(activeChat, false, "detected");
       }
     } else {
       setOptimisticMessages([]);
@@ -1408,76 +1478,100 @@ function HomePage({}: Props) {
     }
   }, [activeChat, chats, messagesData]);
 
-  // Determine journal mode based on ayrac widgets in messages
+  // Detect journal mode state from messages while avoiding race conditions
   useEffect(() => {
-    if (activeChat && messages.length > 0 && !isLoadingMessages) {
-      const currentChat = chats.find((chat) => chat.id === activeChat);
-
-      // Only for reflection journal chats
-      if (currentChat && isReflectionJournalChat(currentChat)) {
-        let hasOpenAyrac = false;
-        let lastAyracState = null;
-
-        // Check all messages for ayrac widgets to determine the current state
-        messages.forEach((msg) => {
-          try {
-            if (
-              msg.content &&
-              (msg.type === "widget" || msg.type === "ayrac-widget")
-            ) {
-              const data = JSON.parse(msg.content);
-              if (data.widgetType === "Ayrac") {
-                lastAyracState = data.isOpen;
-                hasOpenAyrac = data.isOpen === true;
-              }
-            }
-          } catch (e) {
-            // Ignore parsing errors
-          }
-        });
-
-        // Also check optimistic messages
-        optimisticMessages.forEach((msg) => {
-          try {
-            if (msg.content && msg.type === "widget") {
-              const data = JSON.parse(msg.content);
-              if (data.widgetType === "Ayrac") {
-                lastAyracState = data.isOpen;
-                hasOpenAyrac = data.isOpen === true;
-              }
-            }
-          } catch (e) {
-            // Ignore parsing errors
-          }
-        });
-
-        console.log("🔧 JOURNAL MODE - Ayrac state check:", {
-          hasOpenAyrac,
-          lastAyracState,
-          currentJournalMode: isJournalMode,
-          messagesCount: messages.length,
-          optimisticCount: optimisticMessages.length,
-        });
-
-        // Set journal mode based on ayrac state
-        if (lastAyracState !== null) {
-          setIsJournalMode(hasOpenAyrac);
-        } else if (messages.length === 0) {
-          // No messages at all, default to false
-          setIsJournalMode(false);
-        }
-      } else {
-        // Not a reflection journal chat
-        setIsJournalMode(false);
+    if (!activeChat || isLoadingMessages) {
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+        detectionTimeoutRef.current = null;
       }
+      return;
     }
+
+    if (detectionTimeoutRef.current) {
+      clearTimeout(detectionTimeoutRef.current);
+      detectionTimeoutRef.current = null;
+    }
+
+    const runDetection = () => {
+      const chatId = activeChat;
+      if (!chatId) return;
+
+      const currentChat = chats.find((chat) => chat.id === chatId);
+      if (!currentChat || !isReflectionJournalChat(currentChat)) {
+        applyJournalModeForChat(chatId, false, "detected");
+        manualOverrideRef.current.delete(chatId);
+        return;
+      }
+
+      const now = Date.now();
+      const manualOverride = manualOverrideRef.current.get(chatId);
+      if (manualOverride && manualOverride.expiresAt > now) {
+        detectionTimeoutRef.current = setTimeout(
+          runDetection,
+          manualOverride.expiresAt - now
+        );
+        return;
+      }
+
+      if (manualOverride && manualOverride.expiresAt <= now) {
+        manualOverrideRef.current.delete(chatId);
+      }
+
+      let hasOpenAyrac = false;
+      let lastAyracState: boolean | null = null;
+
+      const candidates = [...messages, ...optimisticMessages];
+
+      candidates.forEach((msg) => {
+        try {
+          if (
+            msg.content &&
+            (msg.type === "widget" || msg.type === "ayrac-widget")
+          ) {
+            const data = JSON.parse(msg.content);
+            if (data.widgetType === "Ayrac") {
+              if (typeof data.isOpen === "boolean") {
+                lastAyracState = data.isOpen;
+                hasOpenAyrac = data.isOpen === true;
+              }
+            }
+          }
+        } catch {
+          // Ignore malformed widget payloads
+        }
+      });
+
+      let nextMode = getJournalModeForChat(chatId);
+
+      if (lastAyracState !== null) {
+        nextMode = hasOpenAyrac;
+      } else if (messages.length === 0 && optimisticMessages.length === 0) {
+        nextMode = false;
+      }
+
+      applyJournalModeForChat(chatId, nextMode, "detected");
+    };
+
+    detectionTimeoutRef.current = setTimeout(
+      runDetection,
+      DETECTION_DEBOUNCE_MS
+    );
+
+    return () => {
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+        detectionTimeoutRef.current = null;
+      }
+    };
   }, [
     activeChat,
+    applyJournalModeForChat,
+    chats,
+    getJournalModeForChat,
+    isLoadingMessages,
     messages,
     optimisticMessages,
-    isLoadingMessages,
-    chats,
-    isJournalMode,
   ]);
 
   // Note: Optimistic messages are now handled via deduplication in useMemo above
