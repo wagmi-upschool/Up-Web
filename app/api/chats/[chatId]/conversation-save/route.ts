@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiLog, apiError, apiWarn } from "@/lib/logging-utils";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { chatId: string } }
 ) {
-  console.log(
-    "[MESSAGE STREAM TEST] 🚀 POST /api/chats/[chatId]/conversation-save called (Flutter style)"
-  );
+  apiLog("🚀 POST /api/chats/[chatId]/conversation-save called");
 
   const { chatId } = params;
-  console.log("[MESSAGE STREAM TEST] 📝 Chat ID:", chatId);
+  apiLog("📝 Chat ID:", chatId);
 
   // Get auth headers
   const authHeader = req.headers.get("Authorization");
@@ -17,7 +16,7 @@ export async function POST(
   const userId = req.headers.get("x-user-id");
 
   if (!authHeader || !idTokenHeader || !userId) {
-    console.log("[MESSAGE STREAM TEST] ❌ Missing auth headers");
+    apiWarn("❌ Missing auth headers");
     return NextResponse.json(
       {
         status: "401",
@@ -41,7 +40,7 @@ export async function POST(
     } = body;
     let { messages } = body; // Use let for messages to allow reassignment
 
-    console.log("[MESSAGE STREAM TEST] 📝 Flutter-style save request:", {
+    apiLog("📝 Save request:", {
       assistantId,
       assistantGroupId,
       type,
@@ -50,8 +49,8 @@ export async function POST(
       title,
     });
 
-    console.log(
-      "[MESSAGE STREAM TEST] 📝 Messages received for save:",
+    apiLog(
+      "📝 Messages received:",
       messages.map((msg: any) => ({
         id: msg.id,
         identifier: msg.identifier,
@@ -65,10 +64,7 @@ export async function POST(
     const cleanedMessages = messages.filter((msg: any) => {
       const identifier = msg.identifier || msg.id;
       if (seenIdentifiers.has(identifier)) {
-        console.warn(
-          "[MESSAGE STREAM TEST] ⚠️ Removing duplicate identifier:",
-          identifier
-        );
+        apiWarn("⚠️ Removing duplicate identifier:", identifier);
         return false; // Filter out duplicate
       }
       seenIdentifiers.add(identifier);
@@ -76,8 +72,8 @@ export async function POST(
     });
 
     if (cleanedMessages.length !== messages.length) {
-      console.log(
-        "[MESSAGE STREAM TEST] 🧹 Cleaned duplicates:",
+      apiLog(
+        "🧹 Cleaned duplicates:",
         messages.length - cleanedMessages.length,
         "removed"
       );
@@ -89,8 +85,8 @@ export async function POST(
       (msg: any) => !msg.identifier
     );
     if (messagesWithoutIdentifier.length > 0) {
-      console.warn(
-        "[MESSAGE STREAM TEST] ⚠️ Messages without identifier:",
+      apiWarn(
+        "⚠️ Messages without identifier:",
         messagesWithoutIdentifier.length
       );
     }
@@ -124,8 +120,8 @@ export async function POST(
       messages: messagesJsonForVector,
     };
 
-    console.log(
-      "[MESSAGE STREAM TEST] 💾 Sending conversation save with Flutter format:",
+    apiLog(
+      "💾 Sending conversation save:",
       {
         messagesCount: flutterStyleBody.messages.length,
         conversationId: flutterStyleBody.conversationId,
@@ -133,8 +129,8 @@ export async function POST(
       }
     );
 
-    console.log(
-      "[MESSAGE STREAM TEST] 💾 Sending vector save with JSON format:",
+    apiLog(
+      "💾 Sending vector save:",
       {
         messagesCount: vectorData.messages.length,
         sampleMessage: vectorData.messages[0],
@@ -168,26 +164,20 @@ export async function POST(
       }),
     ]);
 
-    console.log(
-      "[MESSAGE STREAM TEST] 🌐 Vector response status:",
-      vectorResponse.status
-    );
+    apiLog("🌐 Vector response status:", vectorResponse.status);
 
-    console.log(
-      "[MESSAGE STREAM TEST] 🌐 Backend response status:",
-      backendResponse.status
-    );
+    apiLog("🌐 Backend response status:", backendResponse.status);
 
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
-      console.error("[MESSAGE STREAM TEST] ❌ Backend error:", errorText);
+      apiError("❌ Backend error:", errorText);
       throw new Error(
         `Backend error: ${backendResponse.status} - ${errorText}`
       );
     }
 
     const result = await backendResponse.json();
-    console.log("[MESSAGE STREAM TEST] ✅ Backend success:", {
+    apiLog("✅ Backend success:", {
       conversationId: result.conversationId,
       status: result.status,
     });
@@ -202,10 +192,7 @@ export async function POST(
       { status: 200 }
     );
   } catch (error: any) {
-    console.error(
-      "[MESSAGE STREAM TEST] ❌ Error in conversation-save:",
-      error
-    );
+    apiError("❌ Error in conversation-save:", error);
     return NextResponse.json(
       {
         error: "Failed to save conversation",

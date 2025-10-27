@@ -148,6 +148,7 @@ export const api = createApi({
         { type: 'Messages', id: chatId },
         'Messages'
       ],
+      keepUnusedDataFor: 0, // Don't cache messages - always fetch fresh data
     }),
     deleteChat: build.mutation<void, string>({
       query: (chatId) => ({

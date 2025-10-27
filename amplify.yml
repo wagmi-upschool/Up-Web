@@ -37,6 +37,8 @@ frontend:
         - 'echo "FIREBASE_PRIVATE_KEY=$FIREBASE_PRIVATE_KEY" >> .env'
         - 'echo "QUIZ_DEFAULT_CONFIG=$QUIZ_DEFAULT_CONFIG" >> .env'
         - 'echo "MIXPANEL_DEFAULT_CONFIG=$MIXPANEL_DEFAULT_CONFIG" >> .env'
+        - 'echo "UP_WEB_MIXPANEL_REMOTE_CONFIG_KEY=$UP_WEB_MIXPANEL_REMOTE_CONFIG_KEY" >> .env'
+        - 'echo "UP_WEB_QUIZ_REMOTE_CONFIG_KEY=$UP_WEB_QUIZ_REMOTE_CONFIG_KEY" >> .env'
         - 'echo "🔍 Debug - Environment variables created:"'
         - cat .env
         - 'echo "🚀 Starting Next.js build..."'

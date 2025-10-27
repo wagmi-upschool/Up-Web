@@ -28,8 +28,20 @@ import { ChatMessage } from "@/types/type";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 import toast from "react-hot-toast";
 import { v4 as uuidv4 } from "uuid";
+import { clientLog, clientError } from "@/lib/logging-utils";
 
 type Props = {};
+
+type JournalModeSource = "manual" | "detected";
+
+type JournalModeEntry = {
+  value: boolean;
+  source: JournalModeSource;
+  updatedAt: number;
+};
+
+const MANUAL_OVERRIDE_WINDOW_MS = 1500;
+const DETECTION_DEBOUNCE_MS = 120;
 
 // Helper function to format date like mobile (local timezone)
 const formatMobileDateTime = (date?: Date | string): string => {
@@ -90,6 +102,7 @@ function HomePage({}: Props) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isJournalMode, setIsJournalMode] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>(
     []
   );
@@ -115,6 +128,37 @@ function HomePage({}: Props) {
     useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch();
+  const journalModeStateRef = useRef<Map<string, JournalModeEntry>>(new Map());
+  const manualOverrideRef = useRef<
+    Map<string, { value: boolean; expiresAt: number }>
+  >(new Map());
+  const detectionTimeoutRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastReflectionSyncChatRef = useRef<string | null>(null);
+
+  const applyJournalModeForChat = useCallback(
+    (chatId: string | null, nextValue: boolean, source: JournalModeSource) => {
+      if (!chatId) return;
+
+      const timestamp = Date.now();
+      journalModeStateRef.current.set(chatId, {
+        value: nextValue,
+        source,
+        updatedAt: timestamp,
+      });
+
+      if (activeChat === chatId) {
+        setIsJournalMode(nextValue);
+      }
+    },
+    [activeChat]
+  );
+
+  const getJournalModeForChat = useCallback((chatId: string | null) => {
+    if (!chatId) return false;
+
+    return journalModeStateRef.current.get(chatId)?.value ?? false;
+  }, []);
 
   // Auto scroll to bottom function
   const scrollToBottom = () => {
@@ -144,23 +188,59 @@ function HomePage({}: Props) {
   }, [chatsData]);
   const {
     data: messagesData,
+    currentData: currentMessagesData,
     isLoading: isLoadingMessages,
+    isFetching: isFetchingMessages,
     error: messagesError,
   } = useGetChatMessagesQuery(
     { chatId: activeChat!, limit: "50" },
-    { skip: !activeChat }
+    {
+      skip: !activeChat,
+      refetchOnMountOrArgChange: true,
+    }
   );
+
+  useEffect(() => {
+    if (!activeChat) {
+      setIsTransitioningChat(false);
+      return;
+    }
+
+    if (isLoadingMessages || isFetchingMessages) {
+      return;
+    }
+
+    if (messagesError || currentMessagesData || messagesData) {
+      setIsTransitioningChat(false);
+    }
+  }, [
+    activeChat,
+    isLoadingMessages,
+    isFetchingMessages,
+    currentMessagesData,
+    messagesData,
+    messagesError,
+  ]);
   const [sendChatMessage, { isLoading: isSendingMessage }] =
     useSendChatMessageMutation();
   const [saveConversation, { isLoading: isSavingConversation }] =
     useSaveConversationMutation();
 
   // Smart message merging: replace optimistic messages with real ones when identifiers match
+  const baseMessagesPayload =
+    !isTransitioningChat ? currentMessagesData ?? messagesData : undefined;
+
   const messages = useMemo(() => {
-    const rawRealMessages = messagesData?.messages || [];
+    // During chat transitions, return empty array to prevent showing old messages
+    if (isTransitioningChat) {
+      clientLog("🔄 Chat transitioning - returning empty messages array");
+      return [];
+    }
+
+    const rawRealMessages = baseMessagesPayload?.messages || [];
 
     // if (process.env.NODE_ENV === 'development') {
-    //   console.log('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
+    //   clientLog('[DEBUG] Raw messages from API:', rawRealMessages.map(m => ({
     //     id: m.id,
     //     identifier: m.identifier,
     //     role: m.role,
@@ -184,7 +264,7 @@ function HomePage({}: Props) {
     );
 
     // if (process.env.NODE_ENV === "development") {
-    //   console.log(
+    //   clientLog(
     //     "[DEBUG] Deduplicated real messages:",
     //     realMessages.map((m) => ({
     //       id: m.id,
@@ -194,7 +274,7 @@ function HomePage({}: Props) {
     //     }))
     //   );
 
-    //   console.log(
+    //   clientLog(
     //     "[DEBUG] Real message identifiers:",
     //     Array.from(realMessageIdentifiers)
     //   );
@@ -206,7 +286,7 @@ function HomePage({}: Props) {
       const isAlreadySaved = realMessageIdentifiers.has(optIdentifier);
 
       // if (isAlreadySaved && process.env.NODE_ENV === "development") {
-      //   console.log("[DEBUG] Optimistic message replaced by real message:", {
+      //   clientLog("[DEBUG] Optimistic message replaced by real message:", {
       //     identifier: optIdentifier,
       //     role: opt.role,
       //     content: opt.content?.substring(0, 30),
@@ -227,7 +307,7 @@ function HomePage({}: Props) {
     });
 
     if (process.env.NODE_ENV === "development") {
-      // console.log(
+      // clientLog(
       //   "[DEBUG] Pending optimistic messages:",
       //   pendingOptimisticMessages.map((m) => ({
       //     id: m.id,
@@ -236,7 +316,7 @@ function HomePage({}: Props) {
       //     content: m.content?.substring(0, 30),
       //   }))
       // );
-      // console.log(
+      // clientLog(
       //   "[DEBUG] Final merged messages:",
       //   finalMessages.map((m) => ({
       //     id: m.id,
@@ -249,11 +329,21 @@ function HomePage({}: Props) {
     }
 
     return finalMessages;
-  }, [messagesData?.messages, optimisticMessages]);
+  }, [baseMessagesPayload, optimisticMessages, isTransitioningChat]);
 
   // Clear optimistic messages when switching chats
   useEffect(() => {
     setOptimisticMessages([]);
+  }, [activeChat]);
+
+  useEffect(() => {
+    if (!activeChat) {
+      setIsJournalMode(false);
+      return;
+    }
+
+    const cached = journalModeStateRef.current.get(activeChat);
+    setIsJournalMode(cached?.value ?? false);
   }, [activeChat]);
 
   // Auto scroll when messages change
@@ -281,11 +371,11 @@ function HomePage({}: Props) {
 
   const handleSignOut = async () => {
     try {
-      console.log("🚪 Starting logout process...");
+      clientLog("🚪 Starting logout process...");
 
       // 1. Clear all RTK Query cache
       dispatch(api.util.resetApiState());
-      console.log("✅ RTK Query cache cleared");
+      clientLog("✅ RTK Query cache cleared");
 
       // 2. Clear local component state
       setActiveChat(null);
@@ -294,11 +384,11 @@ function HomePage({}: Props) {
       setMessageLikes({});
       setIsAiResponding(false);
       setIsTransitioningChat(false);
-      console.log("✅ Local state cleared");
+      clientLog("✅ Local state cleared");
 
       // 3. Sign out from Amplify
       await signOut();
-      console.log("✅ Amplify signout completed");
+      clientLog("✅ Amplify signout completed");
 
       setShowDropdown(false);
 
@@ -306,12 +396,12 @@ function HomePage({}: Props) {
       try {
         localStorage.clear();
         sessionStorage.clear();
-        console.log("✅ Browser storage cleared");
+        clientLog("✅ Browser storage cleared");
       } catch (storageError) {
         console.warn("⚠️ Could not clear storage:", storageError);
       }
 
-      console.log("🎉 Logout completed successfully");
+      clientLog("🎉 Logout completed successfully");
     } catch (error) {
       console.error("❌ Error during logout:", error);
       toast.error("Çıkış yapılırken bir hata oluştu");
@@ -336,7 +426,7 @@ function HomePage({}: Props) {
       // Extract groupName from custom attributes
       let userGroupName = userAttributes["custom:groupName"] || null;
 
-      console.log("User attributes:", { userEmail, userGroupName });
+      clientLog("User attributes:", { userEmail, userGroupName });
 
       // Get access token for API auth
       const session = await fetchAuthSession();
@@ -370,7 +460,7 @@ function HomePage({}: Props) {
         const data = await response.json();
 
         if (data.hasAccess) {
-          console.log("✅ User has quiz access:", data);
+          clientLog("✅ User has quiz access:", data);
           setShowQuizAccess(true);
           setQuizData({
             testId: data.testId,
@@ -380,7 +470,7 @@ function HomePage({}: Props) {
           // Check quiz completion after confirming access
           // await checkQuizCompletion(data.testId); // Disabled for now
         } else {
-          console.log("❌ User does not have quiz access");
+          clientLog("❌ User does not have quiz access");
           setShowQuizAccess(false);
         }
       } else {
@@ -429,14 +519,14 @@ function HomePage({}: Props) {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("📊 Quiz completion status:", data);
+        clientLog("📊 Quiz completion status:", data);
 
         setIsQuizCompleted(data.isCompleted);
 
         if (data.isCompleted) {
-          console.log("🎉 User has completed the quiz - hiding quiz buttons");
+          clientLog("🎉 User has completed the quiz - hiding quiz buttons");
         } else {
-          console.log(
+          clientLog(
             "📝 User has not completed the quiz - showing quiz buttons"
           );
         }
@@ -461,7 +551,7 @@ function HomePage({}: Props) {
       const userEmail = user?.signInDetails?.loginId;
 
       if (!userEmail) {
-        console.log("No user email found, skipping Mixpanel check");
+        clientLog("No user email found, skipping Mixpanel check");
         return;
       }
 
@@ -481,21 +571,21 @@ function HomePage({}: Props) {
 
         if (response.ok) {
           const config = await response.json();
-          console.log("Mixpanel config response:", config);
+          clientLog("Mixpanel config response:", config);
 
           if (config.enabled && config.dashboardUrl) {
             setShowMixpanelOption(true);
             setMixpanelDashboardUrl(config.dashboardUrl);
-            console.log("✅ Mixpanel dashboard access granted for:", userEmail);
+            clientLog("✅ Mixpanel dashboard access granted for:", userEmail);
           } else {
-            console.log("❌ No Mixpanel dashboard access for:", userEmail);
+            clientLog("❌ No Mixpanel dashboard access for:", userEmail);
           }
         } else {
-          console.log("Mixpanel config request failed:", response.status);
+          clientLog("Mixpanel config request failed:", response.status);
         }
       }
     } catch (error) {
-      console.log("Mixpanel configuration check failed:", error);
+      clientLog("Mixpanel configuration check failed:", error);
       // Silently fail - this is not critical functionality
     }
   };
@@ -509,6 +599,12 @@ function HomePage({}: Props) {
       toast.error("Dashboard URL bulunamadı");
     }
   };
+
+  const handleInsertMessage = useCallback((messageText: string) => {
+    setCurrentMessage(messageText);
+    // Bring keyboard focus back to the message input for quick edits
+    inputRef.current?.focus();
+  }, []);
 
   const handleSendMessageWithText = async (messageText: string) => {
     // Set the message and then call the existing handleSendMessage logic
@@ -559,7 +655,7 @@ function HomePage({}: Props) {
       setOptimisticMessages((prev) => [...prev, userMessage]);
 
       try {
-        console.log(
+        clientLog(
           "📝 Journal mode: Saving user message only, no AI response"
         );
 
@@ -582,7 +678,7 @@ function HomePage({}: Props) {
         });
 
         setTimeout(scrollToBottom, 100);
-        console.log("✅ Journal entry saved successfully", saveResult);
+        clientLog("✅ Journal entry saved successfully", saveResult);
         setIsMessageInserting(false);
       } catch (error) {
         console.error("❌ Error saving journal entry:", error);
@@ -616,7 +712,7 @@ function HomePage({}: Props) {
     setIsMessageInserting(true);
 
     try {
-      console.log(
+      clientLog(
         "[NORMAL MODE] 🚀 Sending message (both message request + conversation save):",
         {
           chatId: activeChat,
@@ -646,7 +742,7 @@ function HomePage({}: Props) {
 
       // Normal mode: BOTH message request AND conversation save
       // Step 1: Send message request (using RTK Query)
-      console.log(
+      clientLog(
         "[NORMAL MODE] 📤 Step 1: Sending message request via RTK Query..."
       );
       const messageResult = await sendChatMessage({
@@ -663,7 +759,7 @@ function HomePage({}: Props) {
         throw new Error("Message request failed");
       }
 
-      console.log(
+      clientLog(
         "[NORMAL MODE] ✅ Step 1 completed: Message request sent successfully"
       );
 
@@ -731,10 +827,7 @@ function HomePage({}: Props) {
             if (chunk.includes("error")) {
               try {
                 const errorMap = JSON.parse(chunk);
-                console.error(
-                  "[MESSAGE STREAM TEST] ❌ Stream error:",
-                  errorMap
-                );
+                clientError("❌ Stream error:", errorMap);
                 throw new Error("Stream error received");
               } catch (e) {
                 // Continue if not valid JSON
@@ -745,10 +838,7 @@ function HomePage({}: Props) {
             buffer += chunk.replace("[DONE-UP]", "");
             const isDone = chunk.includes("[DONE-UP]");
 
-            console.log(
-              "[MESSAGE STREAM TEST] 📝 Chunk processed, buffer length:",
-              buffer.length
-            );
+            clientLog("📝 Chunk processed, buffer length:", buffer.length);
 
             // Update AI message with accumulated buffer content (like Flutter MessageReceivedEvent)
             aiMessage = {
@@ -761,27 +851,21 @@ function HomePage({}: Props) {
             setOptimisticMessages([userMessage, aiMessage]);
 
             if (isDone) {
-              console.log(
-                "[MESSAGE STREAM TEST] ✅ Stream completed with [DONE-UP]"
-              );
+              clientLog("✅ Stream completed with [DONE-UP]");
               break;
             }
           }
         } catch (error) {
-          console.error(
-            "[MESSAGE STREAM TEST] ❌ Stream processing error:",
-            error
-          );
+          clientError("❌ Stream processing error:", error);
           throw error;
         }
 
         // Use buffer as final response content
         aiResponseContent = buffer;
 
-        console.log("Streaming completed, final response:", aiResponseContent);
-
-        console.log(
-          "[MESSAGE STREAM TEST] ✅ Streaming completed, final response length:",
+        clientLog("Streaming completed, final response:", aiResponseContent);
+        clientLog(
+          "✅ Streaming completed, final response length:",
           aiResponseContent.length
         );
 
@@ -790,7 +874,7 @@ function HomePage({}: Props) {
 
         // Step 3: Save the conversation using conversation-save endpoint (completing normal mode)
         try {
-          console.log(
+          clientLog(
             "[NORMAL MODE] 💾 Step 3: Saving conversation via conversation-save endpoint..."
           );
 
@@ -854,15 +938,15 @@ function HomePage({}: Props) {
           });
 
           if ("data" in saveResult) {
-            console.log(
+            clientLog(
               "[NORMAL MODE] ✅ Step 3 completed: Conversation saved successfully"
             );
-            console.log(
+            clientLog(
               "[NORMAL MODE] 🎉 Normal mode complete: Both message request AND conversation save finished"
             );
 
             // RTK Query will automatically refetch and merge with optimistic messages
-            console.log(
+            clientLog(
               "[NORMAL MODE] 🔄 RTK Query will refetch and seamlessly replace optimistic messages"
             );
             setIsMessageInserting(false);
@@ -911,6 +995,12 @@ function HomePage({}: Props) {
       const newJournalMode = !isJournalMode;
       const baseDateTime = new Date();
       const timestamp = formatMobileDateTime(baseDateTime);
+
+      manualOverrideRef.current.set(activeChat, {
+        value: newJournalMode,
+        expiresAt: Date.now() + MANUAL_OVERRIDE_WINDOW_MS,
+      });
+      applyJournalModeForChat(activeChat, newJournalMode, "manual");
 
       const widgetsToSave: ChatMessage[] = [];
 
@@ -976,7 +1066,7 @@ function HomePage({}: Props) {
 
       // Save widgets to backend immediately
       if (widgetsToSave.length > 0) {
-        console.log(
+        clientLog(
           "🔧 BUTTON TOGGLE - Saving widgets:",
           widgetsToSave.map((w) => ({
             id: w.id,
@@ -1003,7 +1093,7 @@ function HomePage({}: Props) {
             conversationId: activeChat,
           });
 
-          console.log("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
+          clientLog("🔧 BUTTON TOGGLE - Widget save result:", saveResult);
           toast.success(
             newJournalMode
               ? "Günlük modu başlatıldı!"
@@ -1014,9 +1104,6 @@ function HomePage({}: Props) {
           toast.error("Widget'lar kaydedilemedi");
         }
       }
-
-      // Toggle the journal mode
-      setIsJournalMode(newJournalMode);
 
       // Scroll to bottom to show new widgets
       setTimeout(scrollToBottom, 100);
@@ -1029,23 +1116,23 @@ function HomePage({}: Props) {
   const handleLikeDislike = useCallback(
     async (messageId: string, type: "like" | "dislike", messageObj?: any) => {
       try {
-        console.log("Rating messageId:", messageId, "type:", type);
-        console.log("Message object received:", messageObj);
+        clientLog("Rating messageId:", messageId, "type:", type);
+        clientLog("Message object received:", messageObj);
 
         // Use identifier or id for backend API call
         const backendMessageId = messageObj?.identifier || messageObj?.id;
-        console.log("Backend messageId:", backendMessageId);
+        clientLog("Backend messageId:", backendMessageId);
 
         // Skip rating if no valid backend ID
         if (!backendMessageId) {
-          console.log("No backend messageId available:", backendMessageId);
+          clientLog("No backend messageId available:", backendMessageId);
           toast.error("Mesaj ID'si bulunamadı");
           return;
         }
 
         // Use the conversationId from the message object, or fall back to activeChat
         const conversationId = messageObj?.conversationId || activeChat;
-        console.log("Using conversationId:", conversationId);
+        clientLog("Using conversationId:", conversationId);
 
         if (!conversationId) {
           console.error("No conversationId available");
@@ -1114,9 +1201,7 @@ function HomePage({}: Props) {
   );
 
   useEffect(() => {
-    console.log(
-      "[MESSAGE STREAM TEST] 🔄 HomePage component mounted/remounted"
-    );
+    clientLog("🔄 HomePage component mounted/remounted");
 
     const fetchUser = async () => {
       try {
@@ -1150,297 +1235,378 @@ function HomePage({}: Props) {
     };
   }, []);
 
+  const hasOptimisticAyrac = useMemo(
+    () =>
+      optimisticMessages.some(
+        (msg) =>
+          msg.content?.includes('"widgetType":"Ayrac"') ||
+          msg.content?.includes('"widgetType": "Ayrac"')
+      ),
+    [optimisticMessages]
+  );
+
+  const hasOptimisticJournalDate = useMemo(
+    () =>
+      optimisticMessages.some(
+        (msg) =>
+          msg.content?.includes('"widgetType":"JournalDate"') ||
+          msg.content?.includes('"widgetType": "JournalDate"')
+      ),
+    [optimisticMessages]
+  );
+
   // Clear optimistic messages and add automatic widgets when switching chats
   useEffect(() => {
-    if (activeChat) {
-      let currentActiveChat = chats.find((chat) => chat.id === activeChat);
-
-      // If chat not found in main chats array, check if we can create a synthetic one from message data
-      if (
-        !currentActiveChat &&
-        messagesData?.messages &&
-        messagesData.messages.length > 0
-      ) {
-        const firstMessage = messagesData.messages[0];
-        // Create synthetic chat object from message data
-        currentActiveChat = {
-          id: activeChat,
-          title: "YGA Zirvesi Notlarım", // From conversation-save logs
-          assistantGroupId:
-            (firstMessage as any).assistantGroupId ||
-            "f2b835b2-139a-4ea4-a9a0-930d6baded6a",
-          type: "reflectionJournal", // Infer from assistantGroupId and title
-          assistantId: firstMessage.assistantId,
-        };
-        console.log(
-          "🔧 Created synthetic chat object from message data:",
-          currentActiveChat
-        );
-      }
-
-      // Debug: Check if currentActiveChat has type field
-      console.log(`🔧 WIDGET DEBUG - Current active chat:`, {
-        chatId: activeChat,
-        title: currentActiveChat?.title,
-        type: currentActiveChat?.type,
-        isReflectionJournal: isReflectionJournalChat(currentActiveChat),
-        chatObject: currentActiveChat,
-        chatsArrayLength: chats.length,
-        chatFound: !!currentActiveChat,
-        isSynthetic: !chats.find((chat) => chat.id === activeChat),
-      });
-
-      // Only for reflection journal chats
-      if (currentActiveChat && isReflectionJournalChat(currentActiveChat)) {
-        setOptimisticMessages([]);
-
-        // Check if widgets already exist in messages to avoid duplicates
-        const existingMessages = messagesData?.messages || [];
-        const hasAyracWidget = existingMessages.some(
-          (msg) =>
-            (msg.type === "widget" &&
-              msg.content?.includes('"widgetType":"Ayrac"')) ||
-            msg.content?.includes('"widgetType": "Ayrac"')
-        );
-        const hasJournalDateWidget = existingMessages.some(
-          (msg) =>
-            (msg.type === "widget" &&
-              msg.content?.includes('"widgetType":"JournalDate"')) ||
-            msg.content?.includes('"widgetType": "JournalDate"')
-        );
-
-        console.log(`🔧 Widget check - Chat: ${activeChat}`);
-        console.log(`🔧 Existing messages count: ${existingMessages.length}`);
-        console.log(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
-        console.log(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
-        console.log(
-          `🔧 Widget type messages:`,
-          existingMessages.filter((m) => m.type === "widget")
-        );
-
-        // Also check if widgets are already in optimistic messages to prevent duplicates
-        const hasOptimisticAyrac = optimisticMessages.some((msg) =>
-          msg.content?.includes('"widgetType":"Ayrac"')
-        );
-        const hasOptimisticJournalDate = optimisticMessages.some((msg) =>
-          msg.content?.includes('"widgetType":"JournalDate"')
-        );
-
-        // Only add widgets if they don't already exist in both existing and optimistic messages
-        const needsAyrac = !hasAyracWidget && !hasOptimisticAyrac;
-        const needsJournalDate =
-          !hasJournalDateWidget && !hasOptimisticJournalDate;
-
-        // Also check if we've already saved widgets for this chat to prevent duplicate saves
-        const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
-
-        if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
-          console.log(
-            `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
-          );
-          console.log(
-            `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
-          );
-          console.log(`🔧 Already saved for chat: ${alreadySavedForChat}`);
-
-          const baseDateTime = new Date();
-          const currentDateOnly = formatJournalDate();
-          const widgetsToAdd: ChatMessage[] = [];
-
-          // Add Ayrac widget if missing
-          if (needsAyrac) {
-            const ayracId = crypto.randomUUID();
-            const ayracDateTime = formatMobileDateTime(baseDateTime);
-            const openAyracWidget = {
-              id: ayracId,
-              identifier: ayracId,
-              content: JSON.stringify({
-                widgetType: "Ayrac",
-                isOpen: true,
-              }),
-              role: "user" as const,
-              type: "widget" as const,
-              sender: "user" as const,
-              createdAt: ayracDateTime,
-              assistantId: currentActiveChat.assistantId || "",
-            };
-            widgetsToAdd.push(openAyracWidget);
-          }
-
-          // Add JournalDate widget if missing with 1ms offset
-          if (needsJournalDate) {
-            const dateId = crypto.randomUUID();
-            const journalDateTime = formatMobileDateTime(
-              new Date(baseDateTime.getTime() + 1)
-            );
-            const dateWidget = {
-              id: dateId,
-              identifier: dateId,
-              content: JSON.stringify({
-                widgetType: "JournalDate",
-                date: currentDateOnly,
-              }),
-              role: "user" as const,
-              type: "widget" as const,
-              sender: "user" as const,
-              createdAt: journalDateTime,
-              assistantId: currentActiveChat.assistantId || "",
-            };
-            widgetsToAdd.push(dateWidget);
-          }
-
-          // Add missing widgets to optimistic messages
-          if (widgetsToAdd.length > 0) {
-            setOptimisticMessages(widgetsToAdd);
-
-            // Auto-save the missing widgets
-            const autoSaveWidgets = async () => {
-              try {
-                const user = await getCurrentUser();
-
-                console.log(
-                  "💾 Attempting to save widgets:",
-                  widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
-                );
-                console.log(
-                  "💾 Existing messages count:",
-                  existingMessages.length
-                );
-                console.log(
-                  "💾 Existing widget IDs:",
-                  existingMessages
-                    .filter((m) => m.type === "widget")
-                    .map((m) => m.id)
-                );
-
-                // Combine existing messages with new widgets for complete save
-                const allMessages = [...existingMessages, ...widgetsToAdd];
-                console.log("💾 Total messages to save:", allMessages.length);
-                console.log(
-                  "💾 All widget IDs in payload:",
-                  allMessages
-                    .filter((m) => m.type === "widget")
-                    .map((m) => m.id)
-                );
-
-                const saveResult = await saveConversation({
-                  chatId: activeChat,
-                  messages: allMessages,
-                  assistantId: currentActiveChat.assistantId || "",
-                  assistantGroupId: currentActiveChat.assistantGroupId || "",
-                  type: "journal",
-                  userId: user.userId,
-                  localDateTime: formatMobileDateTime(baseDateTime),
-                  title: currentActiveChat.title,
-                  lastMessage: "Günlük widget'ları eklendi",
-                  conversationId: activeChat,
-                });
-
-                // Mark this chat as having widgets saved to prevent duplicates
-                setWidgetsSavedForChats((prev) =>
-                  new Set(prev).add(activeChat)
-                );
-
-                console.log(
-                  "✅ Auto-saved missing widgets successfully",
-                  saveResult
-                );
-              } catch (error) {
-                console.error("❌ Error auto-saving widgets:", error);
-                // Don't remove widgets from optimistic messages even if save failed
-                // They should remain visible to user
-                console.warn(
-                  "⚠️ Widget save failed, keeping widgets visible in UI"
-                );
-              }
-            };
-
-            // Save widgets automatically after a short delay
-            setTimeout(autoSaveWidgets, 500);
-          } else {
-            console.log("✅ All widgets already exist, skipping creation");
-          }
-        }
-      } else {
-        setOptimisticMessages([]);
-        setIsJournalMode(false);
-      }
-    } else {
+    if (!activeChat) {
+      lastReflectionSyncChatRef.current = null;
       setOptimisticMessages([]);
       setIsJournalMode(false);
+      return;
     }
-  }, [activeChat, chats, messagesData]);
 
-  // Determine journal mode based on ayrac widgets in messages
-  useEffect(() => {
-    if (activeChat && messages.length > 0 && !isLoadingMessages) {
-      const currentChat = chats.find((chat) => chat.id === activeChat);
+    if (isTransitioningChat) {
+      clientLog(
+        "⏳ Skipping widget sync while chat transition is in progress to avoid stale data"
+      );
+      return;
+    }
 
-      // Only for reflection journal chats
-      if (currentChat && isReflectionJournalChat(currentChat)) {
-        let hasOpenAyrac = false;
-        let lastAyracState = null;
+    let currentActiveChat = chats.find((chat) => chat.id === activeChat);
 
-        // Check all messages for ayrac widgets to determine the current state
-        messages.forEach((msg) => {
-          try {
-            if (
-              msg.content &&
-              (msg.type === "widget" || msg.type === "ayrac-widget")
-            ) {
-              const data = JSON.parse(msg.content);
-              if (data.widgetType === "Ayrac") {
-                lastAyracState = data.isOpen;
-                hasOpenAyrac = data.isOpen === true;
-              }
-            }
-          } catch (e) {
-            // Ignore parsing errors
-          }
-        });
+    // If chat not found in main chats array, check if we can create a synthetic one from message data
+    if (
+      !currentActiveChat &&
+      messagesData?.messages &&
+      messagesData.messages.length > 0
+    ) {
+      const firstMessage = messagesData.messages[0];
+      // Create synthetic chat object from message data
+      currentActiveChat = {
+        id: activeChat,
+        title: "YGA Zirvesi Notlarım", // From conversation-save logs
+        assistantGroupId:
+          (firstMessage as any).assistantGroupId ||
+          "f2b835b2-139a-4ea4-a9a0-930d6baded6a",
+        type: "reflectionJournal", // Infer from assistantGroupId and title
+        assistantId: firstMessage.assistantId,
+      };
+      clientLog(
+        "🔧 Created synthetic chat object from message data:",
+        currentActiveChat
+      );
+    }
 
-        // Also check optimistic messages
-        optimisticMessages.forEach((msg) => {
-          try {
-            if (msg.content && msg.type === "widget") {
-              const data = JSON.parse(msg.content);
-              if (data.widgetType === "Ayrac") {
-                lastAyracState = data.isOpen;
-                hasOpenAyrac = data.isOpen === true;
-              }
-            }
-          } catch (e) {
-            // Ignore parsing errors
-          }
-        });
+    // Debug: Check if currentActiveChat has type field
+    clientLog(`🔧 WIDGET DEBUG - Current active chat:`, {
+      chatId: activeChat,
+      title: currentActiveChat?.title,
+      type: currentActiveChat?.type,
+      isReflectionJournal: isReflectionJournalChat(currentActiveChat),
+      chatObject: currentActiveChat,
+      chatsArrayLength: chats.length,
+      chatFound: !!currentActiveChat,
+      isSynthetic: !chats.find((chat) => chat.id === activeChat),
+    });
 
-        console.log("🔧 JOURNAL MODE - Ayrac state check:", {
-          hasOpenAyrac,
-          lastAyracState,
-          currentJournalMode: isJournalMode,
-          messagesCount: messages.length,
-          optimisticCount: optimisticMessages.length,
-        });
+    const chatChanged = lastReflectionSyncChatRef.current !== activeChat;
 
-        // Set journal mode based on ayrac state
-        if (lastAyracState !== null) {
-          setIsJournalMode(hasOpenAyrac);
-        } else if (messages.length === 0) {
-          // No messages at all, default to false
-          setIsJournalMode(false);
+    // Only for reflection journal chats
+    if (currentActiveChat && isReflectionJournalChat(currentActiveChat)) {
+      if (chatChanged) {
+        setOptimisticMessages([]);
+        lastReflectionSyncChatRef.current = activeChat;
+      }
+
+      const messageSource =
+        currentMessagesData?.messages ?? messagesData?.messages ?? [];
+
+      // Check if widgets already exist in messages to avoid duplicates
+      const existingMessages = messageSource;
+      const hasAyracWidget = existingMessages.some(
+        (msg) =>
+          (msg.type === "widget" &&
+            msg.content?.includes('"widgetType":"Ayrac"')) ||
+          msg.content?.includes('"widgetType": "Ayrac"')
+      );
+      const hasJournalDateWidget = existingMessages.some(
+        (msg) =>
+          (msg.type === "widget" &&
+            msg.content?.includes('"widgetType":"JournalDate"')) ||
+          msg.content?.includes('"widgetType": "JournalDate"')
+      );
+
+      clientLog(`🔧 Widget check - Chat: ${activeChat}`);
+      clientLog(`🔧 Existing messages count: ${existingMessages.length}`);
+      clientLog(`🔧 Has Ayrac widget: ${hasAyracWidget}`);
+      clientLog(`🔧 Has JournalDate widget: ${hasJournalDateWidget}`);
+      clientLog(
+        `🔧 Widget type messages:`,
+        existingMessages.filter((m) => m.type === "widget")
+      );
+
+      // Only add widgets if they don't already exist in both existing and optimistic messages
+      const needsAyrac = !hasAyracWidget && !hasOptimisticAyrac;
+      const needsJournalDate =
+        !hasJournalDateWidget && !hasOptimisticJournalDate;
+
+      // Also check if we've already saved widgets for this chat to prevent duplicate saves
+      const alreadySavedForChat = widgetsSavedForChats.has(activeChat);
+
+      if ((needsAyrac || needsJournalDate) && !alreadySavedForChat) {
+        clientLog(
+          `🔧 Missing widgets: Ayrac=${needsAyrac}, JournalDate=${needsJournalDate}`
+        );
+        clientLog(
+          `🔧 Chat: ${activeChat}, Existing messages count: ${existingMessages.length}`
+        );
+        clientLog(`🔧 Already saved for chat: ${alreadySavedForChat}`);
+
+        const baseDateTime = new Date();
+        const currentDateOnly = formatJournalDate();
+        const widgetsToAdd: ChatMessage[] = [];
+
+        // Add Ayrac widget if missing
+        if (needsAyrac) {
+          const ayracId = crypto.randomUUID();
+          const ayracDateTime = formatMobileDateTime(baseDateTime);
+          const openAyracWidget = {
+            id: ayracId,
+            identifier: ayracId,
+            content: JSON.stringify({
+              widgetType: "Ayrac",
+              isOpen: true,
+            }),
+            role: "user" as const,
+            type: "widget" as const,
+            sender: "user" as const,
+            createdAt: ayracDateTime,
+            assistantId: currentActiveChat.assistantId || "",
+          };
+          widgetsToAdd.push(openAyracWidget);
         }
-      } else {
-        // Not a reflection journal chat
-        setIsJournalMode(false);
+
+        // Add JournalDate widget if missing with 1ms offset
+        if (needsJournalDate) {
+          const dateId = crypto.randomUUID();
+          const journalDateTime = formatMobileDateTime(
+            new Date(baseDateTime.getTime() + 1)
+          );
+          const dateWidget = {
+            id: dateId,
+            identifier: dateId,
+            content: JSON.stringify({
+              widgetType: "JournalDate",
+              date: currentDateOnly,
+            }),
+            role: "user" as const,
+            type: "widget" as const,
+            sender: "user" as const,
+            createdAt: journalDateTime,
+            assistantId: currentActiveChat.assistantId || "",
+          };
+          widgetsToAdd.push(dateWidget);
+        }
+
+        // Add missing widgets to optimistic messages
+        if (widgetsToAdd.length > 0) {
+          setOptimisticMessages((prev) => {
+            const existingIds = new Set(
+              prev
+                .map((message) => message.identifier || message.id)
+                .filter(Boolean)
+            );
+            const deduped = widgetsToAdd.filter((widget) => {
+              const identifier = widget.identifier || widget.id;
+              return identifier ? !existingIds.has(identifier) : true;
+            });
+
+            if (deduped.length === 0) {
+              return prev;
+            }
+
+            return [...prev, ...deduped];
+          });
+
+          // Auto-save the missing widgets
+          const autoSaveWidgets = async () => {
+            try {
+              const user = await getCurrentUser();
+
+              clientLog(
+                "💾 Attempting to save widgets:",
+                widgetsToAdd.map((w) => ({ id: w.id, type: w.type }))
+              );
+              clientLog(
+                "💾 Existing messages count:",
+                existingMessages.length
+              );
+              clientLog(
+                "💾 Existing widget IDs:",
+                existingMessages
+                  .filter((m) => m.type === "widget")
+                  .map((m) => m.id)
+              );
+
+              // Combine existing messages with new widgets for complete save
+              const allMessages = [...existingMessages, ...widgetsToAdd];
+              clientLog("💾 Total messages to save:", allMessages.length);
+              clientLog(
+                "💾 All widget IDs in payload:",
+                allMessages
+                  .filter((m) => m.type === "widget")
+                  .map((m) => m.id)
+              );
+
+              const saveResult = await saveConversation({
+                chatId: activeChat,
+                messages: allMessages,
+                assistantId: currentActiveChat.assistantId || "",
+                assistantGroupId: currentActiveChat.assistantGroupId || "",
+                type: "journal",
+                userId: user.userId,
+                localDateTime: formatMobileDateTime(baseDateTime),
+                title: currentActiveChat.title,
+                lastMessage: "Günlük widget'ları eklendi",
+                conversationId: activeChat,
+              });
+
+              // Mark this chat as having widgets saved to prevent duplicates
+              setWidgetsSavedForChats((prev) => new Set(prev).add(activeChat));
+
+              clientLog(
+                "✅ Auto-saved missing widgets successfully",
+                saveResult
+              );
+            } catch (error) {
+              console.error("❌ Error auto-saving widgets:", error);
+              // Don't remove widgets from optimistic messages even if save failed
+              // They should remain visible to user
+              console.warn(
+                "⚠️ Widget save failed, keeping widgets visible in UI"
+              );
+            }
+          };
+
+          // Save widgets automatically after a short delay
+          setTimeout(autoSaveWidgets, 500);
+        } else {
+          clientLog("✅ All widgets already exist, skipping creation");
+        }
+      }
+    } else {
+      if (chatChanged || lastReflectionSyncChatRef.current !== null) {
+        setOptimisticMessages([]);
+        applyJournalModeForChat(activeChat, false, "detected");
+        lastReflectionSyncChatRef.current = activeChat;
       }
     }
   }, [
     activeChat,
+    chats,
+    currentMessagesData,
+    messagesData,
+    widgetsSavedForChats,
+    isTransitioningChat,
+    applyJournalModeForChat,
+    saveConversation,
+    hasOptimisticAyrac,
+    hasOptimisticJournalDate,
+  ]);
+
+  // Detect journal mode state from messages while avoiding race conditions
+  useEffect(() => {
+    if (!activeChat || isLoadingMessages) {
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+        detectionTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (detectionTimeoutRef.current) {
+      clearTimeout(detectionTimeoutRef.current);
+      detectionTimeoutRef.current = null;
+    }
+
+    const runDetection = () => {
+      const chatId = activeChat;
+      if (!chatId) return;
+
+      const currentChat = chats.find((chat) => chat.id === chatId);
+      if (!currentChat || !isReflectionJournalChat(currentChat)) {
+        applyJournalModeForChat(chatId, false, "detected");
+        manualOverrideRef.current.delete(chatId);
+        return;
+      }
+
+      const now = Date.now();
+      const manualOverride = manualOverrideRef.current.get(chatId);
+      if (manualOverride && manualOverride.expiresAt > now) {
+        detectionTimeoutRef.current = setTimeout(
+          runDetection,
+          manualOverride.expiresAt - now
+        );
+        return;
+      }
+
+      if (manualOverride && manualOverride.expiresAt <= now) {
+        manualOverrideRef.current.delete(chatId);
+      }
+
+      let hasOpenAyrac = false;
+      let lastAyracState: boolean | null = null;
+
+      const candidates = [...messages, ...optimisticMessages];
+
+      candidates.forEach((msg) => {
+        try {
+          if (
+            msg.content &&
+            (msg.type === "widget" || msg.type === "ayrac-widget")
+          ) {
+            const data = JSON.parse(msg.content);
+            if (data.widgetType === "Ayrac") {
+              if (typeof data.isOpen === "boolean") {
+                lastAyracState = data.isOpen;
+                hasOpenAyrac = data.isOpen === true;
+              }
+            }
+          }
+        } catch {
+          // Ignore malformed widget payloads
+        }
+      });
+
+      let nextMode = getJournalModeForChat(chatId);
+
+      if (lastAyracState !== null) {
+        nextMode = hasOpenAyrac;
+      } else if (messages.length === 0 && optimisticMessages.length === 0) {
+        nextMode = false;
+      }
+
+      applyJournalModeForChat(chatId, nextMode, "detected");
+    };
+
+    detectionTimeoutRef.current = setTimeout(
+      runDetection,
+      DETECTION_DEBOUNCE_MS
+    );
+
+    return () => {
+      if (detectionTimeoutRef.current) {
+        clearTimeout(detectionTimeoutRef.current);
+        detectionTimeoutRef.current = null;
+      }
+    };
+  }, [
+    activeChat,
+    applyJournalModeForChat,
+    chats,
+    getJournalModeForChat,
+    isLoadingMessages,
     messages,
     optimisticMessages,
-    isLoadingMessages,
-    chats,
-    isJournalMode,
   ]);
 
   // Note: Optimistic messages are now handled via deduplication in useMemo above
@@ -1612,11 +1778,7 @@ function HomePage({}: Props) {
                       ) {
                         setIsTransitioningChat(true);
                         setActiveChat(chat.id);
-                        // Defer clearing optimistic messages to avoid blocking UI
-                        setTimeout(() => {
-                          setOptimisticMessages([]);
-                          setIsTransitioningChat(false);
-                        }, 100);
+                        setOptimisticMessages([]);
                       }
                       // Note: Silent blocking - user cannot switch during message operations
                     }}
@@ -1829,7 +1991,7 @@ function HomePage({}: Props) {
               <div className="space-y-4 max-w-4xl mx-auto">
                 {messages.map((message, index) => {
                   // Console log for debugging
-                  // console.log(`[MESSAGE DEBUG] Index ${index}:`, {
+                  // clientLog(`[MESSAGE DEBUG] Index ${index}:`, {
                   //   role: message.role,
                   //   content: message.content?.substring(0, 100),
                   //   sender: message.sender,
@@ -1847,7 +2009,7 @@ function HomePage({}: Props) {
                     `${message.role}-${index}-${message.content?.substring(0, 50) || "no-content"}-${message.createdAt}`;
 
                   // if (process.env.NODE_ENV === "development") {
-                  //   console.log(`[DEBUG] Message ${index} key:`, messageKey, {
+                  //   clientLog(`[DEBUG] Message ${index} key:`, messageKey, {
                   //     id: message.id,
                   //     identifier: message.identifier,
                   //     role: message.role,
@@ -1867,7 +2029,7 @@ function HomePage({}: Props) {
                       message.content?.includes('"widgetType": "JournalDate"'));
 
                   if (isAyracWidget || isJournalDateWidget) {
-                    console.log(`🎯 Rendering widget - Index ${index}:`, {
+                    clientLog(`🎯 Rendering widget - Index ${index}:`, {
                       isAyracWidget,
                       isJournalDateWidget,
                       messageType: message.type,
@@ -1890,6 +2052,7 @@ function HomePage({}: Props) {
                           sender={isUser ? "user" : "ai"}
                           messageType={message.type}
                           role={message.role}
+                          onInsertMessage={handleInsertMessage}
                         />
                       </div>
                     );
@@ -1962,6 +2125,7 @@ function HomePage({}: Props) {
                             sender={isUser ? "user" : "ai"}
                             messageType={message.type}
                             role={message.role}
+                            onInsertMessage={handleInsertMessage}
                           />
                         </div>
 
@@ -2191,6 +2355,7 @@ function HomePage({}: Props) {
                       <div className="flex-1 flex justify-start items-center gap-2">
                         <input
                           type="text"
+                          ref={inputRef}
                           value={currentMessage}
                           onChange={(e) => setCurrentMessage(e.target.value)}
                           onKeyDown={handleKeyPress}
@@ -2246,6 +2411,7 @@ function HomePage({}: Props) {
                       <div className="flex-1 flex justify-start items-center gap-2">
                         <input
                           type="text"
+                          ref={inputRef}
                           placeholder="Buraya yazabilirsin"
                           value={currentMessage}
                           onChange={(e) => setCurrentMessage(e.target.value)}

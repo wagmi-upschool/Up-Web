@@ -13,6 +13,11 @@ interface MixpanelConfig {
   };
 }
 
+const MIXPANEL_REMOTE_CONFIG_PARAM =
+  process.env.UP_WEB_MIXPANEL_REMOTE_CONFIG_KEY ||
+  process.env.MIXPANEL_REMOTE_CONFIG_KEY ||
+  "UpWebMixpanelDashboard";
+
 function readDefaultConfig(): MixpanelConfig {
   const rawConfig = process.env.MIXPANEL_DEFAULT_CONFIG;
 
@@ -31,7 +36,7 @@ function readDefaultConfig(): MixpanelConfig {
 // Get current configuration from Firebase Remote Config
 async function getCurrentConfig(): Promise<MixpanelConfig> {
   try {
-    const config = await getRemoteConfigValue("UpWebMixpanelDashboard");
+    const config = await getRemoteConfigValue(MIXPANEL_REMOTE_CONFIG_PARAM);
 
     if (config && typeof config === "object") {
       return config as MixpanelConfig;
@@ -48,7 +53,7 @@ async function getCurrentConfig(): Promise<MixpanelConfig> {
 async function saveConfiguration(config: MixpanelConfig): Promise<boolean> {
   try {
     return await setRemoteConfigValue(
-      "UpWebMixpanelDashboard",
+      MIXPANEL_REMOTE_CONFIG_PARAM,
       config,
       "Mixpanel dashboard URLs and user access configuration for Up Web"
     );

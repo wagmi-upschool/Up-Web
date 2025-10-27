@@ -4,10 +4,12 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Image from "next/image";
 import AssistantInputOption from "@/services/AssistantInputOption";
+import { clientError, clientWarn } from "@/lib/logging-utils";
 
 interface MessageRendererProps {
   content: string;
   sender: "user" | "ai";
+  onInsertMessage?: (text: string) => void;
 }
 
 interface WidgetData {
@@ -289,7 +291,7 @@ const TopicSelectionMessage: React.FC<{ data: any }> = ({ data }) => (
                 </div>
               )}
           </div>
-        ),
+        )
       )}
   </div>
 );
@@ -339,7 +341,7 @@ const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => {
         [stageIndex]: false,
       }));
     } catch (error) {
-      console.error("Error saving option selection:", error);
+      clientError("Error saving option selection:", error);
     }
   };
 
@@ -406,7 +408,9 @@ const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => {
                       className={`relative h-4 w-4 overflow-hidden transition-transform ${
                         dropdownStates[index] ? "rotate-180" : ""
                       } ${
-                        selectedOptions[index] || userOptions[index] ? "opacity-30" : "opacity-100"
+                        selectedOptions[index] || userOptions[index]
+                          ? "opacity-30"
+                          : "opacity-100"
                       }`}
                     >
                       <Image
@@ -431,7 +435,7 @@ const InputMessageComponent: React.FC<{ data: any }> = ({ data }) => {
                           >
                             {option.value}
                           </div>
-                        ),
+                        )
                       )}
                     </div>
                   )}
@@ -458,7 +462,10 @@ const TitleTextBoxMessage: React.FC<{ data: any }> = ({ data }) => (
   </div>
 );
 
-const RecapOfferMessage: React.FC<{ data: any }> = ({ data }) => (
+const RecapOfferMessage: React.FC<{
+  data: any;
+  onOptionSelect?: (text: string) => void;
+}> = ({ data, onOptionSelect }) => (
   <div className="rounded-lg border border-green-200 bg-green-50 p-4">
     <p className="mb-3 text-sm font-medium">{data.text}</p>
     {data.showOptions && data.options && (
@@ -466,7 +473,20 @@ const RecapOfferMessage: React.FC<{ data: any }> = ({ data }) => (
         {data.options.map((option: any, index: number) => (
           <button
             key={index}
+            type="button"
             className="w-full rounded-lg border bg-white p-3 text-left transition-colors hover:border-green-300"
+            onClick={() => {
+              const optionText =
+                option.insertText ??
+                option.label ??
+                option.text ??
+                option.message ??
+                option.content ??
+                "";
+              if (onOptionSelect) {
+                onOptionSelect(optionText);
+              }
+            }}
           >
             {option.label || option.text}
           </button>
@@ -579,7 +599,10 @@ const UnknownWidget: React.FC<{ data: any }> = ({ data }) => (
 );
 
 // Main component renderer
-const WidgetRenderer: React.FC<{ data: WidgetData }> = ({ data }) => {
+const WidgetRenderer: React.FC<{
+  data: WidgetData;
+  onInsertMessage?: (text: string) => void;
+}> = ({ data, onInsertMessage }) => {
   switch (data.widgetType) {
     case "AssistantSelectionWidget":
     case "AssistantSelection":
@@ -594,7 +617,7 @@ const WidgetRenderer: React.FC<{ data: WidgetData }> = ({ data }) => {
     case "TitleTextBoxMessage":
       return <TitleTextBoxMessage data={data} />;
     case "RecapOfferMessage":
-      return <RecapOfferMessage data={data} />;
+      return <RecapOfferMessage data={data} onOptionSelect={onInsertMessage} />;
     case "AccountabilityCalendar":
       return <AccountabilityCalendar data={data} />;
     case "NewAssistantAnnouncement":
@@ -626,7 +649,7 @@ const TypingIndicator: React.FC = () => (
 // Main MessageRenderer component
 const MessageRenderer: React.FC<
   MessageRendererProps & { messageType?: string; role?: string }
-> = ({ content, sender, messageType, role }) => {
+> = ({ content, sender, messageType, role, onInsertMessage }) => {
   const isUser = sender === "user";
 
   // Show typing indicator for typing messages
@@ -645,7 +668,7 @@ const MessageRenderer: React.FC<
   const parseMessageContent = (content: string) => {
     // Handle undefined, null, or empty content
     if (!content || typeof content !== "string") {
-      console.warn("MessageRenderer: Invalid content received:", content);
+      clientWarn("MessageRenderer: Invalid content received:", content);
       return { type: "text", data: "Mesaj içeriği yok" };
     }
 
@@ -672,11 +695,14 @@ const MessageRenderer: React.FC<
     try {
       return (
         <div className="w-full">
-          <WidgetRenderer data={data as WidgetData} />
+          <WidgetRenderer
+            data={data as WidgetData}
+            onInsertMessage={onInsertMessage}
+          />
         </div>
       );
     } catch (error) {
-      console.error("Error rendering widget:", error);
+      clientError("Error rendering widget:", error);
       return (
         <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-600">
           Widget render hatası:{" "}
@@ -694,9 +720,7 @@ const MessageRenderer: React.FC<
   };
 
   return (
-    <div
-      className={`prose prose-sm max-w-none font-poppins ${getTextColor()}`}
-    >
+    <div className={`prose prose-sm max-w-none font-poppins ${getTextColor()}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
@@ -705,10 +729,10 @@ const MessageRenderer: React.FC<
           p: ({ children }) => (
             <p
               className={`${
-                role === "journal" 
-                  ? "font-medium !text-black" 
-                  : isUser 
-                    ? "font-normal !text-white" 
+                role === "journal"
+                  ? "font-medium !text-black"
+                  : isUser
+                    ? "font-normal !text-white"
                     : "font-medium text-text-body-black"
               } mb-2 font-poppins text-sm leading-tight last:mb-0`}
             >
@@ -718,10 +742,10 @@ const MessageRenderer: React.FC<
           h1: ({ children }) => (
             <h1
               className={`${
-                role === "journal" 
-                  ? "!text-black" 
-                  : isUser 
-                    ? "!text-white" 
+                role === "journal"
+                  ? "!text-black"
+                  : isUser
+                    ? "!text-white"
                     : "text-title-black"
               } mb-3 font-righteous text-lg font-bold`}
             >
@@ -731,10 +755,10 @@ const MessageRenderer: React.FC<
           h2: ({ children }) => (
             <h2
               className={`${
-                role === "journal" 
-                  ? "!text-black" 
-                  : isUser 
-                    ? "!text-white" 
+                role === "journal"
+                  ? "!text-black"
+                  : isUser
+                    ? "!text-white"
                     : "text-title-black"
               } mb-2 font-righteous text-base font-semibold`}
             >
@@ -744,10 +768,10 @@ const MessageRenderer: React.FC<
           h3: ({ children }) => (
             <h3
               className={`${
-                role === "journal" 
-                  ? "!text-black" 
-                  : isUser 
-                    ? "!text-white" 
+                role === "journal"
+                  ? "!text-black"
+                  : isUser
+                    ? "!text-white"
                     : "text-title-black"
               } mb-2 text-sm font-semibold`}
             >
@@ -757,10 +781,10 @@ const MessageRenderer: React.FC<
           strong: ({ children }) => (
             <strong
               className={`font-bold ${
-                role === "journal" 
-                  ? "!text-black" 
-                  : isUser 
-                    ? "!text-white" 
+                role === "journal"
+                  ? "!text-black"
+                  : isUser
+                    ? "!text-white"
                     : "text-title-black"
               }`}
             >
@@ -770,10 +794,10 @@ const MessageRenderer: React.FC<
           em: ({ children }) => (
             <em
               className={`italic ${
-                role === "journal" 
-                  ? "!text-black" 
-                  : isUser 
-                    ? "!text-white" 
+                role === "journal"
+                  ? "!text-black"
+                  : isUser
+                    ? "!text-white"
                     : "text-text-body-black"
               }`}
             >
@@ -801,10 +825,10 @@ const MessageRenderer: React.FC<
           li: ({ children }) => (
             <li
               className={`flex items-start gap-2 text-sm ${
-                role === "journal" 
-                  ? "!text-black" 
-                  : isUser 
-                    ? "!text-white" 
+                role === "journal"
+                  ? "!text-black"
+                  : isUser
+                    ? "!text-white"
                     : "text-text-body-black"
               }`}
             >
