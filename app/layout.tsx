@@ -17,7 +17,7 @@ const righteous = Righteous({
 });
 
 export const metadata: Metadata = {
-  title: "Up Growth AI Companion",
+  title: "UP AI Growth Companion",
   description: "Enterprise chat application demonstration",
   manifest: "/favicon_io/site.webmanifest",
   icons: {
