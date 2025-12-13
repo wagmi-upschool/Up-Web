@@ -232,3 +232,20 @@ Require stack:
  GET /icon.png?b3a1e2bbe1633112 500 in 792ms
  ✓ Compiled /favicon.ico in 109ms (1051 modules)
  GET /favicon.ico 200 in 124ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, lstat '/Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server/vendor-chunks'
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/@opentelemetry' in /Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server for build dependencies doesn't lead to expected result '/Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server/vendor-chunks/@opentelemetry.js', but to 'Error: Can't resolve './vendor-chunks/@opentelemetry' in '/Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/@opentelemetry (expected /Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server/vendor-chunks/@opentelemetry.js)
+<w>  at file dependencies /Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server/webpack-runtime.js
+<w>  at file /Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server/webpack-runtime.js
+<w>  at file dependencies /Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server/app/favicon.ico/route.js
+<w>  at file /Users/yusuf/Software/Projects/Web-Development/Up-Web/.next/server/app/favicon.ico/route.js
+<w>  at file dependencies /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/server/require.js
+<w>  at file /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/server/require.js
+<w>  at file dependencies /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/server/load-components.js
+<w>  at file /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/server/load-components.js
+<w>  at file dependencies /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/build/utils.js
+<w>  at file /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/build/utils.js
+<w>  at file dependencies /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at file /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+<w>  at resolve commonjs /Users/yusuf/Software/Projects/Web-Development/Up-Web/node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js
+ ✓ Compiled in 418ms (2106 modules)
