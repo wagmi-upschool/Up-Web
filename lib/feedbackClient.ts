@@ -34,6 +34,7 @@ async function api<T>(path: string, init: RequestInit = {}) {
 
 export type FeedbackReceiver = {
   feedback_receiver_id: string;
+  name?: string;
   email?: string;
   email_address?: string;
   receiver_email?: string;
