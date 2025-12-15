@@ -4,6 +4,7 @@ import { Amplify } from "aws-amplify";
 import { getCurrentUser, signOut } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import React, { useState, useEffect, createContext, useContext } from "react";
+import { usePathname } from "next/navigation";
 import LoginComponent from "@/components/auth/Login";
 import outputs from '../../../src/amplifyconfiguration.json';
 
@@ -33,9 +34,15 @@ Amplify.configure(outputs, {
   ssr: true // Enable SSR support
 });
 
+const publicPaths = ["/feedback"];
+
 function AuthProvider({ children }: Props) {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
+  const isPublicRoute = publicPaths.some((path) =>
+    pathname?.startsWith(path),
+  );
 
   useEffect(() => {
     checkAuthState();
@@ -94,15 +101,25 @@ function AuthProvider({ children }: Props) {
     logout
   };
 
-  if (loading) {
-    return <div>Loading...</div>;
+  if (loading && !isPublicRoute) {
+    return (
+      <AuthContext.Provider value={contextValue}>
+        <div>Loading...</div>
+      </AuthContext.Provider>
+    );
   }
 
   console.log('AuthProvider render - User:', user, 'Loading:', loading);
   
   return (
     <AuthContext.Provider value={contextValue}>
-      {!user ? <LoginComponent /> : <div>{children}</div>}
+      {isPublicRoute ? (
+        <div>{children}</div>
+      ) : !user ? (
+        <LoginComponent />
+      ) : (
+        <div>{children}</div>
+      )}
     </AuthContext.Provider>
   );
 }
