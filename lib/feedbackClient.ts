@@ -1,10 +1,10 @@
 "use client";
 
-const base = process.env.NEXT_PUBLIC_BASE_URL;
+const base = process.env.NEXT_PUBLIC_REMOTE_URL;
 
 async function api<T>(path: string, init: RequestInit = {}) {
   if (!base) {
-    throw new Error("NEXT_PUBLIC_BASE_URL is not configured.");
+    throw new Error("NEXT_PUBLIC_REMOTE_URL is not configured.");
   }
 
   const response = await fetch(`${base}${path}`, {
