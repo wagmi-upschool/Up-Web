@@ -21,6 +21,7 @@ import {
   getReceivers,
   submitSurvey,
 } from "@/lib/feedbackClient";
+import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type FeedbackFormValues = {
   receiverId: string;
@@ -41,7 +42,6 @@ function getReceiverEmail(receiver: FeedbackReceiver) {
 function formatReceiverLabel(receiver: FeedbackReceiver) {
   const email = getReceiverEmail(receiver);
   const name = receiver.name?.trim();
-  if (name && email) return `${name} (${email})`;
   if (name) return name;
   if (email) return email;
   return `ID: ${receiver.feedback_receiver_id}`;
@@ -160,7 +160,6 @@ function FeedbackPageContent() {
   const submitMutation = useMutation({
     mutationFn: submitSurvey,
     onSuccess: (data) => {
-      toast.success(`Anket ${data.survey_id} başarıyla gönderildi.`);
       form.reset({ receiverId, answers: {} });
       setStartTime(Date.now());
       setShowSuccess(true);
@@ -266,13 +265,12 @@ function FeedbackPageContent() {
       <div
         className="min-h-screen relative"
         style={{
-          backgroundImage: "url(/image.png)",
+          backgroundImage: "url(/bg-df.png)",
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
         }}
       >
-        <div className="absolute inset-0 bg-white" />
         <div className="relative z-10 max-w-4xl mx-auto px-3 sm:px-4 py-10 space-y-6 text-center">
           <div className="flex justify-center">
             <img src="/up.svg" alt="UP" className="h-10 sm:h-12 w-auto" />
@@ -306,13 +304,12 @@ function FeedbackPageContent() {
     <div
       className="min-h-screen relative"
       style={{
-        backgroundImage: "url(/image.png)",
+        backgroundImage: "url(/bg-df.png)",
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
     >
-      <div className="absolute inset-0 bg-white" />
       <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6">
         <header className="bg-white/95 border border-gray-200 rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
           <img src="/up.svg" alt="UP" className="h-8 sm:h-10 w-auto" />
@@ -374,7 +371,7 @@ function FeedbackPageContent() {
               )}
 
               {loadingReceivers ? (
-                <div className="h-10 w-full rounded border border-gray-200 bg-gray-100 animate-pulse" />
+                <LottieSpinner size={140} className="py-6" />
               ) : receivers?.feedback_receivers?.length ? (
                 <select
                   value={receiverId}
@@ -401,18 +398,7 @@ function FeedbackPageContent() {
 
             <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
               {loadingQuestions && receiverId ? (
-                <div className="space-y-4">
-                  <div className="h-6 w-52 rounded bg-primary/20 animate-pulse" />
-                  <div className="h-4 w-full rounded bg-primary/10 animate-pulse" />
-                  <div className="space-y-3">
-                    {Array.from({ length: 3 }).map((_, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <div className="h-4 w-2/3 rounded bg-primary/20 animate-pulse" />
-                        <div className="h-10 w-full rounded bg-primary/10 animate-pulse" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <LottieSpinner size={160} className="py-8" />
               ) : null}
 
               {!receiverId && (
@@ -431,12 +417,15 @@ function FeedbackPageContent() {
 
               {questionsResp && (
                 <div className="space-y-4">
-                  <div className="rounded-md border border-gray-300 bg-[#0F1429] text-white p-4 space-y-1.5 shadow-sm">
-                    <p className="text-xs uppercase text-gray-300 tracking-wide font-poppins">
-                      En düşük puanlı yetkinlik
-                    </p>
-                    <p className="text-lg font-semibold font-poppins">
-                      {questionsResp.competency.name}
+                <div
+                  className="rounded-md border border-[#0046cc] bg-[#0057FF] text-white p-4 space-y-1.5 shadow-sm"
+                  style={{ boxShadow: "0px 10px 30px rgba(0, 87, 255, 0.12)" }}
+                >
+                  <p className="text-xs uppercase text-gray-300 tracking-wide font-poppins">
+                    En düşük puanlı yetkinlik
+                  </p>
+                  <p className="text-lg font-semibold font-poppins">
+                    {questionsResp.competency.name}
                     </p>
                     <p className="text-sm text-gray-200 font-poppins">
                       {questionsResp.competency.description}
@@ -483,7 +472,7 @@ function FeedbackPageContent() {
                                           },
                                         )
                                       }
-                                      className="p-1 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
+                                      className="p-1 rounded focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none"
                                       aria-label={`Puan ${value}`}
                                     >
                                       <Star
@@ -548,12 +537,7 @@ function FeedbackPageContent() {
                       );
                     })}
 
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600 font-poppins">
-                        {startTime
-                          ? "Sayaç çalışıyor… süreyi gönderime ekleyeceğiz."
-                          : "Sorular yüklenince sayaç başlayacak."}
-                      </div>
+                    <div className="flex items-center justify-end">
                       <button
                         type="submit"
                         disabled={
@@ -561,7 +545,11 @@ function FeedbackPageContent() {
                           submitMutation.isPending ||
                           !form.formState.isValid
                         }
-                        className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white font-poppins disabled:cursor-not-allowed disabled:opacity-50 shadow-sm hover:bg-blue-700 transition-colors"
+                        className={`rounded-md px-5 py-2 text-sm font-semibold font-poppins shadow-sm transition-colors ${
+                          formDisabled || submitMutation.isPending || !form.formState.isValid
+                            ? "bg-[#99BCFF] text-white cursor-not-allowed"
+                            : "bg-primary text-white hover:bg-blue-700"
+                        }`}
                       >
                         {submitMutation.isPending ? "Gönderiliyor..." : "Geri bildirimi gönder"}
                       </button>
