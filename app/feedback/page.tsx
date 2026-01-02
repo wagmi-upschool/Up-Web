@@ -161,6 +161,12 @@ function FeedbackPageContent() {
     }
   }, [form, lastQuestionReceiver, questionsResp, receiverId]);
 
+  useEffect(() => {
+    if (questionsResp?.competency) {
+      console.log("En düşük puanlı yetkinlik:", questionsResp.competency);
+    }
+  }, [questionsResp]);
+
   const sortedQuestions = useMemo(
     () =>
       (questionsResp?.questions || [])
@@ -286,14 +292,14 @@ function FeedbackPageContent() {
             <h1 className="text-2xl sm:text-3xl font-righteous text-title-black">
               Geçersiz geri bildirim bağlantısı
             </h1>
-            <p className="text-sm sm:text-base text-gray-700 font-poppins max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-gray-700 font-poppins max-w-2xl mx-auto">
               Geçersiz link.
             </p>
             <div className="flex justify-center">
               <button
                 type="button"
                 onClick={() => router.push("/")}
-                className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
+                className="rounded-md bg-primary px-5 py-2 text-base font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
               >
                 Ana sayfaya dön
               </button>
@@ -310,10 +316,10 @@ function FeedbackPageContent() {
         <header className="bg-white/95 border border-gray-200 rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
           <img src="/up.svg" alt="UP" className="h-8 sm:h-10 w-auto" />
           <div className="space-y-1">
-            <h1 className="font-righteous text-xl sm:text-2xl text-title-black">
+            <h1 className="font-righteous text-2xl sm:text-3xl text-title-black">
               Geri Bildirim Ver
             </h1>
-            <p className="text-sm sm:text-base font-poppins text-text-description-gray">
+            <p className="text-base sm:text-lg font-poppins text-text-description-gray">
               Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder.
             </p>
           </div>
@@ -328,7 +334,7 @@ function FeedbackPageContent() {
               <h2 className="text-2xl sm:text-3xl font-righteous text-title-black">
                 Teşekkürler
               </h2>
-              <p className="text-sm sm:text-base text-gray-700 font-poppins max-w-2xl mx-auto">
+              <p className="text-base sm:text-lg text-gray-700 font-poppins max-w-2xl mx-auto">
                 Yanıtların kaydedildi. Başka bir ekip arkadaşın için yeni bir anket başlatabilirsin.
               </p>
             </div>
@@ -336,7 +342,7 @@ function FeedbackPageContent() {
               <button
                 type="button"
                 onClick={handleStartOver}
-                className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
+                className="rounded-md bg-primary px-5 py-2 text-base font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
               >
                 Yeni geri bildirim başlat
               </button>
@@ -346,7 +352,7 @@ function FeedbackPageContent() {
           <div className="space-y-4">
             <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-title-black font-semibold font-poppins">
+                <p className="text-title-black text-lg font-semibold font-poppins">
                   Değerlendirilecek kişiyi seç
                 </p>
                 {loadingReceivers && (
@@ -355,13 +361,13 @@ function FeedbackPageContent() {
               </div>
 
               {receiversError && (
-                <p className="text-sm text-red-600 font-poppins">
+                <p className="text-base text-red-600 font-poppins">
                   {formatApiError(receiversError)}
                 </p>
               )}
 
               {receiversEmpty && (
-                <p className="text-sm text-gray-600 font-poppins">
+                <p className="text-base text-gray-600 font-poppins">
                   Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz.
                 </p>
               )}
@@ -373,9 +379,9 @@ function FeedbackPageContent() {
                   value={receiverId}
                   onChange={(event) => handleReceiverChange(event.target.value)}
                   disabled={!canQuery}
-                  className="w-full rounded-md border border-gray-300 bg-white p-2 text-title-black font-poppins"
+                  className="w-full rounded-md border border-gray-300 bg-white p-3 text-base sm:text-lg text-title-black font-poppins"
                 >
-                  <option value="">Alıcı seç</option>
+                  <option value="">Seç...</option>
                   {receivers.feedback_receivers.map((receiver) => (
                     <option
                       key={receiver.feedback_receiver_id}
@@ -386,7 +392,7 @@ function FeedbackPageContent() {
                   ))}
                 </select>
               ) : !receiversEmpty ? (
-                <p className="text-sm text-gray-600 font-poppins">
+                <p className="text-base text-gray-600 font-poppins">
                   Alıcılar burada görünecek.
                 </p>
               ) : null}
@@ -398,14 +404,14 @@ function FeedbackPageContent() {
               ) : null}
 
               {!receiverId && (
-                <p className="text-sm text-gray-600 font-poppins">
-                  Yetkinlik ve soruları görmek için bir alıcı seçin.
+                <p className="text-base text-gray-600 font-poppins">
+                  Yetkinlik ve soruları görmek için bir alıcı seç.
                 </p>
               )}
 
               {questionsError && (
                 <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm text-red-700 font-poppins">
+                  <p className="text-base text-red-700 font-poppins">
                     {formatApiError(questionsError)}
                   </p>
                 </div>
@@ -413,21 +419,6 @@ function FeedbackPageContent() {
 
               {questionsResp && (
                 <div className="space-y-4">
-                <div
-                  className="rounded-md border border-[#0046cc] bg-[#0057FF] text-white p-4 space-y-1.5 shadow-sm"
-                  style={{ boxShadow: "0px 10px 30px rgba(0, 87, 255, 0.12)" }}
-                >
-                  <p className="text-xs uppercase text-gray-300 tracking-wide font-poppins">
-                    En düşük puanlı yetkinlik
-                  </p>
-                  <p className="text-lg font-semibold font-poppins">
-                    {questionsResp.competency.name}
-                    </p>
-                    <p className="text-sm text-gray-200 font-poppins">
-                      {questionsResp.competency.description}
-                    </p>
-                  </div>
-
                   <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
                     {sortedQuestions.map((question) => {
                       const errorMessage =
@@ -435,7 +426,7 @@ function FeedbackPageContent() {
 
                       return (
                         <div key={question.question_id} className="space-y-1.5">
-                          <label className="block text-title-black font-semibold font-poppins">
+                          <label className="block text-title-black text-base sm:text-lg font-semibold font-poppins">
                             {question.order}. {question.question_text}
                           </label>
                           {question.type === "likert" ? (
@@ -472,7 +463,7 @@ function FeedbackPageContent() {
                                       aria-label={`Puan ${value}`}
                                     >
                                       <Star
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
+                                        className="h-8 w-8 sm:h-9 sm:w-9"
                                         strokeWidth={1.5}
                                         fill={active ? "#fbbf24" : "transparent"}
                                         color={active ? "#f59e0b" : "#d1d5db"}
@@ -496,7 +487,7 @@ function FeedbackPageContent() {
                             <textarea
                               rows={4}
                               maxLength={MAX_FREE_TEXT}
-                              className="w-full rounded-md border border-gray-300 bg-white p-2 text-title-black font-poppins"
+                              className="w-full rounded-md border border-gray-300 bg-white p-3 text-base sm:text-lg text-title-black font-poppins"
                               {...form.register(
                                 `answers.${question.question_id}`,
                                 {
@@ -509,7 +500,7 @@ function FeedbackPageContent() {
                               )}
                             />
                           )}
-                          <p className="text-xs text-gray-600 font-poppins">
+                          <p className="text-sm text-gray-600 font-poppins">
                             {question.type === "likert" ? (
                               <span>
                                 Ölçek {question.scale_min ?? 1}-
@@ -525,7 +516,7 @@ function FeedbackPageContent() {
                             )}
                           </p>
                           {errorMessage ? (
-                            <p className="text-xs text-red-600 font-poppins">
+                            <p className="text-sm text-red-600 font-poppins">
                               {errorMessage}
                             </p>
                           ) : null}
@@ -541,7 +532,7 @@ function FeedbackPageContent() {
                           submitMutation.isPending ||
                           !form.formState.isValid
                         }
-                        className={`rounded-md px-5 py-2 text-sm font-semibold font-poppins shadow-sm transition-colors ${
+                        className={`rounded-md px-5 py-2 text-base font-semibold font-poppins shadow-sm transition-colors ${
                           formDisabled || submitMutation.isPending || !form.formState.isValid
                             ? "bg-[#99BCFF] text-white cursor-not-allowed"
                             : "bg-primary text-white hover:bg-blue-700"
