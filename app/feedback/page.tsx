@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import {
@@ -94,6 +94,18 @@ function likertValidation(question: FeedbackQuestion, value?: string) {
     return `En fazla ${question.scale_max} olmalı.`;
   }
   return true;
+}
+
+function FeedbackPageShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen min-h-[100dvh] relative">
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-0 bg-[url('/bg-df.png')] bg-cover bg-center bg-no-repeat pointer-events-none"
+      />
+      {children}
+    </div>
+  );
 }
 
 function FeedbackPageContent() {
@@ -262,15 +274,7 @@ function FeedbackPageContent() {
 
   if (!giverId) {
     return (
-      <div
-        className="min-h-screen relative"
-        style={{
-          backgroundImage: "url(/bg-df.png)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
+      <FeedbackPageShell>
         <div className="relative z-10 max-w-4xl mx-auto px-3 sm:px-4 py-10 space-y-6 text-center">
           <div className="flex justify-center">
             <img src="/up.svg" alt="UP" className="h-10 sm:h-12 w-auto" />
@@ -296,20 +300,12 @@ function FeedbackPageContent() {
             </div>
           </div>
         </div>
-      </div>
+      </FeedbackPageShell>
     );
   }
 
   return (
-    <div
-      className="min-h-screen relative"
-      style={{
-        backgroundImage: "url(/bg-df.png)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <FeedbackPageShell>
       <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6">
         <header className="bg-white/95 border border-gray-200 rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
           <img src="/up.svg" alt="UP" className="h-8 sm:h-10 w-auto" />
@@ -561,7 +557,7 @@ function FeedbackPageContent() {
           </div>
         )}
       </div>
-    </div>
+    </FeedbackPageShell>
   );
 }
 
