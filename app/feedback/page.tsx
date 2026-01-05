@@ -316,7 +316,7 @@ function FeedbackPageContent() {
         <header className="bg-white/95 border border-gray-200 rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
           <img src="/up.svg" alt="UP" className="h-12 sm:h-16 w-auto" />
           <div className="space-y-1">
-            <h1 className="font-righteous text-4xl sm:text-5xl text-title-black">
+            <h1 className="font-righteous text-3xl sm:text-4xl text-title-black">
               Geri Bildirim Ver
             </h1>
             <p className="text-xl sm:text-2xl font-poppins text-text-description-gray">
