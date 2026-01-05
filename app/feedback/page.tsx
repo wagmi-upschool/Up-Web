@@ -283,23 +283,23 @@ function FeedbackPageContent() {
       <FeedbackPageShell>
         <div className="relative z-10 max-w-4xl mx-auto px-3 sm:px-4 py-10 space-y-6 text-center">
           <div className="flex justify-center">
-            <img src="/up.svg" alt="UP" className="h-10 sm:h-12 w-auto" />
+            <img src="/up.svg" alt="UP" className="h-16 sm:h-20 w-auto" />
           </div>
           <div className="bg-white/95 border border-gray-200 rounded-2xl shadow-sm px-6 sm:px-10 py-10 space-y-4">
-            <p className="text-primary font-semibold font-poppins text-sm uppercase tracking-wide">
+            <p className="text-primary font-semibold font-poppins text-lg uppercase tracking-wide">
               404
             </p>
-            <h1 className="text-2xl sm:text-3xl font-righteous text-title-black">
+            <h1 className="text-4xl sm:text-5xl font-righteous text-title-black">
               Geçersiz geri bildirim bağlantısı
             </h1>
-            <p className="text-base sm:text-lg text-gray-700 font-poppins max-w-2xl mx-auto">
+            <p className="text-xl sm:text-2xl text-gray-700 font-poppins max-w-2xl mx-auto">
               Geçersiz link.
             </p>
             <div className="flex justify-center">
               <button
                 type="button"
                 onClick={() => router.push("/")}
-                className="rounded-md bg-primary px-5 py-2 text-base font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
+                className="rounded-md bg-primary px-5 py-2 text-xl font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
               >
                 Ana sayfaya dön
               </button>
@@ -314,12 +314,12 @@ function FeedbackPageContent() {
     <FeedbackPageShell>
       <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6">
         <header className="bg-white/95 border border-gray-200 rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
-          <img src="/up.svg" alt="UP" className="h-8 sm:h-10 w-auto" />
+          <img src="/up.svg" alt="UP" className="h-12 sm:h-16 w-auto" />
           <div className="space-y-1">
-            <h1 className="font-righteous text-2xl sm:text-3xl text-title-black">
+            <h1 className="font-righteous text-4xl sm:text-5xl text-title-black">
               Geri Bildirim Ver
             </h1>
-            <p className="text-base sm:text-lg font-poppins text-text-description-gray">
+            <p className="text-xl sm:text-2xl font-poppins text-text-description-gray">
               Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder.
             </p>
           </div>
@@ -331,10 +331,10 @@ function FeedbackPageContent() {
               Geri bildirimin ulaştı!
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-righteous text-title-black">
+              <h2 className="text-4xl sm:text-5xl font-righteous text-title-black">
                 Teşekkürler
               </h2>
-              <p className="text-base sm:text-lg text-gray-700 font-poppins max-w-2xl mx-auto">
+              <p className="text-xl sm:text-2xl text-gray-700 font-poppins max-w-2xl mx-auto">
                 Yanıtların kaydedildi. Başka bir ekip arkadaşın için yeni bir anket başlatabilirsin.
               </p>
             </div>
@@ -342,7 +342,7 @@ function FeedbackPageContent() {
               <button
                 type="button"
                 onClick={handleStartOver}
-                className="rounded-md bg-primary px-5 py-2 text-base font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
+                className="rounded-md bg-primary px-5 py-2 text-xl font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
               >
                 Yeni geri bildirim başlat
               </button>
@@ -352,7 +352,7 @@ function FeedbackPageContent() {
           <div className="space-y-4">
             <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-title-black text-lg font-semibold font-poppins">
+                <p className="text-title-black text-2xl font-semibold font-poppins">
                   Değerlendirilecek kişiyi seç
                 </p>
                 {loadingReceivers && (
@@ -361,13 +361,13 @@ function FeedbackPageContent() {
               </div>
 
               {receiversError && (
-                <p className="text-base text-red-600 font-poppins">
+                <p className="text-xl text-red-600 font-poppins">
                   {formatApiError(receiversError)}
                 </p>
               )}
 
               {receiversEmpty && (
-                <p className="text-base text-gray-600 font-poppins">
+                <p className="text-xl text-gray-600 font-poppins">
                   Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz.
                 </p>
               )}
@@ -379,7 +379,7 @@ function FeedbackPageContent() {
                   value={receiverId}
                   onChange={(event) => handleReceiverChange(event.target.value)}
                   disabled={!canQuery}
-                  className="w-full rounded-md border border-gray-300 bg-white p-3 text-base sm:text-lg text-title-black font-poppins"
+                  className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl sm:text-2xl text-title-black font-poppins"
                 >
                   <option value="">Seç...</option>
                   {receivers.feedback_receivers.map((receiver) => (
@@ -392,7 +392,7 @@ function FeedbackPageContent() {
                   ))}
                 </select>
               ) : !receiversEmpty ? (
-                <p className="text-base text-gray-600 font-poppins">
+                <p className="text-xl text-gray-600 font-poppins">
                   Alıcılar burada görünecek.
                 </p>
               ) : null}
@@ -404,14 +404,14 @@ function FeedbackPageContent() {
               ) : null}
 
               {!receiverId && (
-                <p className="text-base text-gray-600 font-poppins">
+                <p className="text-xl text-gray-600 font-poppins">
                   Yetkinlik ve soruları görmek için bir alıcı seç.
                 </p>
               )}
 
               {questionsError && (
                 <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                  <p className="text-base text-red-700 font-poppins">
+                  <p className="text-xl text-red-700 font-poppins">
                     {formatApiError(questionsError)}
                   </p>
                 </div>
@@ -426,7 +426,7 @@ function FeedbackPageContent() {
 
                       return (
                         <div key={question.question_id} className="space-y-1.5">
-                          <label className="block text-title-black text-base sm:text-lg font-semibold font-poppins">
+                          <label className="block text-title-black text-2xl sm:text-3xl font-semibold font-poppins">
                             {question.order}. {question.question_text}
                           </label>
                           {question.type === "likert" ? (
@@ -487,7 +487,7 @@ function FeedbackPageContent() {
                             <textarea
                               rows={4}
                               maxLength={MAX_FREE_TEXT}
-                              className="w-full rounded-md border border-gray-300 bg-white p-3 text-base sm:text-lg text-title-black font-poppins"
+                              className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl sm:text-2xl text-title-black font-poppins"
                               {...form.register(
                                 `answers.${question.question_id}`,
                                 {
@@ -500,7 +500,7 @@ function FeedbackPageContent() {
                               )}
                             />
                           )}
-                          <p className="text-sm text-gray-600 font-poppins">
+                          <p className="text-lg text-gray-600 font-poppins">
                             {question.type === "likert" ? (
                               <span>
                                 Ölçek {question.scale_min ?? 1}-
@@ -516,7 +516,7 @@ function FeedbackPageContent() {
                             )}
                           </p>
                           {errorMessage ? (
-                            <p className="text-sm text-red-600 font-poppins">
+                            <p className="text-lg text-red-600 font-poppins">
                               {errorMessage}
                             </p>
                           ) : null}
@@ -532,7 +532,7 @@ function FeedbackPageContent() {
                           submitMutation.isPending ||
                           !form.formState.isValid
                         }
-                        className={`rounded-md px-5 py-2 text-base font-semibold font-poppins shadow-sm transition-colors ${
+                        className={`rounded-md px-5 py-2 text-xl font-semibold font-poppins shadow-sm transition-colors ${
                           formDisabled || submitMutation.isPending || !form.formState.isValid
                             ? "bg-[#99BCFF] text-white cursor-not-allowed"
                             : "bg-primary text-white hover:bg-blue-700"
