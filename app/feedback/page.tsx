@@ -299,6 +299,9 @@ function FeedbackPageContent() {
     [sortedQuestions, watchedAnswers],
   );
 
+  const canSubmit =
+    !formDisabled && !submitMutation.isPending && hasAtLeastOneAnswer;
+
   const answerErrors = form.formState.errors
     .answers as Record<string, { message?: string }> | undefined;
 
@@ -562,17 +565,9 @@ function FeedbackPageContent() {
                     <div className="flex items-center justify-end">
                       <button
                         type="submit"
-                        disabled={
-                          formDisabled ||
-                          submitMutation.isPending ||
-                          !form.formState.isValid ||
-                          !hasAtLeastOneAnswer
-                        }
+                        disabled={!canSubmit}
                         className={`rounded-md px-5 py-2 text-xl font-semibold font-poppins shadow-sm transition-colors ${
-                          formDisabled ||
-                          submitMutation.isPending ||
-                          !form.formState.isValid ||
-                          !hasAtLeastOneAnswer
+                          !canSubmit
                             ? "bg-[#99BCFF] text-white cursor-not-allowed"
                             : "bg-primary text-white hover:bg-blue-700"
                         }`}
