@@ -74,9 +74,6 @@ function formatApiError(error: unknown) {
 }
 
 function likertValidation(question: FeedbackQuestion, value?: string) {
-  if (value === undefined || value === null || value === "") {
-    return "Bu soru zorunlu.";
-  }
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
     return "Lütfen sayı girin.";
@@ -94,6 +91,15 @@ function likertValidation(question: FeedbackQuestion, value?: string) {
     return `En fazla ${question.scale_max} olmalı.`;
   }
   return true;
+}
+
+function isEmptyAnswer(
+  value: string | null | undefined,
+  type: FeedbackQuestion["type"],
+) {
+  if (value === undefined || value === null) return true;
+  if (type === "free_text") return value.trim() === "";
+  return value === "";
 }
 
 function FeedbackPageShell({ children }: { children: ReactNode }) {
@@ -208,21 +214,32 @@ function FeedbackPageContent() {
   };
 
   const validateBeforeSubmit = (values: FeedbackFormValues) => {
+    let hasAnswer = false;
+
     for (const question of sortedQuestions) {
       const rawValue = values.answers?.[question.question_id];
-      if (rawValue === undefined || rawValue === null || rawValue === "") {
-        return "Lütfen tüm soruları yanıtlayın.";
+      const empty = isEmptyAnswer(rawValue, question.type);
+
+      if (empty) {
+        continue;
       }
+
+      hasAnswer = true;
 
       if (question.type === "likert") {
         const verdict = likertValidation(question, rawValue);
         if (verdict !== true) return verdict;
       } else if (question.type === "free_text") {
-        if (rawValue.length > MAX_FREE_TEXT) {
+        if (rawValue.trim().length > MAX_FREE_TEXT) {
           return "Metin yanıtları en fazla 2000 karakter olmalı.";
         }
       }
     }
+
+    if (!hasAnswer) {
+      return "En az bir soruyu yanıtlamalısın.";
+    }
+
     return null;
   };
 
@@ -235,8 +252,10 @@ function FeedbackPageContent() {
       return;
     }
 
-    const answers = sortedQuestions.map((question) => {
-      const rawValue = values.answers?.[question.question_id] || "";
+    const answers = sortedQuestions.flatMap((question) => {
+      const rawValue = values.answers?.[question.question_id];
+      if (isEmptyAnswer(rawValue, question.type)) return [];
+
       return {
         question_id: question.question_id,
         answer_type: question.type,
@@ -266,6 +285,19 @@ function FeedbackPageContent() {
 
   const formDisabled =
     submitMutation.isPending || loadingQuestions || !questionsResp;
+
+  const watchedAnswers = form.watch("answers");
+  const hasAtLeastOneAnswer = useMemo(
+    () =>
+      sortedQuestions.some(
+        (question) =>
+          !isEmptyAnswer(
+            watchedAnswers?.[question.question_id],
+            question.type,
+          ),
+      ),
+    [sortedQuestions, watchedAnswers],
+  );
 
   const answerErrors = form.formState.errors
     .answers as Record<string, { message?: string }> | undefined;
@@ -477,8 +509,12 @@ function FeedbackPageContent() {
                                 {...form.register(
                                   `answers.${question.question_id}`,
                                   {
-                                    validate: (value) =>
-                                      likertValidation(question, value),
+                                    validate: (value) => {
+                                      if (isEmptyAnswer(value, question.type)) {
+                                        return true;
+                                      }
+                                      return likertValidation(question, value);
+                                    },
                                   },
                                 )}
                               />
@@ -491,7 +527,6 @@ function FeedbackPageContent() {
                               {...form.register(
                                 `answers.${question.question_id}`,
                                 {
-                                  required: "Bu soru zorunlu.",
                                   maxLength: {
                                     value: MAX_FREE_TEXT,
                                     message: `En fazla ${MAX_FREE_TEXT} karakter.`,
@@ -530,10 +565,14 @@ function FeedbackPageContent() {
                         disabled={
                           formDisabled ||
                           submitMutation.isPending ||
-                          !form.formState.isValid
+                          !form.formState.isValid ||
+                          !hasAtLeastOneAnswer
                         }
                         className={`rounded-md px-5 py-2 text-xl font-semibold font-poppins shadow-sm transition-colors ${
-                          formDisabled || submitMutation.isPending || !form.formState.isValid
+                          formDisabled ||
+                          submitMutation.isPending ||
+                          !form.formState.isValid ||
+                          !hasAtLeastOneAnswer
                             ? "bg-[#99BCFF] text-white cursor-not-allowed"
                             : "bg-primary text-white hover:bg-blue-700"
                         }`}
