@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import {
   QueryClient,
   QueryClientProvider,
@@ -286,7 +286,10 @@ function FeedbackPageContent() {
   const formDisabled =
     submitMutation.isPending || loadingQuestions || !questionsResp;
 
-  const watchedAnswers = form.watch("answers");
+  const watchedAnswers = useWatch({
+    control: form.control,
+    name: "answers",
+  });
   const hasAtLeastOneAnswer = useMemo(
     () =>
       sortedQuestions.some(
