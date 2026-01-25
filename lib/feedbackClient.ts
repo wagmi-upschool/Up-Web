@@ -66,7 +66,7 @@ export type SubmitSurveyPayload = {
   competency_id: string;
   answers: {
     question_id: string;
-    answer_value: string | number;
+    answer_value: string | number | null;
     answer_type: "likert" | "free_text";
   }[];
   channel?: "push" | "in_app" | "email";

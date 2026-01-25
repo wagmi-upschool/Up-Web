@@ -67,7 +67,9 @@ function formatApiError(error: unknown) {
   }
 
   if (code?.startsWith("VAL_")) {
-    return message || "Bazı yanıtlar geçersiz. Lütfen kontrol edip tekrar deneyin.";
+    return (
+      message || "Bazı yanıtlar geçersiz. Lütfen kontrol edip tekrar deneyin."
+    );
   }
 
   return message || raw || "Bir şeyler ters gitti. Lütfen tekrar deneyin.";
@@ -252,15 +254,18 @@ function FeedbackPageContent() {
       return;
     }
 
-    const answers = sortedQuestions.flatMap((question) => {
+    const answers = sortedQuestions.map((question) => {
       const rawValue = values.answers?.[question.question_id];
-      if (isEmptyAnswer(rawValue, question.type)) return [];
+      const isEmpty = isEmptyAnswer(rawValue, question.type);
 
       return {
         question_id: question.question_id,
         answer_type: question.type,
-        answer_value:
-          question.type === "likert" ? Number(rawValue) : rawValue.trim(),
+        answer_value: isEmpty
+          ? null
+          : question.type === "likert"
+            ? Number(rawValue)
+            : rawValue.trim(),
       } as SubmitSurveyPayload["answers"][number];
     });
 
@@ -268,14 +273,16 @@ function FeedbackPageContent() {
       ? Math.round((Date.now() - startTime) / 1000)
       : undefined;
 
-    submitMutation.mutate({
+    const payload: SubmitSurveyPayload = {
       feedback_giver_id: giverId,
       feedback_receiver_id: receiverId,
       competency_id: questionsResp.competency.competency_id,
       answers,
       channel: "in_app",
       completion_time_seconds,
-    });
+    };
+
+    submitMutation.mutate(payload);
   };
 
   const receiversEmpty =
@@ -294,10 +301,7 @@ function FeedbackPageContent() {
     () =>
       sortedQuestions.some(
         (question) =>
-          !isEmptyAnswer(
-            watchedAnswers?.[question.question_id],
-            question.type,
-          ),
+          !isEmptyAnswer(watchedAnswers?.[question.question_id], question.type),
       ),
     [sortedQuestions, watchedAnswers],
   );
@@ -305,8 +309,9 @@ function FeedbackPageContent() {
   const canSubmit =
     !formDisabled && !submitMutation.isPending && hasAtLeastOneAnswer;
 
-  const answerErrors = form.formState.errors
-    .answers as Record<string, { message?: string }> | undefined;
+  const answerErrors = form.formState.errors.answers as
+    | Record<string, { message?: string }>
+    | undefined;
 
   const handleStartOver = () => {
     setReceiverId("");
@@ -373,7 +378,8 @@ function FeedbackPageContent() {
                 Teşekkürler
               </h2>
               <p className="text-xl sm:text-2xl text-gray-700 font-poppins max-w-2xl mx-auto">
-                Yanıtların kaydedildi. Başka bir ekip arkadaşın için yeni bir anket başlatabilirsin.
+                Yanıtların kaydedildi. Başka bir ekip arkadaşın için yeni bir
+                anket başlatabilirsin.
               </p>
             </div>
             <div className="flex items-center justify-center">
@@ -406,7 +412,8 @@ function FeedbackPageContent() {
 
               {receiversEmpty && (
                 <p className="text-xl text-gray-600 font-poppins">
-                  Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz.
+                  Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca
+                  haber vereceğiz.
                 </p>
               )}
 
@@ -457,7 +464,10 @@ function FeedbackPageContent() {
 
               {questionsResp && (
                 <div className="space-y-4">
-                  <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+                  <form
+                    className="space-y-4"
+                    onSubmit={form.handleSubmit(onSubmit)}
+                  >
                     {sortedQuestions.map((question) => {
                       const errorMessage =
                         answerErrors?.[question.question_id]?.message;
@@ -490,7 +500,9 @@ function FeedbackPageContent() {
                                       onClick={() =>
                                         form.setValue(
                                           `answers.${question.question_id}`,
-                                          String(value),
+                                          current === value
+                                            ? ""
+                                            : String(value),
                                           {
                                             shouldValidate: true,
                                             shouldDirty: true,
@@ -503,7 +515,9 @@ function FeedbackPageContent() {
                                       <Star
                                         className="h-8 w-8 sm:h-9 sm:w-9"
                                         strokeWidth={1.5}
-                                        fill={active ? "#fbbf24" : "transparent"}
+                                        fill={
+                                          active ? "#fbbf24" : "transparent"
+                                        }
                                         color={active ? "#f59e0b" : "#d1d5db"}
                                       />
                                     </button>
@@ -551,9 +565,11 @@ function FeedbackPageContent() {
                                   : ""}
                               </span>
                             ) : (
-                              `${MAX_FREE_TEXT - (form.watch(
-                                `answers.${question.question_id}`,
-                              )?.length || 0)} karakter kaldı`
+                              `${
+                                MAX_FREE_TEXT -
+                                (form.watch(`answers.${question.question_id}`)
+                                  ?.length || 0)
+                              } karakter kaldı`
                             )}
                           </p>
                           {errorMessage ? (
@@ -575,7 +591,9 @@ function FeedbackPageContent() {
                             : "bg-primary text-white hover:bg-blue-700"
                         }`}
                       >
-                        {submitMutation.isPending ? "Gönderiliyor..." : "Geri bildirimi gönder"}
+                        {submitMutation.isPending
+                          ? "Gönderiliyor..."
+                          : "Geri bildirimi gönder"}
                       </button>
                     </div>
                   </form>
