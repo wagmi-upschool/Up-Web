@@ -26,6 +26,7 @@ import LottieSpinner from "@/components/global/loader/lottie-spinner";
 type FeedbackFormValues = {
   receiverId: string;
   answers: Record<string, string>;
+  finalComment: string;
 };
 
 const MAX_FREE_TEXT = 2000;
@@ -130,7 +131,7 @@ function FeedbackPageContent() {
 
   const queryClient = useQueryClient();
   const form = useForm<FeedbackFormValues>({
-    defaultValues: { receiverId: "", answers: {} },
+    defaultValues: { receiverId: "", answers: {}, finalComment: "" },
     mode: "onChange",
   });
 
@@ -202,7 +203,7 @@ function FeedbackPageContent() {
 
   const handleReceiverChange = (value: string) => {
     setReceiverId(value);
-    form.reset({ receiverId: value, answers: {} });
+    form.reset({ receiverId: value, answers: {}, finalComment: "" });
     setStartTime(null);
     setLastQuestionReceiver(null);
     setShowSuccess(false);
@@ -318,7 +319,7 @@ function FeedbackPageContent() {
     setStartTime(null);
     setLastQuestionReceiver(null);
     setShowSuccess(false);
-    form.reset({ receiverId: "", answers: {} });
+    form.reset({ receiverId: "", answers: {}, finalComment: "" });
   };
 
   if (!giverId) {
@@ -580,6 +581,33 @@ function FeedbackPageContent() {
                         </div>
                       );
                     })}
+
+                    <div className="space-y-2">
+                      <label className="block text-title-black text-2xl sm:text-3xl font-semibold font-poppins">
+                        Eklemek istediğin not var mı?
+                      </label>
+                      <textarea
+                        rows={4}
+                        maxLength={MAX_FREE_TEXT}
+                        className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl sm:text-2xl text-title-black font-poppins"
+                        placeholder="İsteğe bağlı"
+                        {...form.register("finalComment", {
+                          maxLength: {
+                            value: MAX_FREE_TEXT,
+                            message: `En fazla ${MAX_FREE_TEXT} karakter.`,
+                          },
+                        })}
+                      />
+                      <p className="text-lg text-gray-600 font-poppins">
+                        {MAX_FREE_TEXT - (form.watch("finalComment")?.length || 0)}{" "}
+                        karakter kaldı
+                      </p>
+                      {form.formState.errors.finalComment?.message ? (
+                        <p className="text-lg text-red-600 font-poppins">
+                          {form.formState.errors.finalComment?.message}
+                        </p>
+                      ) : null}
+                    </div>
 
                     <div className="flex items-center justify-end">
                       <button
