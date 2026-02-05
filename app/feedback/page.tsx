@@ -250,14 +250,21 @@ function FeedbackPageContent() {
       ? Math.round((Date.now() - startTime) / 1000)
       : undefined;
 
-    submitMutation.mutate({
+    const payload: SubmitSurveyPayload = {
       feedback_giver_id: giverId,
       feedback_receiver_id: receiverId,
       competency_id: questionsResp.competency.competency_id,
       answers,
       channel: "in_app",
       completion_time_seconds,
-    });
+    };
+
+    const finalComment = values.finalComment?.trim();
+    if (finalComment) {
+      payload.free_text_general = finalComment;
+    }
+
+    submitMutation.mutate(payload);
   };
 
   const receiversEmpty =
