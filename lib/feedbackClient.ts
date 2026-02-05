@@ -69,6 +69,7 @@ export type SubmitSurveyPayload = {
     answer_value: string | number | null;
     answer_type: "likert" | "free_text";
   }[];
+  free_text_general?: string;
   channel?: "push" | "in_app" | "email";
   completion_time_seconds?: number;
 };

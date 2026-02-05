@@ -283,6 +283,10 @@ function FeedbackPageContent() {
       completion_time_seconds,
     };
 
+    const finalComment = values.finalComment?.trim();
+    if (finalComment) {
+      payload.free_text_general = finalComment;
+    }
     submitMutation.mutate(payload);
   };
 
