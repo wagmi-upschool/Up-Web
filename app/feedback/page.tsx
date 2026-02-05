@@ -604,7 +604,7 @@ function FeedbackPageContent() {
                       />
                       <p className="text-lg text-gray-600 font-poppins">
                         {MAX_FREE_TEXT - (form.watch("finalComment")?.length || 0)}{" "}
-                        karakter kaldı
+                        karakter kaldı.
                       </p>
                       {form.formState.errors.finalComment?.message ? (
                         <p className="text-lg text-red-600 font-poppins">
