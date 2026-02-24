@@ -13,6 +13,7 @@ import {
 import { Star } from "lucide-react";
 import toast from "react-hot-toast";
 import {
+  FeedbackSurveyType,
   FeedbackQuestion,
   FeedbackReceiver,
   QuestionsResponse,
@@ -113,6 +114,9 @@ function FeedbackPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const giverId = searchParams?.get("feedbackGiverId") || "";
+  const rawSurveyType = searchParams?.get("feedbackSurveyType");
+  const surveyType: FeedbackSurveyType = rawSurveyType === "self" ? "self" : "peer";
+  const isSelfMode = surveyType === "self";
 
   const [receiverId, setReceiverId] = useState("");
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -128,14 +132,17 @@ function FeedbackPageContent() {
   });
 
   const canQuery = !!giverId;
+  const selfModeParam = isSelfMode ? surveyType : undefined;
+  const canQueryQuestions =
+    canQuery && !!receiverId && (!isSelfMode || receiverId === giverId);
 
   const {
     data: receivers,
     isLoading: loadingReceivers,
     error: receiversError,
   } = useQuery({
-    queryKey: ["feedbackReceivers", giverId],
-    queryFn: () => getReceivers(giverId),
+    queryKey: ["feedbackReceivers", giverId, surveyType],
+    queryFn: () => getReceivers(giverId, selfModeParam),
     enabled: canQuery,
     refetchOnWindowFocus: false,
   });
@@ -145,11 +152,34 @@ function FeedbackPageContent() {
     isLoading: loadingQuestions,
     error: questionsError,
   } = useQuery<QuestionsResponse>({
-    queryKey: ["feedbackQuestions", giverId, receiverId],
-    queryFn: () => getQuestions(giverId, receiverId),
-    enabled: canQuery && !!receiverId,
+    queryKey: ["feedbackQuestions", giverId, receiverId, surveyType],
+    queryFn: () => getQuestions(giverId, receiverId, selfModeParam),
+    enabled: canQueryQuestions,
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    setReceiverId("");
+    setStartTime(null);
+    setLastQuestionReceiver(null);
+    setShowSuccess(false);
+    form.reset({ receiverId: "", answers: {}, finalComment: "" });
+  }, [form, surveyType]);
+
+  useEffect(() => {
+    if (!isSelfMode) return;
+    const feedbackReceivers = receivers?.feedback_receivers || [];
+    if (feedbackReceivers.length !== 1) return;
+
+    const selfReceiverId = feedbackReceivers[0]?.feedback_receiver_id || "";
+    if (!selfReceiverId || receiverId === selfReceiverId) return;
+
+    setReceiverId(selfReceiverId);
+    form.reset({ receiverId: selfReceiverId, answers: {}, finalComment: "" });
+    setStartTime(null);
+    setLastQuestionReceiver(null);
+    setShowSuccess(false);
+  }, [form, isSelfMode, receiverId, receivers]);
 
   useEffect(() => {
     if (
@@ -184,7 +214,7 @@ function FeedbackPageContent() {
       setShowSuccess(true);
       if (questionsResp?.competency?.competency_id) {
         queryClient.invalidateQueries({
-          queryKey: ["feedbackQuestions", giverId, receiverId],
+          queryKey: ["feedbackQuestions", giverId, receiverId, surveyType],
         });
       }
     },
@@ -202,8 +232,8 @@ function FeedbackPageContent() {
 
     if (giverId && canQuery) {
       queryClient.prefetchQuery({
-        queryKey: ["feedbackQuestions", giverId, value],
-        queryFn: () => getQuestions(giverId, value),
+        queryKey: ["feedbackQuestions", giverId, value, surveyType],
+        queryFn: () => getQuestions(giverId, value, selfModeParam),
       });
     }
   };
@@ -249,15 +279,20 @@ function FeedbackPageContent() {
     const completion_time_seconds = startTime
       ? Math.round((Date.now() - startTime) / 1000)
       : undefined;
+    const submitReceiverId = isSelfMode ? giverId : receiverId;
 
     const payload: SubmitSurveyPayload = {
       feedback_giver_id: giverId,
-      feedback_receiver_id: receiverId,
+      feedback_receiver_id: submitReceiverId,
       competency_id: questionsResp.competency.competency_id,
       answers,
       channel: "in_app",
       completion_time_seconds,
     };
+
+    if (isSelfMode) {
+      payload.survey_type = "self";
+    }
 
     const finalComment = values.finalComment?.trim();
     if (finalComment) {
@@ -285,6 +320,11 @@ function FeedbackPageContent() {
     setShowSuccess(false);
     form.reset({ receiverId: "", answers: {}, finalComment: "" });
   };
+
+  const selfReceiver =
+    isSelfMode && receivers?.feedback_receivers?.length === 1
+      ? receivers.feedback_receivers[0]
+      : null;
 
   if (!giverId) {
     return (
@@ -323,13 +363,17 @@ function FeedbackPageContent() {
       <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6">
         <header className="bg-white/95 border border-gray-200 rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
           <img src="/up.svg" alt="UP" className="h-12 sm:h-16 w-auto" />
-          <div className="space-y-1">
-            <h1 className="font-righteous text-3xl sm:text-4xl text-title-black">
-              Geri Bildirim Ver
-            </h1>
-            <p className="text-xl sm:text-2xl font-poppins text-text-description-gray">
-              Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder.
-            </p>
+          <div className="flex-1 space-y-1">
+            <div className="space-y-1">
+              <h1 className="font-righteous text-3xl sm:text-4xl text-title-black">
+                {isSelfMode ? "Öz Değerlendirme" : "Geri Bildirim Ver"}
+              </h1>
+              <p className="text-xl sm:text-2xl font-poppins text-text-description-gray">
+                {isSelfMode
+                  ? "Kendini değerlendir, soruları yanıtla ve geri bildirimi gönder."
+                  : "Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder."}
+              </p>
+            </div>
           </div>
         </header>
 
@@ -343,7 +387,9 @@ function FeedbackPageContent() {
                 Teşekkürler
               </h2>
               <p className="text-xl sm:text-2xl text-gray-700 font-poppins max-w-2xl mx-auto">
-                Yanıtların kaydedildi. Başka bir ekip arkadaşın için yeni bir anket başlatabilirsin.
+                {isSelfMode
+                  ? "Yanıtların kaydedildi. İstersen öz değerlendirme anketini yeniden başlatabilirsin."
+                  : "Yanıtların kaydedildi. Başka bir ekip arkadaşın için yeni bir anket başlatabilirsin."}
               </p>
             </div>
             <div className="flex items-center justify-center">
@@ -352,7 +398,7 @@ function FeedbackPageContent() {
                 onClick={handleStartOver}
                 className="rounded-md bg-primary px-5 py-2 text-xl font-semibold text-white font-poppins shadow-sm hover:bg-blue-700 transition-colors"
               >
-                Yeni geri bildirim başlat
+                {isSelfMode ? "Öz değerlendirmeyi yeniden başlat" : "Yeni geri bildirim başlat"}
               </button>
             </div>
           </section>
@@ -361,7 +407,7 @@ function FeedbackPageContent() {
             <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-title-black text-2xl font-semibold font-poppins">
-                  Değerlendirilecek kişiyi seç
+                  {isSelfMode ? "Değerlendirilen kişi" : "Değerlendirilecek kişiyi seç"}
                 </p>
                 {loadingReceivers && (
                   <div className="h-4 w-20 rounded bg-primary/20 animate-pulse" />
@@ -376,12 +422,23 @@ function FeedbackPageContent() {
 
               {receiversEmpty && (
                 <p className="text-xl text-gray-600 font-poppins">
-                  Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz.
+                  {isSelfMode
+                    ? "Öz değerlendirme için kullanıcı bilgisi bulunamadı."
+                    : "Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz."}
                 </p>
               )}
 
               {loadingReceivers ? (
                 <LottieSpinner size={140} className="py-6" />
+              ) : isSelfMode && selfReceiver ? (
+                <div className="rounded-md border border-gray-300 bg-gray-50 px-4 py-3">
+                  <p className="text-xl sm:text-2xl text-title-black font-poppins">
+                    {formatReceiverLabel(selfReceiver)}
+                  </p>
+                  <p className="text-sm sm:text-base text-gray-600 font-poppins mt-1">
+                    Öz değerlendirme modunda alıcı otomatik seçilir.
+                  </p>
+                </div>
               ) : receivers?.feedback_receivers?.length ? (
                 <select
                   value={receiverId}
@@ -413,7 +470,9 @@ function FeedbackPageContent() {
 
               {!receiverId && (
                 <p className="text-xl text-gray-600 font-poppins">
-                  Yetkinlik ve soruları görmek için bir alıcı seç.
+                  {isSelfMode
+                    ? "Sorular hazırlanıyor. Öz değerlendirme alıcısı otomatik seçilecek."
+                    : "Yetkinlik ve soruları görmek için bir alıcı seç."}
                 </p>
               )}
 

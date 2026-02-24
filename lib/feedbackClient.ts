@@ -2,6 +2,8 @@
 
 const base = process.env.NEXT_PUBLIC_REMOTE_URL;
 
+export type FeedbackSurveyType = "peer" | "self";
+
 async function api<T>(path: string, init: RequestInit = {}) {
   if (!base) {
     throw new Error("NEXT_PUBLIC_REMOTE_URL is not configured.");
@@ -70,22 +72,52 @@ export type SubmitSurveyPayload = {
     answer_type: "likert" | "free_text";
   }[];
   free_text_general?: string;
+  survey_type?: FeedbackSurveyType;
   channel?: "push" | "in_app" | "email";
   completion_time_seconds?: number;
 };
 
-export const getReceivers = (giverId: string) =>
+function buildFeedbackQuery(
+  params: Record<string, string>,
+  surveyType?: FeedbackSurveyType,
+) {
+  const query = new URLSearchParams(params);
+  if (surveyType) {
+    query.set("feedbackSurveyType", surveyType);
+  }
+  return query.toString();
+}
+
+export const getReceivers = (giverId: string, surveyType?: FeedbackSurveyType) =>
   api<{ feedback_receivers: FeedbackReceiver[] }>(
-    `/feedback/receivers?feedbackGiverId=${giverId}`,
+    `/feedback/receivers?${buildFeedbackQuery(
+      { feedbackGiverId: giverId },
+      surveyType,
+    )}`,
   );
 
-export const getQuestions = (giverId: string, receiverId: string) =>
+export const getQuestions = (
+  giverId: string,
+  receiverId: string,
+  surveyType?: FeedbackSurveyType,
+) =>
   api<QuestionsResponse>(
-    `/feedback/questions?feedbackGiverId=${giverId}&feedbackReceiverId=${receiverId}`,
+    `/feedback/questions?${buildFeedbackQuery(
+      {
+        feedbackGiverId: giverId,
+        feedbackReceiverId: receiverId,
+      },
+      surveyType,
+    )}`,
   );
 
 export const submitSurvey = (payload: SubmitSurveyPayload) =>
-  api<{ survey_id: string; submitted_at: string; overall_score?: number }>(
+  api<{
+    survey_id: string;
+    submitted_at: string;
+    overall_score?: number;
+    survey_type?: FeedbackSurveyType;
+  }>(
     `/feedback/submit`,
     { method: "POST", body: JSON.stringify(payload) },
   );
