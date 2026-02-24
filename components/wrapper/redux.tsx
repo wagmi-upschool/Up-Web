@@ -1,3 +1,5 @@
+"use client";
+
 import globalReducer from "@/state";
 import { api } from "@/state/api";
 import quizReducer from "@/state/quizSlice";
@@ -83,15 +85,18 @@ export default function StoreProvider({
   children: React.ReactNode;
 }) {
   const storeRef = useRef<AppStore>();
+  const persistorRef = useRef<ReturnType<typeof persistStore>>();
   if (!storeRef.current) {
     storeRef.current = makeStore();
     setupListeners(storeRef.current.dispatch);
   }
-  const persistor = persistStore(storeRef.current);
+  if (!persistorRef.current) {
+    persistorRef.current = persistStore(storeRef.current);
+  }
 
   return (
     <Provider store={storeRef.current}>
-      <PersistGate loading={null} persistor={persistor}>
+      <PersistGate loading={null} persistor={persistorRef.current}>
         {children}
       </PersistGate>
     </Provider>
