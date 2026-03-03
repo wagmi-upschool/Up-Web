@@ -31,6 +31,14 @@ type FeedbackFormValues = {
 };
 
 const MAX_FREE_TEXT = 2000;
+const LIKERT_GUIDE_TEXT =
+  "1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model";
+const LIKERT_LEVEL_LABELS: Record<number, string> = {
+  1: "Zayıf",
+  2: "Kısmen yeterli",
+  3: "Güçlü",
+  4: "Rol Model",
+};
 
 function getReceiverEmail(receiver: FeedbackReceiver) {
   return (
@@ -572,7 +580,11 @@ function FeedbackPageContent() {
                                         )
                                       }
                                       className="p-1 rounded focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none"
-                                      aria-label={`Puan ${value}`}
+                                      aria-label={
+                                        LIKERT_LEVEL_LABELS[value]
+                                          ? `Puan ${value} - ${LIKERT_LEVEL_LABELS[value]}`
+                                          : `Puan ${value}`
+                                      }
                                     >
                                       <Star
                                         className="h-8 w-8 sm:h-9 sm:w-9"
@@ -619,13 +631,7 @@ function FeedbackPageContent() {
                           )}
                           <p className="text-lg text-gray-600 font-poppins">
                             {question.type === "likert" ? (
-                              <span>
-                                Ölçek {question.scale_min ?? 1}-
-                                {question.scale_max ?? 5}
-                                {question.scale_labels
-                                  ? ` (${question.scale_labels.min} → ${question.scale_labels.max})`
-                                  : ""}
-                              </span>
+                              <span>{LIKERT_GUIDE_TEXT}</span>
                             ) : (
                               `${
                                 MAX_FREE_TEXT -
