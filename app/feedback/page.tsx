@@ -370,7 +370,7 @@ function FeedbackPageContent() {
               </h1>
               <p className="text-xl sm:text-2xl font-poppins text-text-description-gray">
                 {isSelfMode
-                  ? "Kendini değerlendir, soruları yanıtla ve geri bildirimi gönder."
+                  ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
                   : "Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder."}
               </p>
             </div>
