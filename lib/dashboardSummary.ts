@@ -205,7 +205,7 @@ export function groupHourlyRatings(
     windows.set(windowStartMs, bucket);
   }
 
-  return [...windows.entries()]
+  return Array.from(windows.entries())
     .sort((left, right) => left[0] - right[0])
     .map(([windowStartMs, ratings]) => {
       const totalFeedbacks = ratings.reduce(

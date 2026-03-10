@@ -8,15 +8,7 @@ import {
   QueryClientProvider,
   useQuery,
 } from "@tanstack/react-query";
-import {
-  Activity,
-  AlertCircle,
-  BarChart3,
-  Gauge,
-  RefreshCw,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { Activity, BarChart3, Gauge, Sparkles, Users } from "lucide-react";
 import {
   Area,
   ComposedChart,
@@ -47,12 +39,29 @@ type ScoreTone = {
   dot: string;
 };
 
+const PALETTE = {
+  blue: "#0057FF",
+  sand: "#F3EAD7",
+  black: "#171717",
+  white: "#FFFFFF",
+  orange: "#FC7700",
+  orchid: "#985DF8",
+  turquoise: "#00D9C0",
+} as const;
+
 function FeedbackPageShell({ children }: { children: ReactNode }) {
   return (
-    <div className="relative min-h-screen min-h-[100dvh]">
+    <div
+      className="relative min-h-screen min-h-[100dvh] overflow-hidden bg-[#F3EAD7]"
+      style={{ color: PALETTE.black }}
+    >
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 bg-[url('/bg-df.png')] bg-cover bg-center bg-no-repeat"
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.08] bg-[radial-gradient(circle_at_top_left,_#0057FF_0,_transparent_28%),radial-gradient(circle_at_top_right,_#985DF8_0,_transparent_24%),radial-gradient(circle_at_bottom_left,_#00D9C0_0,_transparent_20%),linear-gradient(180deg,_#F8F2E7_0%,_#F3EAD7_100%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 z-0 h-40 bg-[linear-gradient(180deg,rgba(255,255,255,0.5),transparent)]"
       />
       {children}
     </div>
@@ -80,40 +89,40 @@ function getScoreTone(value: number, maxRating: number): ScoreTone {
 
   if (ratio >= 0.85) {
     return {
-      text: "text-emerald-500",
-      surface: "bg-emerald-50 text-emerald-700",
-      fill: "#DDF7E8",
-      line: "#1FA463",
-      dot: "#2BC46F",
+      text: "text-[#00D9C0]",
+      surface: "bg-[#00D9C0]/12 text-[#0E7468]",
+      fill: "#CFFAF4",
+      line: "#00B8A2",
+      dot: "#00D9C0",
     };
   }
 
   if (ratio >= 0.7) {
     return {
-      text: "text-amber-500",
-      surface: "bg-amber-50 text-amber-700",
-      fill: "#FFF1D9",
-      line: "#E4A11A",
-      dot: "#F5A623",
+      text: "text-[#0057FF]",
+      surface: "bg-[#0057FF]/10 text-[#0039A8]",
+      fill: "#DCE9FF",
+      line: "#0057FF",
+      dot: "#0057FF",
     };
   }
 
   if (ratio >= 0.55) {
     return {
-      text: "text-orange-500",
-      surface: "bg-orange-50 text-orange-700",
-      fill: "#FFE4DB",
-      line: "#E8663A",
-      dot: "#FF7B54",
+      text: "text-[#FC7700]",
+      surface: "bg-[#FC7700]/12 text-[#A84E00]",
+      fill: "#FFE6CF",
+      line: "#FC7700",
+      dot: "#FC7700",
     };
   }
 
   return {
-    text: "text-rose-500",
-    surface: "bg-rose-50 text-rose-700",
-    fill: "#FFE1E3",
-    line: "#D84B5B",
-    dot: "#FF6B7A",
+    text: "text-[#985DF8]",
+    surface: "bg-[#985DF8]/12 text-[#6330B4]",
+    fill: "#E8D9FF",
+    line: "#985DF8",
+    dot: "#985DF8",
   };
 }
 
@@ -135,32 +144,37 @@ function MetricCard({
   icon: ReactNode;
 }) {
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white/95 p-6 shadow-sm">
+    <article className="group relative overflow-hidden rounded-[28px] border border-[#171717]/10 bg-[#FFFFFF]/90 p-6 shadow-[0_18px_40px_rgba(23,23,23,0.08)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:border-white/40 hover:bg-white/35 hover:shadow-[0_24px_50px_rgba(23,23,23,0.14)] hover:backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.18)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div
         className={`absolute inset-x-0 top-0 h-1 ${
           accent === "orange"
-            ? "bg-gradient-to-r from-[#EC692B] via-[#FF7B54] to-[#FFC2AE]"
-            : "bg-gradient-to-r from-primary via-blue-500 to-[#6EC7FF]"
+            ? "bg-gradient-to-r from-[#FC7700] via-[#FF9B45] to-[#F3EAD7]"
+            : "bg-gradient-to-r from-[#0057FF] via-[#3F81FF] to-[#00D9C0]"
         }`}
       />
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-description-gray">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
             {title}
           </p>
-          <p className="mt-3 font-righteous text-5xl leading-none text-title-black">
+          <p className="mt-3 font-righteous text-5xl leading-none text-[#171717]">
             {value}
           </p>
         </div>
         <div
           className={`rounded-2xl p-3 ${
-            accent === "orange" ? "bg-[#FFF1EA] text-[#EC692B]" : "bg-primary/10 text-primary"
+            accent === "orange"
+              ? "bg-[#FC7700]/12 text-[#FC7700]"
+              : "bg-[#0057FF]/10 text-[#0057FF]"
           }`}
         >
           {icon}
         </div>
       </div>
-      <p className="font-poppins text-sm text-text-description-gray">{subtitle}</p>
+      <p className="relative z-10 font-poppins text-sm text-[#171717]/65">
+        {subtitle}
+      </p>
     </article>
   );
 }
@@ -170,18 +184,38 @@ function TrendTooltip({
   payload,
   label,
   maxRating,
+  windows,
 }: {
   active?: boolean;
   payload?: Array<{ payload: GroupedRatingWindow }>;
   label?: string;
   maxRating: number;
+  windows: GroupedRatingWindow[];
 }) {
   if (!active || !payload?.length) return null;
 
   const point = payload[0].payload;
+  const currentIndex = windows.findIndex(
+    (window) =>
+      window.startHour === point.startHour && window.endHour === point.endHour,
+  );
+  const previousPoint = currentIndex > 0 ? windows[currentIndex - 1] : null;
+  const diffPercent = previousPoint
+    ? previousPoint.averageRating > 0
+      ? Number(
+          (
+            ((point.averageRating - previousPoint.averageRating) /
+              previousPoint.averageRating) *
+            100
+          ).toFixed(1),
+        )
+      : point.averageRating > 0
+        ? 100
+        : 0
+    : null;
 
   return (
-    <div className="rounded-2xl border border-[#21386D] bg-[#142347] px-4 py-3 text-white shadow-2xl">
+    <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
       <p className="font-poppins text-xs uppercase tracking-[0.2em] text-white/55">
         {label}
       </p>
@@ -191,6 +225,19 @@ function TrendTooltip({
       <div className="mt-2 space-y-1 font-poppins text-sm text-white/80">
         <p>{`Ortalama puan / ${formatScore(maxRating)}`}</p>
         <p>{`${point.totalFeedbacks} geri bildirim`}</p>
+        {diffPercent !== null ? (
+          <p
+            className={
+              diffPercent > 0
+                ? "text-[#00D9C0]"
+                : diffPercent < 0
+                  ? "text-[#FC7700]"
+                  : "text-white/65"
+            }
+          >
+            {`${diffPercent > 0 ? "+" : ""}${diffPercent}% onceki zaman dilimine gore`}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -213,29 +260,45 @@ function TrendChart({
       >
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0057FF" stopOpacity={0.24} />
-            <stop offset="100%" stopColor="#0057FF" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="#0057FF" stopOpacity={0.26} />
+            <stop offset="65%" stopColor="#00D9C0" stopOpacity={0.14} />
+            <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.03} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke="#E8ECF4" strokeDasharray="3 3" vertical={false} />
+        <CartesianGrid
+          stroke="#171717"
+          strokeOpacity={0.08}
+          strokeDasharray="3 3"
+          vertical={false}
+        />
         <XAxis
           axisLine={false}
           dataKey="label"
           minTickGap={18}
-          tick={{ fill: "#6B7280", fontFamily: "var(--font-poppins)", fontSize: 11 }}
+          tick={{
+            fill: "#171717",
+            fillOpacity: 0.55,
+            fontFamily: "var(--font-poppins)",
+            fontSize: 11,
+          }}
           tickLine={false}
         />
         <YAxis
           axisLine={false}
           domain={[0, maxDomainValue]}
-          tick={{ fill: "#6B7280", fontFamily: "var(--font-poppins)", fontSize: 11 }}
+          tick={{
+            fill: "#171717",
+            fillOpacity: 0.55,
+            fontFamily: "var(--font-poppins)",
+            fontSize: 11,
+          }}
           tickFormatter={(value: number) => value.toFixed(1)}
           tickLine={false}
           width={42}
         />
         <Tooltip
-          content={<TrendTooltip maxRating={maxRating} />}
-          cursor={{ stroke: "#D3DCF0", strokeDasharray: "4 4" }}
+          content={<TrendTooltip maxRating={maxRating} windows={data} />}
+          cursor={{ stroke: "#985DF8", strokeDasharray: "4 4" }}
         />
         <Area
           dataKey="averageRating"
@@ -244,10 +307,17 @@ function TrendChart({
           type="monotone"
         />
         <Line
-          activeDot={{ fill: "#0057FF", r: 6, stroke: "#FFFFFF", strokeWidth: 3 }}
+          activeDot={{
+            fill: "#0057FF",
+            r: 6,
+            stroke: "#FFFFFF",
+            strokeWidth: 3,
+          }}
           dataKey="averageRating"
-          dot={({ cx, cy, payload }) => {
-            if (typeof cx !== "number" || typeof cy !== "number") return null;
+          dot={({ cx, cy, payload }: any) => {
+            if (typeof cx !== "number" || typeof cy !== "number") {
+              return <g />;
+            }
             const tone = getScoreTone(payload.averageRating, maxRating);
 
             return (
@@ -284,25 +354,28 @@ function CultureQuestionRow({
       : "0%";
 
   return (
-    <div className="flex items-center gap-4 rounded-2xl bg-white/6 px-4 py-4 transition-colors hover:bg-white/10">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FF7B54]/20 font-poppins text-xs font-semibold text-[#FFB59B]">
+    <div className="group relative flex items-center gap-4 rounded-2xl border border-[#171717]/8 bg-[#FFFFFF]/70 px-4 py-4 transition-all duration-300 hover:scale-[1.015] hover:border-white/40 hover:bg-white/35 hover:shadow-[0_18px_35px_rgba(23,23,23,0.1)] hover:backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.06)_45%,rgba(255,255,255,0.14)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FC7700]/14 font-poppins text-xs font-semibold text-[#A84E00]">
         {question.order}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-poppins text-sm leading-6 text-white/85">
+      <div className="relative z-10 min-w-0 flex-1">
+        <p className="font-poppins text-sm leading-6 text-[#171717]/86">
           {question.questionText}
         </p>
-        <p className="mt-1 font-poppins text-xs uppercase tracking-[0.18em] text-white/35">
+        <p className="mt-1 font-poppins text-xs uppercase tracking-[0.18em] text-[#171717]/42">
           {question.totalFeedbacks} yanit
         </p>
       </div>
-      <div className="hidden w-20 shrink-0 rounded-full bg-white/10 md:block">
+      <div className="relative z-10 hidden w-20 shrink-0 rounded-full bg-[#171717]/8 md:block">
         <div
           className="h-1.5 rounded-full transition-[width] duration-700"
           style={{ width, backgroundColor: tone.dot }}
         />
       </div>
-      <p className={`w-14 shrink-0 text-right font-righteous text-3xl ${tone.text}`}>
+      <p
+        className={`relative z-10 w-14 shrink-0 text-right font-righteous text-3xl ${tone.text}`}
+      >
         {formatScore(question.averageRating)}
       </p>
     </div>
@@ -316,7 +389,8 @@ function AnalyticsPageContent() {
   const hasRequestedFilters = filters.receiverIds.length > 0;
   const hasInvalidFilters = filters.invalidReceiverIds.length > 0;
   const [receiverInput, setReceiverInput] = useState("");
-  const [activeInterval, setActiveInterval] = useState<DashboardIntervalHours>(5);
+  const [activeInterval, setActiveInterval] =
+    useState<DashboardIntervalHours>(5);
 
   useEffect(() => {
     setReceiverInput(filters.receiverIds.join(", "));
@@ -331,13 +405,18 @@ function AnalyticsPageContent() {
 
   const summary = summaryQuery.data;
   const maxRating = summary?.maxRating ?? 4;
-  const trendData = summary ? groupHourlyRatings(summary.hourlyRatings, activeInterval) : [];
+  const trendData = summary
+    ? groupHourlyRatings(summary.hourlyRatings, activeInterval)
+    : [];
   const cultureQuestions = summary?.cultureScore.questions || [];
   const chartMaxValue = Math.max(
     maxRating,
     ...trendData.map((item) => item.averageRating),
   );
-  const averageTone = getScoreTone(summary?.overallAverageRating ?? 0, maxRating);
+  const averageTone = getScoreTone(
+    summary?.overallAverageRating ?? 0,
+    maxRating,
+  );
   const cultureTone = getScoreTone(
     summary?.cultureScore.overallAverageRating ?? 0,
     summary?.cultureScore.maxRating ?? 4,
@@ -376,7 +455,7 @@ function AnalyticsPageContent() {
   return (
     <FeedbackPageShell>
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-6 px-3 py-6 sm:px-4 sm:py-8">
-        <header className="rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm sm:p-6">
+        <header className="group rounded-[30px] border border-[#171717]/10 bg-[#FFFFFF]/88 p-5 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] hover:border-white/45 hover:bg-white/40 hover:shadow-[0_28px_70px_rgba(23,23,23,0.14)] hover:backdrop-blur-xl sm:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-4">
               <Image
@@ -387,135 +466,19 @@ function AnalyticsPageContent() {
                 width={96}
               />
               <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#0057FF]/10 px-3 py-1 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#0057FF]">
                   <Sparkles className="h-3.5 w-3.5" />
                   Feedback Analytics
                 </div>
                 <div className="space-y-1">
-                  <h1 className="font-righteous text-3xl text-title-black sm:text-4xl">
+                  <h1 className="font-righteous text-3xl text-[#171717] sm:text-4xl">
                     UP Pulse Dashboard
                   </h1>
-                  <p className="max-w-3xl font-poppins text-base text-text-description-gray sm:text-lg">
-                    `GET /dashboard/summary` yanitini dogrudan kullanir. KPI
-                    kartlari, trend grafigi ve culture score bu sayfada backend
-                    kontratina gore render edilir.
-                  </p>
                 </div>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:w-[360px]">
-              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
-                <p className="font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-                  Endpoint
-                </p>
-                <p className="mt-2 font-righteous text-2xl text-title-black">
-                  /dashboard/summary
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#EC692B]/15 bg-[#FFF4ED] p-4">
-                <p className="font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#EC692B]">
-                  Active filters
-                </p>
-                <p className="mt-2 font-righteous text-2xl text-title-black">
-                  {filters.receiverIds.length}
-                </p>
-                <p className="mt-1 font-poppins text-sm text-text-description-gray">
-                  Receiver ID
-                </p>
               </div>
             </div>
           </div>
         </header>
-
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-text-description-gray">
-                Receiver Filter
-              </p>
-              <h2 className="mt-2 font-righteous text-3xl text-title-black">
-                Dashboard verisini receiver bazinda getir
-              </h2>
-              <p className="mt-2 max-w-2xl font-poppins text-base text-text-description-gray">
-                Bir veya birden fazla UUID gir. Sayfa `feedbackReceiverId` ve
-                `feedbackReceiverIds` query parametrelerini destekler, duplicate
-                degerleri temizler.
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 font-poppins text-sm text-text-description-gray">
-              <Users className="h-4 w-4 text-primary" />
-              {filters.receiverIds.length > 0
-                ? `${filters.receiverIds.length} receiver secili`
-                : "Receiver secilmedi"}
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-4">
-            <textarea
-              className="min-h-28 w-full rounded-2xl border border-gray-300 bg-white p-4 font-poppins text-base text-title-black outline-none transition-colors placeholder:text-gray-400 focus:border-primary"
-              onChange={(event) => setReceiverInput(event.target.value)}
-              placeholder="UUID gir veya birden fazla UUID icin virgulle ayir"
-              value={receiverInput}
-            />
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-poppins text-sm text-text-description-gray">
-                Ornek: <code>feedbackReceiverId=&lt;uuid&gt;</code> veya{" "}
-                <code>feedbackReceiverIds=&lt;uuid1&gt;,&lt;uuid2&gt;</code>
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 font-poppins text-sm font-semibold text-title-black transition-colors hover:border-primary hover:text-primary"
-                  onClick={clearFilters}
-                  type="button"
-                >
-                  Temizle
-                </button>
-                <button
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2 font-poppins text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
-                  onClick={applyFilters}
-                  type="button"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Analitigi getir
-                </button>
-              </div>
-            </div>
-
-            {filters.receiverIds.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {filters.receiverIds.map((receiverId) => (
-                  <span
-                    key={receiverId}
-                    className={`rounded-full px-3 py-1 font-poppins text-xs font-semibold ${
-                      filters.invalidReceiverIds.includes(receiverId)
-                        ? "bg-red-50 text-red-700"
-                        : "bg-primary/10 text-primary"
-                    }`}
-                  >
-                    {receiverId}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            {hasInvalidFilters ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
-                  <div>
-                    <p className="font-poppins text-sm font-semibold text-red-700">
-                      Gecersiz receiver ID bulundu
-                    </p>
-                    <p className="mt-1 font-poppins text-sm text-red-600">
-                      {filters.invalidReceiverIds.join(", ")}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </section>
 
         <section className="grid gap-4 md:grid-cols-2">
           <MetricCard
@@ -538,23 +501,73 @@ function AnalyticsPageContent() {
           />
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <section className="group overflow-hidden rounded-[30px] border border-[#171717]/10 bg-[linear-gradient(140deg,#FFFDF8_0%,#F3EAD7_48%,#EFE4FF_100%)] p-5 text-[#171717] shadow-[0_24px_60px_rgba(23,23,23,0.08)] transition-all duration-300 hover:scale-[1.01] hover:border-white/45 hover:bg-[linear-gradient(140deg,rgba(255,255,255,0.7)_0%,rgba(243,234,215,0.6)_48%,rgba(239,228,255,0.7)_100%)] hover:shadow-[0_28px_70px_rgba(23,23,23,0.14)] hover:backdrop-blur-xl sm:p-6">
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-[linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.04)_45%,rgba(255,255,255,0.16)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            <div className="absolute right-[-72px] top-[-120px] h-72 w-72 rounded-full bg-[#0057FF]/10 blur-2xl" />
+            <div className="absolute bottom-[-100px] left-[12%] h-56 w-56 rounded-full bg-[#00D9C0]/12 blur-2xl" />
+            <div className="absolute left-[45%] top-[18%] h-44 w-44 rounded-full bg-[#985DF8]/12 blur-2xl" />
+
+            <div className="relative z-10 flex flex-col gap-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/48">
+                    YGA Culture Score
+                  </p>
+                  <h2 className="mt-2 font-righteous text-3xl text-[#171717] sm:text-4xl">
+                    Culture Score
+                  </h2>
+                </div>
+                <div className="sm:text-right">
+                  <div
+                    className={`font-righteous text-6xl leading-none ${cultureTone.text}`}
+                  >
+                    {summary
+                      ? formatScore(summary.cultureScore.overallAverageRating)
+                      : "0.00"}
+                  </div>
+                  <p className="mt-2 font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/38">
+                    / {formatScore(summary?.cultureScore.maxRating ?? 4)}{" "}
+                    overall
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-px bg-[#171717]/10" />
+
+              {!hasRequestedFilters ? (
+                <div className="rounded-2xl border border-[#171717]/10 bg-[#FFFFFF]/60 p-6 text-center">
+                  <p className="font-poppins text-base text-[#171717]/72">
+                    Culture score bolumu receiver secildiginde dolacak.
+                  </p>
+                </div>
+              ) : cultureQuestions.length === 0 ? (
+                <div className="rounded-2xl border border-[#171717]/10 bg-[#FFFFFF]/60 p-6 text-center"></div>
+              ) : (
+                <div className="space-y-3">
+                  {cultureQuestions.map((question) => (
+                    <CultureQuestionRow
+                      key={question.questionId}
+                      maxRating={summary?.cultureScore.maxRating ?? 4}
+                      question={question}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="group rounded-[30px] border border-[#171717]/10 bg-[#FFFFFF]/90 p-5 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] hover:border-white/45 hover:bg-white/40 hover:shadow-[0_28px_70px_rgba(23,23,23,0.14)] hover:backdrop-blur-xl sm:p-6">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-text-description-gray">
-                Rating Trend
-              </p>
-              <h2 className="mt-2 font-righteous text-3xl text-title-black">
-                Saatlik rating bucketlari UI tarafinda gruplanir
-              </h2>
-              <p className="mt-2 font-poppins text-base text-text-description-gray">
-                Secili interval ham `hourlyRatings` uzerinden hesaplanir. Her
-                pencere weighted average ve toplam feedback sayisini gosterir.
+              <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
+                Average Rating Trend
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-gray-100 p-2">
-              <span className="px-2 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-text-description-gray">
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#171717]/8 bg-[#F3EAD7] p-2">
+              <span className="px-2 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#171717]/55">
                 Interval
               </span>
               {DASHBOARD_INTERVALS.map((interval) => (
@@ -562,8 +575,8 @@ function AnalyticsPageContent() {
                   key={interval}
                   className={`rounded-xl px-4 py-2 font-poppins text-sm font-semibold transition-colors ${
                     activeInterval === interval
-                      ? "bg-title-black text-white shadow-sm"
-                      : "text-text-description-gray hover:bg-white hover:text-title-black"
+                      ? "bg-[#171717] text-[#FFFFFF] shadow-sm"
+                      : "text-[#171717]/60 hover:bg-[#FFFFFF] hover:text-[#171717]"
                   }`}
                   onClick={() => setActiveInterval(interval)}
                   type="button"
@@ -574,9 +587,9 @@ function AnalyticsPageContent() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-100 bg-[#F7F9FD] p-4">
+          <div className="rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] p-4 transition-all duration-300 group-hover:border-white/35 group-hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.62)_0%,rgba(248,242,231,0.55)_100%)] group-hover:backdrop-blur-lg">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-poppins text-sm text-text-description-gray">
+              <p className="font-poppins text-sm text-[#171717]/62">
                 {summary
                   ? `${trendData.length} grouped window · interval ${activeInterval} saat`
                   : "Trend, aktif receiver filtresiyle yuklenecek"}
@@ -596,38 +609,37 @@ function AnalyticsPageContent() {
                 <LottieSpinner className="py-6" size={150} />
               </div>
             ) : summaryQuery.error ? (
-              <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+              <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-[#FC7700]/20 bg-[#FC7700]/8 p-8 text-center">
                 <div className="space-y-3">
-                  <p className="font-righteous text-3xl text-title-black">
+                  <p className="font-righteous text-3xl text-[#171717]">
                     Veri yuklenemedi
                   </p>
-                  <p className="font-poppins text-base text-red-700">
+                  <p className="font-poppins text-base text-[#A84E00]">
                     {formatApiError(summaryQuery.error)}
                   </p>
                 </div>
               </div>
             ) : !hasRequestedFilters ? (
-              <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/70 p-8 text-center">
+              <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-[#171717]/18 bg-[#FFFFFF]/66 p-8 text-center">
                 <div className="space-y-3">
-                  <Activity className="mx-auto h-10 w-10 text-primary/50" />
-                  <p className="font-righteous text-3xl text-title-black">
+                  <Activity className="mx-auto h-10 w-10 text-[#0057FF]/55" />
+                  <p className="font-righteous text-3xl text-[#171717]">
                     Receiver sec ve dashboardu calistir
                   </p>
-                  <p className="max-w-xl font-poppins text-base text-text-description-gray">
-                    En az bir `feedbackReceiverId` veya
-                    `feedbackReceiverIds` parametresi olmadan API cagrisi
-                    yapilmaz.
+                  <p className="max-w-xl font-poppins text-base text-[#171717]/62">
+                    En az bir `feedbackReceiverId` veya `feedbackReceiverIds`
+                    parametresi olmadan API cagrisi yapilmaz.
                   </p>
                 </div>
               </div>
             ) : trendData.length === 0 ? (
-              <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/70 p-8 text-center">
+              <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-[#171717]/18 bg-[#FFFFFF]/66 p-8 text-center">
                 <div className="space-y-3">
-                  <BarChart3 className="mx-auto h-10 w-10 text-primary/50" />
-                  <p className="font-righteous text-3xl text-title-black">
+                  <BarChart3 className="mx-auto h-10 w-10 text-[#985DF8]/60" />
+                  <p className="font-righteous text-3xl text-[#171717]">
                     Trend verisi yok
                   </p>
-                  <p className="max-w-xl font-poppins text-base text-text-description-gray">
+                  <p className="max-w-xl font-poppins text-base text-[#171717]/62">
                     API gecerli yanit dondu ancak `hourlyRatings` bos geldi.
                     Tasarim geregi bos trend durumu render edildi.
                   </p>
@@ -642,66 +654,6 @@ function AnalyticsPageContent() {
                 />
               </div>
             )}
-          </div>
-        </section>
-
-        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(140deg,#0F1A33_0%,#18305E_54%,#244073_100%)] p-5 text-white shadow-[0_20px_50px_rgba(15,26,51,0.18)] sm:p-6">
-          <div className="relative">
-            <div className="absolute right-[-72px] top-[-120px] h-72 w-72 rounded-full bg-white/5 blur-2xl" />
-            <div className="absolute bottom-[-100px] left-[12%] h-56 w-56 rounded-full bg-[#EC692B]/10 blur-2xl" />
-
-            <div className="relative z-10 flex flex-col gap-6">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
-                    YGA Culture Score
-                  </p>
-                  <h2 className="mt-2 font-righteous text-3xl text-white sm:text-4xl">
-                    Culture Score
-                  </h2>
-                  <p className="mt-2 max-w-2xl font-poppins text-base text-white/65">
-                    Backend sirasini korur. UI ek sort yapmaz, yalnizca
-                    sorulari geldigi duzende gosterir.
-                  </p>
-                </div>
-                <div className="sm:text-right">
-                  <div className={`font-righteous text-6xl leading-none ${cultureTone.text}`}>
-                    {summary
-                      ? formatScore(summary.cultureScore.overallAverageRating)
-                      : "0.00"}
-                  </div>
-                  <p className="mt-2 font-poppins text-sm uppercase tracking-[0.22em] text-white/35">
-                    / {formatScore(summary?.cultureScore.maxRating ?? 4)} overall
-                  </p>
-                </div>
-              </div>
-
-              <div className="h-px bg-white/10" />
-
-              {!hasRequestedFilters ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-                  <p className="font-poppins text-base text-white/72">
-                    Culture score bolumu receiver secildiginde dolacak.
-                  </p>
-                </div>
-              ) : cultureQuestions.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-                  <p className="font-poppins text-base text-white/72">
-                    API bos culture score dondu. Bu durumda bos state render edilir.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {cultureQuestions.map((question) => (
-                    <CultureQuestionRow
-                      key={question.questionId}
-                      maxRating={summary?.cultureScore.maxRating ?? 4}
-                      question={question}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </section>
       </div>

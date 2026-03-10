@@ -5,13 +5,14 @@ import {
   DashboardSummaryResponse,
 } from "@/lib/dashboardSummary";
 
-const base = process.env.NEXT_PUBLIC_REMOTE_URL;
-const dashboardBase = process.env.NEXT_PUBLIC_BASE_URL || base;
+const dashboardBase =
+  process.env.NEXT_PUBLIC_DASHBOARD_REMOTE_URL ||
+  process.env.NEXT_PUBLIC_REMOTE_URL;
 
 async function api<T>(path: string, init: RequestInit = {}) {
   if (!dashboardBase) {
     throw new Error(
-      "NEXT_PUBLIC_BASE_URL or NEXT_PUBLIC_REMOTE_URL is not configured.",
+      "NEXT_PUBLIC_DASHBOARD_REMOTE_URL or NEXT_PUBLIC_REMOTE_URL is not configured.",
     );
   }
 
