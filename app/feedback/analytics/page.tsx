@@ -77,11 +77,11 @@ function formatApiError(error: unknown) {
   if (code === "VAL_002") {
     return (
       message ||
-      "Receiver ID formatini kontrol et. Yalnızca gecerli UUID degerleri kullanilabilir."
+      "Receiver ID formatını kontrol et. Yalnızca geçerli UUID değerleri kullanılabilir."
     );
   }
 
-  return message || raw || "Dashboard verileri su anda yuklenemedi.";
+  return message || raw || "Dashboard verileri şu anda yüklenemedi.";
 }
 
 function getScoreTone(value: number, maxRating: number): ScoreTone {
@@ -235,7 +235,7 @@ function TrendTooltip({
                   : "text-white/65"
             }
           >
-            {`${diffPercent > 0 ? "+" : ""}${diffPercent}% onceki zaman dilimine gore`}
+            {`${diffPercent > 0 ? "+" : ""}${diffPercent}% önceki zaman dilimine göre`}
           </p>
         ) : null}
       </div>
@@ -364,7 +364,7 @@ function CultureQuestionRow({
           {question.questionText}
         </p>
         <p className="mt-1 font-poppins text-xs uppercase tracking-[0.18em] text-[#171717]/42">
-          {question.totalFeedbacks} yanit
+          {question.totalFeedbacks} yanıt
         </p>
       </div>
       <div className="relative z-10 hidden w-20 shrink-0 rounded-full bg-[#171717]/8 md:block">
@@ -486,17 +486,17 @@ function AnalyticsPageContent() {
             icon={<Users className="h-6 w-6" />}
             subtitle={
               summary
-                ? "Eslesen tamamlanmis anket sayisi"
-                : "Dashboard sorgusu geldiginde tamamlanan anket sayisi burada gorunur"
+                ? "Eşleşen tamamlanmış anket sayısı"
+                : "Dashboard sorgusu geldiğinde tamamlanan anket sayısı burada görünür"
             }
-            title="Total Feedbacks"
+            title="Toplam geri bildirim"
             value={String(summary?.totalFeedbacks ?? 0)}
           />
           <MetricCard
             accent="blue"
             icon={<Gauge className="h-6 w-6" />}
             subtitle={`Maksimum puan ${formatScore(maxRating)}`}
-            title="Overall Average Rating"
+            title="Genel ortalama"
             value={summary ? formatScore(summary.overallAverageRating) : "0.00"}
           />
         </section>
@@ -512,10 +512,10 @@ function AnalyticsPageContent() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/48">
-                    YGA Culture Score
+                    İş Bankası
                   </p>
                   <h2 className="mt-2 font-righteous text-3xl text-[#171717] sm:text-4xl">
-                    Culture Score
+                    İklim değerlendirme
                   </h2>
                 </div>
                 <div className="sm:text-right">
@@ -528,7 +528,7 @@ function AnalyticsPageContent() {
                   </div>
                   <p className="mt-2 font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/38">
                     / {formatScore(summary?.cultureScore.maxRating ?? 4)}{" "}
-                    overall
+                    toplam
                   </p>
                 </div>
               </div>
@@ -538,7 +538,7 @@ function AnalyticsPageContent() {
               {!hasRequestedFilters ? (
                 <div className="rounded-2xl border border-[#171717]/10 bg-[#FFFFFF]/60 p-6 text-center">
                   <p className="font-poppins text-base text-[#171717]/72">
-                    Culture score bolumu receiver secildiginde dolacak.
+                    İklim değerlendirme bölümü receiver seçildiğinde dolacak.
                   </p>
                 </div>
               ) : cultureQuestions.length === 0 ? (
@@ -562,13 +562,13 @@ function AnalyticsPageContent() {
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
-                Average Rating Trend
+                Ortalama değerlendirme trendi
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#171717]/8 bg-[#F3EAD7] p-2">
               <span className="px-2 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#171717]/55">
-                Interval
+                Aralık
               </span>
               {DASHBOARD_INTERVALS.map((interval) => (
                 <button
@@ -589,11 +589,7 @@ function AnalyticsPageContent() {
 
           <div className="rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] p-4 transition-all duration-300 group-hover:border-white/35 group-hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.62)_0%,rgba(248,242,231,0.55)_100%)] group-hover:backdrop-blur-lg">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-poppins text-sm text-[#171717]/62">
-                {summary
-                  ? `${trendData.length} grouped window · interval ${activeInterval} saat`
-                  : "Trend, aktif receiver filtresiyle yuklenecek"}
-              </p>
+              <div />
               {summary ? (
                 <div
                   className={`inline-flex items-center gap-2 rounded-full px-3 py-1 font-poppins text-xs font-semibold ${averageTone.surface}`}
@@ -612,7 +608,7 @@ function AnalyticsPageContent() {
               <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-[#FC7700]/20 bg-[#FC7700]/8 p-8 text-center">
                 <div className="space-y-3">
                   <p className="font-righteous text-3xl text-[#171717]">
-                    Veri yuklenemedi
+                    Veri yüklenemedi
                   </p>
                   <p className="font-poppins text-base text-[#A84E00]">
                     {formatApiError(summaryQuery.error)}
@@ -624,11 +620,11 @@ function AnalyticsPageContent() {
                 <div className="space-y-3">
                   <Activity className="mx-auto h-10 w-10 text-[#0057FF]/55" />
                   <p className="font-righteous text-3xl text-[#171717]">
-                    Receiver sec ve dashboardu calistir
+                    Receiver seç ve dashboardu çalıştır
                   </p>
                   <p className="max-w-xl font-poppins text-base text-[#171717]/62">
                     En az bir `feedbackReceiverId` veya `feedbackReceiverIds`
-                    parametresi olmadan API cagrisi yapilmaz.
+                    parametresi olmadan API çağrısı yapılmaz.
                   </p>
                 </div>
               </div>
@@ -640,8 +636,8 @@ function AnalyticsPageContent() {
                     Trend verisi yok
                   </p>
                   <p className="max-w-xl font-poppins text-base text-[#171717]/62">
-                    API gecerli yanit dondu ancak `hourlyRatings` bos geldi.
-                    Tasarim geregi bos trend durumu render edildi.
+                    API geçerli yanıt döndü ancak `hourlyRatings` boş geldi.
+                    Tasarım gereği boş trend durumu render edildi.
                   </p>
                 </div>
               </div>
