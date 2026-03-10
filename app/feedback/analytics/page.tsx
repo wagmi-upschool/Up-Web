@@ -489,7 +489,7 @@ function AnalyticsPageContent() {
                 ? "Eşleşen tamamlanmış anket sayısı"
                 : "Dashboard sorgusu geldiğinde tamamlanan anket sayısı burada görünür"
             }
-            title="Toplam geri bildirim"
+            title="TOPLAM GERİ BİLDİRİM"
             value={String(summary?.totalFeedbacks ?? 0)}
           />
           <MetricCard
