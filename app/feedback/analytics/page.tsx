@@ -562,7 +562,7 @@ function AnalyticsPageContent() {
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
-                Ortalama değerlendirme trendi
+                ORTALAMA DEĞERLENDİRME TRENDİ
               </p>
             </div>
 
