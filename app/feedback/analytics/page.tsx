@@ -472,7 +472,7 @@ function AnalyticsPageContent() {
                 </div>
                 <div className="space-y-1">
                   <h1 className="font-righteous text-3xl text-[#171717] sm:text-4xl">
-                    UP Pulse Dashboard
+                    Pulse Dashboard
                   </h1>
                 </div>
               </div>
@@ -581,7 +581,7 @@ function AnalyticsPageContent() {
                   onClick={() => setActiveInterval(interval)}
                   type="button"
                 >
-                  {interval}h
+                  {interval}s
                 </button>
               ))}
             </div>
