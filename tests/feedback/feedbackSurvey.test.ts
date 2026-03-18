@@ -5,6 +5,7 @@ import {
   buildFeedbackSubmitAnswers,
   getQuestionScaleMax,
   getQuestionScaleMin,
+  sanitizePercentageInput,
   validateFeedbackAnswer,
 } from "../../lib/feedbackSurvey";
 
@@ -35,7 +36,7 @@ const questions: FeedbackQuestion[] = [
 
 test("validateFeedbackAnswer applies rules per question type", () => {
   assert.equal(validateFeedbackAnswer(questions[0], "3"), true);
-  assert.equal(validateFeedbackAnswer(questions[1], "73.5"), true);
+  assert.equal(validateFeedbackAnswer(questions[1], "73,5"), true);
   assert.equal(validateFeedbackAnswer(questions[2], "Clear written feedback"), true);
 });
 
@@ -52,12 +53,16 @@ test("validateFeedbackAnswer rejects invalid percentage values", () => {
     validateFeedbackAnswer(questions[1], "abc"),
     "Lütfen sayı girin.",
   );
+  assert.equal(
+    validateFeedbackAnswer(questions[1], "73.5"),
+    "Ondalık ayırıcı olarak virgül kullanın.",
+  );
 });
 
 test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => {
   const answers = buildFeedbackSubmitAnswers(questions, {
     "likert-1": "4",
-    "percentage-1": "73.5",
+    "percentage-1": "73,5",
     "free-text-1": "  Strong collaborator  ",
   });
 
@@ -90,4 +95,9 @@ test("numeric scale helpers fall back to type defaults", () => {
 
   assert.equal(getQuestionScaleMin(percentageQuestion), 0);
   assert.equal(getQuestionScaleMax(percentageQuestion), 100);
+});
+
+test("sanitizePercentageInput keeps only digits and a single comma", () => {
+  assert.equal(sanitizePercentageInput("7a3.5,9"), "735,9");
+  assert.equal(sanitizePercentageInput("12,,34"), "12,34");
 });
