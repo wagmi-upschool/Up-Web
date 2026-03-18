@@ -14,7 +14,6 @@ import { Star } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   FeedbackSurveyType,
-  FeedbackQuestion,
   FeedbackReceiver,
   QuestionsResponse,
   SubmitSurveyPayload,
@@ -22,6 +21,13 @@ import {
   getReceivers,
   submitSurvey,
 } from "@/lib/feedbackClient";
+import {
+  buildFeedbackSubmitAnswers,
+  getQuestionScaleMax,
+  getQuestionScaleMin,
+  MAX_FEEDBACK_FREE_TEXT,
+  validateFeedbackAnswer,
+} from "@/lib/feedbackSurvey";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type FeedbackFormValues = {
@@ -30,9 +36,9 @@ type FeedbackFormValues = {
   finalComment: string;
 };
 
-const MAX_FREE_TEXT = 2000;
 const LIKERT_GUIDE_TEXT =
   "1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model";
+const PERCENTAGE_GUIDE_TEXT = "0-100 arası ham yüzde değeri gir.";
 const LIKERT_LEVEL_LABELS: Record<number, string> = {
   1: "Zayıf",
   2: "Kısmen yeterli",
@@ -81,29 +87,6 @@ function formatApiError(error: unknown) {
   }
 
   return message || raw || "Bir şeyler ters gitti. Lütfen tekrar deneyin.";
-}
-
-function likertValidation(question: FeedbackQuestion, value?: string) {
-  if (value === undefined || value === null || value === "") {
-    return "Bu soru zorunlu.";
-  }
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) {
-    return "Lütfen sayı girin.";
-  }
-  if (
-    typeof question.scale_min === "number" &&
-    numericValue < question.scale_min
-  ) {
-    return `En az ${question.scale_min} olmalı.`;
-  }
-  if (
-    typeof question.scale_max === "number" &&
-    numericValue > question.scale_max
-  ) {
-    return `En fazla ${question.scale_max} olmalı.`;
-  }
-  return true;
 }
 
 function FeedbackPageShell({ children }: { children: ReactNode }) {
@@ -253,13 +236,9 @@ function FeedbackPageContent() {
         return "Lütfen tüm soruları yanıtlayın.";
       }
 
-      if (question.type === "likert") {
-        const verdict = likertValidation(question, rawValue);
-        if (verdict !== true) return verdict;
-      } else if (question.type === "free_text") {
-        if (rawValue.length > MAX_FREE_TEXT) {
-          return "Metin yanıtları en fazla 2000 karakter olmalı.";
-        }
+      const verdict = validateFeedbackAnswer(question, rawValue);
+      if (verdict !== true) {
+        return verdict;
       }
     }
     return null;
@@ -274,15 +253,7 @@ function FeedbackPageContent() {
       return;
     }
 
-    const answers = sortedQuestions.map((question) => {
-      const rawValue = values.answers?.[question.question_id] || "";
-      return {
-        question_id: question.question_id,
-        answer_type: question.type,
-        answer_value:
-          question.type === "likert" ? Number(rawValue) : rawValue.trim(),
-      } as SubmitSurveyPayload["answers"][number];
-    });
+    const answers = buildFeedbackSubmitAnswers(sortedQuestions, values.answers);
 
     const completion_time_seconds = startTime
       ? Math.round((Date.now() - startTime) / 1000)
@@ -498,6 +469,14 @@ function FeedbackPageContent() {
                     {sortedQuestions.map((question) => {
                       const errorMessage =
                         answerErrors?.[question.question_id]?.message;
+                      const questionValue =
+                        form.watch(`answers.${question.question_id}`) || "";
+                      const questionScaleMin = getQuestionScaleMin(question);
+                      const questionScaleMax = getQuestionScaleMax(question);
+                      const percentageSliderValue =
+                        questionValue === ""
+                          ? String(questionScaleMin ?? 0)
+                          : questionValue;
 
                       return (
                         <div key={question.question_id} className="space-y-1.5">
@@ -509,16 +488,12 @@ function FeedbackPageContent() {
                               <div className="flex flex-wrap gap-2">
                                 {Array.from({
                                   length:
-                                    (question.scale_max ?? 5) -
-                                    (question.scale_min ?? 1) +
+                                    (questionScaleMax ?? 5) -
+                                    (questionScaleMin ?? 1) +
                                     1,
                                 }).map((_, idx) => {
-                                  const value = (question.scale_min ?? 1) + idx;
-                                  const current = Number(
-                                    form.watch(
-                                      `answers.${question.question_id}`,
-                                    ) || 0,
-                                  );
+                                  const value = (questionScaleMin ?? 1) + idx;
+                                  const current = Number(questionValue || 0);
                                   const active = current >= value;
                                   return (
                                     <button
@@ -557,7 +532,73 @@ function FeedbackPageContent() {
                                   `answers.${question.question_id}`,
                                   {
                                     validate: (value) =>
-                                      likertValidation(question, value),
+                                      validateFeedbackAnswer(question, value),
+                                  },
+                                )}
+                              />
+                            </div>
+                          ) : question.type === "percentage" ? (
+                            <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-sky-700 shadow-sm">
+                                  {questionValue === ""
+                                    ? "Henüz seçilmedi"
+                                    : `%${questionValue}`}
+                                </div>
+                                <div className="text-sm text-sky-900/70 font-poppins">
+                                  {`${questionScaleMin ?? 0} - ${questionScaleMax ?? 100}`}
+                                </div>
+                              </div>
+                              <input
+                                type="range"
+                                min={questionScaleMin ?? 0}
+                                max={questionScaleMax ?? 100}
+                                step="0.1"
+                                value={percentageSliderValue}
+                                onChange={(event) =>
+                                  form.setValue(
+                                    `answers.${question.question_id}`,
+                                    event.target.value,
+                                    {
+                                      shouldValidate: true,
+                                      shouldDirty: true,
+                                    },
+                                  )
+                                }
+                                className="h-3 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-200 via-sky-400 to-sky-600 accent-sky-600"
+                              />
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  min={questionScaleMin ?? 0}
+                                  max={questionScaleMax ?? 100}
+                                  step="0.1"
+                                  value={questionValue}
+                                  onChange={(event) =>
+                                    form.setValue(
+                                      `answers.${question.question_id}`,
+                                      event.target.value,
+                                      {
+                                        shouldValidate: true,
+                                        shouldDirty: true,
+                                      },
+                                    )
+                                  }
+                                  placeholder="0"
+                                  className="w-28 rounded-xl border border-sky-200 bg-white px-3 py-2 text-lg sm:text-xl text-title-black font-poppins shadow-sm outline-none transition focus:border-sky-400"
+                                />
+                                <span className="text-lg font-semibold text-sky-800">
+                                  %
+                                </span>
+                              </div>
+                              <input
+                                type="hidden"
+                                {...form.register(
+                                  `answers.${question.question_id}`,
+                                  {
+                                    validate: (value) =>
+                                      validateFeedbackAnswer(question, value),
                                   },
                                 )}
                               />
@@ -565,15 +606,15 @@ function FeedbackPageContent() {
                           ) : (
                             <textarea
                               rows={4}
-                              maxLength={MAX_FREE_TEXT}
+                              maxLength={MAX_FEEDBACK_FREE_TEXT}
                               className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl sm:text-2xl text-title-black font-poppins"
                               {...form.register(
                                 `answers.${question.question_id}`,
                                 {
                                   required: "Bu soru zorunlu.",
                                   maxLength: {
-                                    value: MAX_FREE_TEXT,
-                                    message: `En fazla ${MAX_FREE_TEXT} karakter.`,
+                                    value: MAX_FEEDBACK_FREE_TEXT,
+                                    message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
                                   },
                                 },
                               )}
@@ -582,8 +623,10 @@ function FeedbackPageContent() {
                           <p className="text-lg text-gray-600 font-poppins">
                             {question.type === "likert" ? (
                               <span>{LIKERT_GUIDE_TEXT}</span>
+                            ) : question.type === "percentage" ? (
+                              <span>{PERCENTAGE_GUIDE_TEXT}</span>
                             ) : (
-                              `${MAX_FREE_TEXT - (form.watch(
+                              `${MAX_FEEDBACK_FREE_TEXT - (form.watch(
                                 `answers.${question.question_id}`,
                               )?.length || 0)} karakter kaldı`
                             )}
@@ -603,18 +646,19 @@ function FeedbackPageContent() {
                       </label>
                       <textarea
                         rows={4}
-                        maxLength={MAX_FREE_TEXT}
+                        maxLength={MAX_FEEDBACK_FREE_TEXT}
                         className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl sm:text-2xl text-title-black font-poppins"
                         placeholder="İsteğe bağlı"
                         {...form.register("finalComment", {
                           maxLength: {
-                            value: MAX_FREE_TEXT,
-                            message: `En fazla ${MAX_FREE_TEXT} karakter.`,
+                            value: MAX_FEEDBACK_FREE_TEXT,
+                            message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
                           },
                         })}
                       />
                       <p className="text-lg text-gray-600 font-poppins">
-                        {MAX_FREE_TEXT - (form.watch("finalComment")?.length || 0)}{" "}
+                        {MAX_FEEDBACK_FREE_TEXT -
+                          (form.watch("finalComment")?.length || 0)}{" "}
                         karakter kaldı.
                       </p>
                       {form.formState.errors.finalComment?.message ? (

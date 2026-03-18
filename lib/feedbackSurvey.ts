@@ -1,0 +1,91 @@
+import type {
+  FeedbackQuestion,
+  SubmitSurveyPayload,
+} from "@/lib/feedbackClient";
+
+export const MAX_FEEDBACK_FREE_TEXT = 2000;
+
+const DEFAULT_NUMERIC_SCALES = {
+  likert: { min: 1, max: 5 },
+  percentage: { min: 0, max: 100 },
+} as const;
+
+function getNumericBounds(question: FeedbackQuestion) {
+  if (question.type === "free_text") {
+    return { min: undefined, max: undefined };
+  }
+
+  const defaults = DEFAULT_NUMERIC_SCALES[question.type];
+
+  return {
+    min: question.scale_min ?? defaults.min,
+    max: question.scale_max ?? defaults.max,
+  };
+}
+
+export function isNumericQuestion(question: FeedbackQuestion) {
+  return question.type === "likert" || question.type === "percentage";
+}
+
+export function validateFeedbackAnswer(
+  question: FeedbackQuestion,
+  value?: string | null,
+) {
+  if (value === undefined || value === null || value === "") {
+    return "Bu soru zorunlu.";
+  }
+
+  if (question.type === "free_text") {
+    if (value.length > MAX_FEEDBACK_FREE_TEXT) {
+      return `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`;
+    }
+
+    return true;
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return "Lütfen sayı girin.";
+  }
+
+  const { min, max } = getNumericBounds(question);
+
+  if (typeof min === "number" && numericValue < min) {
+    return `En az ${min} olmalı.`;
+  }
+
+  if (typeof max === "number" && numericValue > max) {
+    return `En fazla ${max} olmalı.`;
+  }
+
+  return true;
+}
+
+export function serializeFeedbackAnswer(
+  question: FeedbackQuestion,
+  value: string,
+): SubmitSurveyPayload["answers"][number] {
+  return {
+    question_id: question.question_id,
+    answer_type: question.type,
+    answer_value: isNumericQuestion(question) ? Number(value) : value.trim(),
+  };
+}
+
+export function buildFeedbackSubmitAnswers(
+  questions: FeedbackQuestion[],
+  answers: Record<string, string>,
+): SubmitSurveyPayload["answers"] {
+  return questions.map((question) =>
+    serializeFeedbackAnswer(question, answers[question.question_id] || ""),
+  );
+}
+
+export function getQuestionScaleMin(question: FeedbackQuestion) {
+  return getNumericBounds(question).min;
+}
+
+export function getQuestionScaleMax(question: FeedbackQuestion) {
+  return getNumericBounds(question).max;
+}

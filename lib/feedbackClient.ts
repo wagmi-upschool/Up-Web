@@ -3,6 +3,7 @@
 const base = process.env.NEXT_PUBLIC_REMOTE_URL;
 
 export type FeedbackSurveyType = "peer" | "self";
+export type FeedbackQuestionType = "likert" | "percentage" | "free_text";
 
 async function api<T>(path: string, init: RequestInit = {}) {
   if (!base) {
@@ -45,7 +46,7 @@ export type FeedbackReceiver = {
 export type FeedbackQuestion = {
   question_id: string;
   question_text: string;
-  type: "likert" | "free_text";
+  type: FeedbackQuestionType;
   order: number;
   scale_min?: number;
   scale_max?: number;
@@ -69,7 +70,7 @@ export type SubmitSurveyPayload = {
   answers: {
     question_id: string;
     answer_value: string | number | null;
-    answer_type: "likert" | "free_text";
+    answer_type: FeedbackQuestionType;
   }[];
   free_text_general?: string;
   survey_type?: FeedbackSurveyType;
