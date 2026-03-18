@@ -27,6 +27,31 @@ export function isNumericQuestion(question: FeedbackQuestion) {
   return question.type === "likert" || question.type === "percentage";
 }
 
+export function sanitizePercentageInput(value: string) {
+  let nextValue = "";
+  let hasSeparator = false;
+
+  for (const char of value) {
+    if (/\d/.test(char)) {
+      nextValue += char;
+      continue;
+    }
+
+    if (char === "," && !hasSeparator) {
+      nextValue += char;
+      hasSeparator = true;
+    }
+  }
+
+  return nextValue;
+}
+
+export function parsePercentageValue(value: string) {
+  if (!value) return Number.NaN;
+  if (value.includes(".")) return Number.NaN;
+  return Number(value.replace(",", "."));
+}
+
 export function validateFeedbackAnswer(
   question: FeedbackQuestion,
   value?: string | null,
@@ -43,7 +68,14 @@ export function validateFeedbackAnswer(
     return true;
   }
 
-  const numericValue = Number(value);
+  const numericValue =
+    question.type === "percentage"
+      ? parsePercentageValue(value)
+      : Number(value);
+
+  if (question.type === "percentage" && value.includes(".")) {
+    return "Ondalık ayırıcı olarak virgül kullanın.";
+  }
 
   if (!Number.isFinite(numericValue)) {
     return "Lütfen sayı girin.";
@@ -69,7 +101,12 @@ export function serializeFeedbackAnswer(
   return {
     question_id: question.question_id,
     answer_type: question.type,
-    answer_value: isNumericQuestion(question) ? Number(value) : value.trim(),
+    answer_value:
+      question.type === "percentage"
+        ? parsePercentageValue(value)
+        : isNumericQuestion(question)
+          ? Number(value)
+          : value.trim(),
   };
 }
 

@@ -26,6 +26,8 @@ import {
   getQuestionScaleMax,
   getQuestionScaleMin,
   MAX_FEEDBACK_FREE_TEXT,
+  parsePercentageValue,
+  sanitizePercentageInput,
   validateFeedbackAnswer,
 } from "@/lib/feedbackSurvey";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
@@ -38,7 +40,9 @@ type FeedbackFormValues = {
 
 const LIKERT_GUIDE_TEXT =
   "1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model";
-const PERCENTAGE_GUIDE_TEXT = "0-100 arası ham yüzde değeri gir.";
+const PERCENTAGE_GUIDE_TEXT =
+  "0-100 arası ham yüzde değeri gir. Ondalık gerekiyorsa yalnızca virgül kullan.";
+const PERCENTAGE_SLIDER_COLOR = "#0057FF";
 const LIKERT_LEVEL_LABELS: Record<number, string> = {
   1: "Zayıf",
   2: "Kısmen yeterli",
@@ -96,6 +100,46 @@ function FeedbackPageShell({ children }: { children: ReactNode }) {
         aria-hidden="true"
         className="fixed inset-0 z-0 bg-[url('/bg-df.png')] bg-cover bg-center bg-no-repeat pointer-events-none"
       />
+      <style jsx>{`
+        .percentage-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          background: ${PERCENTAGE_SLIDER_COLOR};
+        }
+
+        .percentage-slider::-webkit-slider-runnable-track {
+          height: 12px;
+          border-radius: 999px;
+          background: ${PERCENTAGE_SLIDER_COLOR};
+        }
+
+        .percentage-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          margin-top: -7px;
+          height: 24px;
+          width: 24px;
+          border-radius: 999px;
+          border: 3px solid #ffffff;
+          background: ${PERCENTAGE_SLIDER_COLOR};
+          box-shadow: 0 10px 18px rgba(0, 87, 255, 0.22);
+        }
+
+        .percentage-slider::-moz-range-track {
+          height: 12px;
+          border-radius: 999px;
+          background: ${PERCENTAGE_SLIDER_COLOR};
+        }
+
+        .percentage-slider::-moz-range-thumb {
+          height: 24px;
+          width: 24px;
+          border-radius: 999px;
+          border: 3px solid #ffffff;
+          background: ${PERCENTAGE_SLIDER_COLOR};
+          box-shadow: 0 10px 18px rgba(0, 87, 255, 0.22);
+        }
+      `}</style>
       {children}
     </div>
   );
@@ -473,10 +517,14 @@ function FeedbackPageContent() {
                         form.watch(`answers.${question.question_id}`) || "";
                       const questionScaleMin = getQuestionScaleMin(question);
                       const questionScaleMax = getQuestionScaleMax(question);
+                      const parsedPercentageSliderValue =
+                        parsePercentageValue(questionValue);
                       const percentageSliderValue =
                         questionValue === ""
                           ? String(questionScaleMin ?? 0)
-                          : questionValue;
+                          : Number.isFinite(parsedPercentageSliderValue)
+                            ? String(parsedPercentageSliderValue)
+                            : String(questionScaleMin ?? 0);
 
                       return (
                         <div key={question.question_id} className="space-y-1.5">
@@ -538,59 +586,54 @@ function FeedbackPageContent() {
                               />
                             </div>
                           ) : question.type === "percentage" ? (
-                            <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-sky-700 shadow-sm">
-                                  {questionValue === ""
-                                    ? "Henüz seçilmedi"
-                                    : `%${questionValue}`}
+                            <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+                              <div className="flex flex-col items-center justify-center gap-4 md:flex-row md:gap-5">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-lg font-semibold text-sky-800">
+                                    %
+                                  </span>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={questionValue}
+                                    onChange={(event) =>
+                                      form.setValue(
+                                        `answers.${question.question_id}`,
+                                        sanitizePercentageInput(event.target.value),
+                                        {
+                                          shouldValidate: true,
+                                          shouldDirty: true,
+                                        },
+                                      )
+                                    }
+                                    placeholder="0"
+                                    className="w-28 rounded-xl border border-sky-200 bg-white px-3 py-2 text-center text-lg sm:text-xl text-title-black font-poppins shadow-sm outline-none transition focus:border-sky-400"
+                                  />
                                 </div>
-                                <div className="text-sm text-sky-900/70 font-poppins">
-                                  {`${questionScaleMin ?? 0} - ${questionScaleMax ?? 100}`}
+                                <div className="flex w-full max-w-3xl items-center gap-4">
+                                  <input
+                                    type="range"
+                                    min={questionScaleMin ?? 0}
+                                    max={questionScaleMax ?? 100}
+                                    step="0.1"
+                                    value={percentageSliderValue}
+                                    style={{ accentColor: PERCENTAGE_SLIDER_COLOR }}
+                                    onChange={(event) =>
+                                      form.setValue(
+                                        `answers.${question.question_id}`,
+                                        event.target.value.replace(".", ","),
+                                        {
+                                          shouldValidate: true,
+                                          shouldDirty: true,
+                                        },
+                                      )
+                                    }
+                                    className="percentage-slider h-3 w-full cursor-pointer rounded-full"
+                                  />
+                                  <div className="min-w-fit text-sm text-sky-900/70 font-poppins">
+                                    {`${questionScaleMin ?? 0} - ${questionScaleMax ?? 100}`}
+                                  </div>
                                 </div>
-                              </div>
-                              <input
-                                type="range"
-                                min={questionScaleMin ?? 0}
-                                max={questionScaleMax ?? 100}
-                                step="0.1"
-                                value={percentageSliderValue}
-                                onChange={(event) =>
-                                  form.setValue(
-                                    `answers.${question.question_id}`,
-                                    event.target.value,
-                                    {
-                                      shouldValidate: true,
-                                      shouldDirty: true,
-                                    },
-                                  )
-                                }
-                                className="h-3 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-200 via-sky-400 to-sky-600 accent-sky-600"
-                              />
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  min={questionScaleMin ?? 0}
-                                  max={questionScaleMax ?? 100}
-                                  step="0.1"
-                                  value={questionValue}
-                                  onChange={(event) =>
-                                    form.setValue(
-                                      `answers.${question.question_id}`,
-                                      event.target.value,
-                                      {
-                                        shouldValidate: true,
-                                        shouldDirty: true,
-                                      },
-                                    )
-                                  }
-                                  placeholder="0"
-                                  className="w-28 rounded-xl border border-sky-200 bg-white px-3 py-2 text-lg sm:text-xl text-title-black font-poppins shadow-sm outline-none transition focus:border-sky-400"
-                                />
-                                <span className="text-lg font-semibold text-sky-800">
-                                  %
-                                </span>
                               </div>
                               <input
                                 type="hidden"
