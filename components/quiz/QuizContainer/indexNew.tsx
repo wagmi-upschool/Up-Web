@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/components/wrapper/redux";
 import {
   selectQuiz,
@@ -49,6 +49,7 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
   onExit,
 }) => {
   const dispatch = useAppDispatch();
+  const [starredQuestionIds, setStarredQuestionIds] = useState<Record<string, boolean>>({});
   
   // Redux Selectors
   const quiz = useAppSelector(selectQuiz);
@@ -176,6 +177,35 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
     }
   }, [dispatch, quiz.isFinishing, currentQuestion, currentAnswer]);
 
+  const handleSkip = useCallback(() => {
+    if (!currentQuestion) return;
+
+    if (isLastQuestion) {
+      void handleFinishQuiz();
+      return;
+    }
+
+    dispatch(nextQuestion());
+    toast("Soru boş bırakıldı", {
+      icon: "⏭️",
+    });
+  }, [dispatch, currentQuestion, isLastQuestion, handleFinishQuiz]);
+
+  const handleToggleStar = useCallback(() => {
+    if (!currentQuestion) return;
+
+    const nextValue = !starredQuestionIds[currentQuestion.questionId];
+
+    setStarredQuestionIds((prev) => ({
+      ...prev,
+      [currentQuestion.questionId]: nextValue,
+    }));
+
+    toast(nextValue ? "Soru yıldızlandı" : "Yıldız kaldırıldı", {
+      icon: nextValue ? "⭐" : "✖️",
+    });
+  }, [currentQuestion, starredQuestionIds]);
+
   // Handle quiz restart
   const handleRestart = useCallback(() => {
     dispatch(resetQuiz());
@@ -219,6 +249,9 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
             onPrevious={handlePrevious}
             onNext={handleNext}
             onFinish={handleFinishQuiz}
+            onSkip={handleSkip}
+            onToggleStar={handleToggleStar}
+            isStarred={!!starredQuestionIds[currentQuestion.questionId]}
             isLoading={quiz.isSubmitting || quiz.isFinishing}
           />
         )}
