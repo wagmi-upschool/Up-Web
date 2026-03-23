@@ -3,7 +3,7 @@
 import React from "react";
 import { QuizQuestion } from "@/types/type";
 import QuestionOption from "./QuestionOption";
-import { ChevronLeft, ChevronRight, Flag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, Star } from "lucide-react";
 
 interface QuizQuestionProps {
   question: QuizQuestion;
@@ -15,6 +15,9 @@ interface QuizQuestionProps {
   onPrevious: () => void;
   onNext: () => void;
   onFinish: () => void;
+  onSkip?: () => void;
+  onToggleStar?: () => void;
+  isStarred?: boolean;
   isLoading?: boolean;
 }
 
@@ -27,6 +30,9 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
   onPrevious,
   onNext,
   onFinish,
+  onSkip,
+  onToggleStar,
+  isStarred = false,
   isLoading = false,
 }) => {
   const hasAnswer = !!selectedOption;
@@ -86,6 +92,29 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
         <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl p-8">
           {/* Question Header */}
           <div className="mb-8">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="rounded-full bg-light-blue px-4 py-2 font-poppins text-sm font-medium text-primary">
+                Soru {currentQuestionIndex + 1} / {totalQuestions}
+              </div>
+
+              {onToggleStar && (
+                <button
+                  type="button"
+                  onClick={onToggleStar}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 font-poppins text-sm font-medium transition-colors ${
+                    isStarred
+                      ? "border-yellow-300 bg-yellow-50 text-yellow-700"
+                      : "border-gray-200 bg-white text-text-light hover:border-yellow-300 hover:text-yellow-700"
+                  }`}
+                >
+                  <Star
+                    className={`h-4 w-4 ${isStarred ? "fill-current" : ""}`}
+                  />
+                  {isStarred ? "Yıldızı Kaldır" : "Yıldızla"}
+                </button>
+              )}
+            </div>
+
             <h2 className="font-righteous text-2xl text-title-black mb-4 leading-relaxed">
               {question.title.replaceAll("{blank}", "______")}
             </h2>
@@ -178,46 +207,63 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
               </div>
 
               {/* Next/Finish Button */}
-              {isLastQuestion ? (
-                <button
-                  onClick={onFinish}
-                  disabled={!hasAnswer || isLoading}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-poppins font-semibold transition-all ${
-                    !hasAnswer || isLoading
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-primary text-white hover:bg-blue-600 shadow-md hover:shadow-lg"
-                  }`}
-                >
-                  {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Flag className="w-5 h-5" />
-                  )}
-                  {isLoading ? "Tamamlanıyor..." : "Testi Bitir"}
-                </button>
-              ) : (
-                <button
-                  onClick={onNext}
-                  disabled={!hasAnswer || isLoading}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-poppins font-medium transition-all ${
-                    !hasAnswer || isLoading
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-primary text-white hover:bg-blue-600 shadow-md hover:shadow-lg"
-                  }`}
-                >
-                  <>
-                    Sonraki Soru
-                    <ChevronRight className="w-5 h-5" />
-                  </>
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {!hasAnswer && onSkip && (
+                  <button
+                    type="button"
+                    onClick={onSkip}
+                    disabled={isLoading}
+                    className={`rounded-xl border px-5 py-3 font-poppins font-medium transition-all ${
+                      isLoading
+                        ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                        : "border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100"
+                    }`}
+                  >
+                    {isLastQuestion ? "Boş Bırak ve Bitir" : "Soruyu Geç"}
+                  </button>
+                )}
+
+                {isLastQuestion ? (
+                  <button
+                    onClick={onFinish}
+                    disabled={!hasAnswer || isLoading}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-poppins font-semibold transition-all ${
+                      !hasAnswer || isLoading
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-primary text-white hover:bg-blue-600 shadow-md hover:shadow-lg"
+                    }`}
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Flag className="w-5 h-5" />
+                    )}
+                    {isLoading ? "Tamamlanıyor..." : "Testi Bitir"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={onNext}
+                    disabled={!hasAnswer || isLoading}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-poppins font-medium transition-all ${
+                      !hasAnswer || isLoading
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-primary text-white hover:bg-blue-600 shadow-md hover:shadow-lg"
+                    }`}
+                  >
+                    <>
+                      Sonraki Soru
+                      <ChevronRight className="w-5 h-5" />
+                    </>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Progress Hint */}
             <div className="text-center mt-4">
               {!hasAnswer ? (
-                <p className="font-poppins text-sm text-red-500">
-                  ⚠️ Devam etmek için bir seçenek seçiniz
+                <p className="font-poppins text-sm text-amber-600">
+                  Bir seçenek seçebilir ya da soruyu boş bırakarak devam edebilirsiniz.
                 </p>
               ) : (
                 <p className="font-poppins text-xs text-text-light">

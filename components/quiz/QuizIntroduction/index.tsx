@@ -136,7 +136,10 @@ const QuizIntroduction: React.FC<QuizIntroductionProps> = ({
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <span>Her soru için cevap vermeniz zorunludur.</span>
+                <span>
+                  İsterseniz soruyu yıldızlayabilir veya boş bırakıp sonraki
+                  soruya geçebilirsiniz.
+                </span>
               </li>
               <li className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
