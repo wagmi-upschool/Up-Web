@@ -57,7 +57,7 @@ export function validateFeedbackAnswer(
   value?: string | null,
 ) {
   if (value === undefined || value === null || value === "") {
-    return "Bu soru zorunlu.";
+    return true;
   }
 
   if (question.type === "free_text") {
@@ -96,8 +96,21 @@ export function validateFeedbackAnswer(
 
 export function serializeFeedbackAnswer(
   question: FeedbackQuestion,
-  value: string,
+  value?: string | null,
 ): SubmitSurveyPayload["answers"][number] {
+  if (
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (question.type === "free_text" && value.trim() === "")
+  ) {
+    return {
+      question_id: question.question_id,
+      answer_type: question.type,
+      answer_value: null,
+    };
+  }
+
   return {
     question_id: question.question_id,
     answer_type: question.type,
@@ -115,7 +128,7 @@ export function buildFeedbackSubmitAnswers(
   answers: Record<string, string>,
 ): SubmitSurveyPayload["answers"] {
   return questions.map((question) =>
-    serializeFeedbackAnswer(question, answers[question.question_id] || ""),
+    serializeFeedbackAnswer(question, answers[question.question_id]),
   );
 }
 

@@ -276,10 +276,6 @@ function FeedbackPageContent() {
   const validateBeforeSubmit = (values: FeedbackFormValues) => {
     for (const question of sortedQuestions) {
       const rawValue = values.answers?.[question.question_id];
-      if (rawValue === undefined || rawValue === null || rawValue === "") {
-        return "Lütfen tüm soruları yanıtlayın.";
-      }
-
       const verdict = validateFeedbackAnswer(question, rawValue);
       if (verdict !== true) {
         return verdict;
@@ -550,7 +546,9 @@ function FeedbackPageContent() {
                                       onClick={() =>
                                         form.setValue(
                                           `answers.${question.question_id}`,
-                                          String(value),
+                                          questionValue === String(value)
+                                            ? ""
+                                            : String(value),
                                           {
                                             shouldValidate: true,
                                             shouldDirty: true,
@@ -574,6 +572,26 @@ function FeedbackPageContent() {
                                   );
                                 })}
                               </div>
+                              {questionValue ? (
+                                <div className="flex justify-start">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      form.setValue(
+                                        `answers.${question.question_id}`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                          shouldDirty: true,
+                                        },
+                                      )
+                                    }
+                                    className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                                  >
+                                    Yıldızı kaldır
+                                  </button>
+                                </div>
+                              ) : null}
                               <input
                                 type="hidden"
                                 {...form.register(
@@ -654,7 +672,6 @@ function FeedbackPageContent() {
                               {...form.register(
                                 `answers.${question.question_id}`,
                                 {
-                                  required: "Bu soru zorunlu.",
                                   maxLength: {
                                     value: MAX_FEEDBACK_FREE_TEXT,
                                     message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
@@ -714,13 +731,9 @@ function FeedbackPageContent() {
                     <div className="flex items-center justify-end">
                       <button
                         type="submit"
-                        disabled={
-                          formDisabled ||
-                          submitMutation.isPending ||
-                          !form.formState.isValid
-                        }
+                        disabled={formDisabled || submitMutation.isPending}
                         className={`rounded-md px-5 py-2 text-xl font-semibold font-poppins shadow-sm transition-colors ${
-                          formDisabled || submitMutation.isPending || !form.formState.isValid
+                          formDisabled || submitMutation.isPending
                             ? "bg-[#99BCFF] text-white cursor-not-allowed"
                             : "bg-primary text-white hover:bg-blue-700"
                         }`}

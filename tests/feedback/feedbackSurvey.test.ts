@@ -38,6 +38,9 @@ test("validateFeedbackAnswer applies rules per question type", () => {
   assert.equal(validateFeedbackAnswer(questions[0], "3"), true);
   assert.equal(validateFeedbackAnswer(questions[1], "73,5"), true);
   assert.equal(validateFeedbackAnswer(questions[2], "Clear written feedback"), true);
+  assert.equal(validateFeedbackAnswer(questions[0], ""), true);
+  assert.equal(validateFeedbackAnswer(questions[1], null), true);
+  assert.equal(validateFeedbackAnswer(questions[2], undefined), true);
 });
 
 test("validateFeedbackAnswer rejects invalid percentage values", () => {
@@ -81,6 +84,31 @@ test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => 
       question_id: "free-text-1",
       answer_type: "free_text",
       answer_value: "Strong collaborator",
+    },
+  ]);
+});
+
+test("buildFeedbackSubmitAnswers serializes unanswered questions as null", () => {
+  const answers = buildFeedbackSubmitAnswers(questions, {
+    "likert-1": "",
+    "free-text-1": "  ",
+  });
+
+  assert.deepEqual(answers, [
+    {
+      question_id: "likert-1",
+      answer_type: "likert",
+      answer_value: null,
+    },
+    {
+      question_id: "percentage-1",
+      answer_type: "percentage",
+      answer_value: null,
+    },
+    {
+      question_id: "free-text-1",
+      answer_type: "free_text",
+      answer_value: null,
     },
   ]);
 });
