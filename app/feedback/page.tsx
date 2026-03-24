@@ -572,26 +572,6 @@ function FeedbackPageContent() {
                                   );
                                 })}
                               </div>
-                              {questionValue ? (
-                                <div className="flex justify-start">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      form.setValue(
-                                        `answers.${question.question_id}`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                          shouldDirty: true,
-                                        },
-                                      )
-                                    }
-                                    className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
-                                  >
-                                    Yıldızı kaldır
-                                  </button>
-                                </div>
-                              ) : null}
                               <input
                                 type="hidden"
                                 {...form.register(
