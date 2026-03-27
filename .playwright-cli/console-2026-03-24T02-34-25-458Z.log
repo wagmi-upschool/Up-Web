@@ -1,0 +1,5 @@
+[    3426ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/feedback/receivers?feedbackGiverId=2a970be9-531e-4bc1-b408-f66f04c96bd7:0
+[    5364ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/feedback/receivers?feedbackGiverId=2a970be9-531e-4bc1-b408-f66f04c96bd7:0
+[    8343ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/feedback/receivers?feedbackGiverId=2a970be9-531e-4bc1-b408-f66f04c96bd7:0
+[   13261ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/feedback/receivers?feedbackGiverId=2a970be9-531e-4bc1-b408-f66f04c96bd7:0
+[  179384ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/feedback/receivers?feedbackGiverId=2a970be9-531e-4bc1-b408-f66f04c96bd7:0

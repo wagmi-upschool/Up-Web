@@ -1,0 +1,61 @@
+- generic [active] [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img "UP" [ref=e8]
+        - generic [ref=e10]:
+          - heading "Geri Bildirim Ver" [level=1] [ref=e11]
+          - paragraph [ref=e12]: Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder.
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - paragraph [ref=e16]: Değerlendirilecek kişiyi seç
+          - combobox [ref=e42]:
+            - option "Seç..."
+            - option "Melike" [selected]
+            - option "Mina"
+            - option "yusuf.wagmi"
+            - option "Onat"
+            - option "Eren"
+        - generic [ref=e44]:
+          - generic [ref=e45]:
+            - generic [ref=e46]: 1. Toplantıda, create connection yaptı ve yeni fikirler üretti.
+            - generic [ref=e48]:
+              - button "Puan 1 - Zayıf" [ref=e49] [cursor=pointer]:
+                - img [ref=e50]
+              - button "Puan 2 - Kısmen yeterli" [ref=e52] [cursor=pointer]:
+                - img [ref=e53]
+              - button "Puan 3 - Güçlü" [ref=e55] [cursor=pointer]:
+                - img [ref=e56]
+              - button "Puan 4 - Rol Model" [ref=e58] [cursor=pointer]:
+                - img [ref=e59]
+            - paragraph [ref=e61]: 1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model
+          - generic [ref=e62]:
+            - generic [ref=e63]: 2. Toplantıda konular havada kalmadı; kararla veya netlikle çıkılmasını sağladı.
+            - generic [ref=e65]:
+              - button "Puan 1 - Zayıf" [ref=e66] [cursor=pointer]:
+                - img [ref=e67]
+              - button "Puan 2 - Kısmen yeterli" [ref=e69] [cursor=pointer]:
+                - img [ref=e70]
+              - button "Puan 3 - Güçlü" [ref=e72] [cursor=pointer]:
+                - img [ref=e73]
+              - button "Puan 4 - Rol Model" [ref=e75] [cursor=pointer]:
+                - img [ref=e76]
+            - paragraph [ref=e78]: 1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model
+          - generic [ref=e79]:
+            - generic [ref=e80]: 3. Toplantıya ileri seviye hazırlık yaparak geldi (analiz, veri, insight toplama, alternatifler).
+            - generic [ref=e82]:
+              - button "Puan 1 - Zayıf" [ref=e83] [cursor=pointer]:
+                - img [ref=e84]
+              - button "Puan 2 - Kısmen yeterli" [ref=e86] [cursor=pointer]:
+                - img [ref=e87]
+              - button "Puan 3 - Güçlü" [ref=e89] [cursor=pointer]:
+                - img [ref=e90]
+              - button "Puan 4 - Rol Model" [ref=e92] [cursor=pointer]:
+                - img [ref=e93]
+            - paragraph [ref=e95]: 1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model
+          - generic [ref=e96]:
+            - generic [ref=e97]: Eklemek istediğin not var mı?
+            - textbox "İsteğe bağlı" [ref=e98]
+            - paragraph [ref=e99]: 2000 karakter kaldı.
+          - button "Geri bildirimi gönder" [ref=e101] [cursor=pointer]
+  - alert [ref=e41]

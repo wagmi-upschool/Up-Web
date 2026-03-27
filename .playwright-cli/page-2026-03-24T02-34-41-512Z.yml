@@ -1,0 +1,15 @@
+- generic [active] [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img "UP" [ref=e8]
+        - generic [ref=e10]:
+          - heading "Geri Bildirim Ver" [level=1] [ref=e11]
+          - paragraph [ref=e12]: Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder.
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - paragraph [ref=e16]: Değerlendirilecek kişiyi seç
+          - paragraph [ref=e42]: Şu anda kullanılabilir soru veya yetkinlik yok.
+          - paragraph [ref=e43]: Alıcılar burada görünecek.
+        - paragraph [ref=e40]: Yetkinlik ve soruları görmek için bir alıcı seç.
+  - alert [ref=e41]
