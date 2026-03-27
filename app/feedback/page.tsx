@@ -304,16 +304,29 @@ function QuestionField({
       : Number.isFinite(parsedPercentageSliderValue)
         ? String(parsedPercentageSliderValue)
         : String(questionScaleMin ?? 0);
+  const isValuesQuestion = module === "values";
+  const containerClass = isValuesQuestion
+    ? `relative overflow-hidden rounded-[14px] border bg-white px-4 py-3 transition-colors ${
+        questionValue === "did"
+          ? "border-emerald-600 bg-emerald-50"
+          : questionValue === "didnt"
+            ? "border-rose-600 bg-rose-50"
+            : "border-gray-200"
+      }`
+    : "rounded-[14px] border border-gray-200 bg-white px-5 py-4";
+  const labelClass = isValuesQuestion
+    ? "block text-[13px] font-medium leading-6 text-title-black"
+    : "block text-[13px] font-medium leading-6 text-title-black";
 
   return (
-    <div className="space-y-2">
-      <label className="block text-2xl font-semibold text-title-black font-poppins sm:text-3xl">
+    <div className={containerClass}>
+      <label className={labelClass}>
         {question.order}. {question.question_text}
       </label>
 
       {question.type === "likert" ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-2 space-y-1">
+          <div className="flex flex-wrap gap-1.5">
             {Array.from({
               length: (questionScaleMax ?? 5) - (questionScaleMin ?? 1) + 1,
             }).map((_, index) => {
@@ -331,7 +344,7 @@ function QuestionField({
                       shouldDirty: true,
                     })
                   }
-                  className="rounded p-1 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+                  className="inline-flex rounded transition-transform duration-150 hover:scale-110 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                   aria-label={
                     LIKERT_LEVEL_LABELS[value]
                       ? `Puan ${value} - ${LIKERT_LEVEL_LABELS[value]}`
@@ -339,7 +352,7 @@ function QuestionField({
                   }
                 >
                   <Star
-                    className="h-8 w-8 sm:h-9 sm:w-9"
+                    className="h-[26px] w-[26px]"
                     strokeWidth={1.5}
                     fill={active ? "#fbbf24" : "transparent"}
                     color={active ? "#f59e0b" : "#d1d5db"}
@@ -356,7 +369,7 @@ function QuestionField({
           />
         </div>
       ) : question.type === "percentage" ? (
-        <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+        <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
           <div className="flex flex-col items-center justify-center gap-4 md:flex-row md:gap-5">
             <div className="flex items-center gap-3">
               <span className="text-lg font-semibold text-sky-800">%</span>
@@ -411,8 +424,7 @@ function QuestionField({
           />
         </div>
       ) : question.type === "boolean" ? (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-3">
+        <div className="mt-3 flex items-center gap-3">
             {(["did", "didnt"] as const).map((value) => {
               const active = questionValue === value;
 
@@ -426,25 +438,38 @@ function QuestionField({
                       shouldDirty: true,
                     })
                   }
-                  className={`flex min-w-[120px] items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-lg font-semibold font-poppins transition-colors ${
-                    active
-                      ? value === "did"
-                        ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                        : "border-rose-600 bg-rose-50 text-rose-700"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                  }`}
+                  className="group flex flex-col items-center gap-1"
                   aria-pressed={active}
                 >
-                  {value === "did" ? (
-                    <Smile className="h-5 w-5" />
-                  ) : (
-                    <Frown className="h-5 w-5" />
-                  )}
-                  <span>{VALUES_OPTION_LABELS[value]}</span>
+                  <span
+                    className={`flex h-[50px] w-[50px] items-center justify-center rounded-full border-[1.5px] bg-gray-50 transition-transform duration-150 group-hover:scale-105 ${
+                      active
+                        ? value === "did"
+                          ? "border-emerald-600 bg-emerald-100 text-emerald-700"
+                          : "border-rose-600 bg-rose-100 text-rose-700"
+                        : "border-gray-200 text-gray-400"
+                    }`}
+                  >
+                    {value === "did" ? (
+                      <Smile className="h-6 w-6" />
+                    ) : (
+                      <Frown className="h-6 w-6" />
+                    )}
+                  </span>
+                  <span
+                    className={`text-[11px] font-medium ${
+                      active
+                        ? value === "did"
+                          ? "text-emerald-700"
+                          : "text-rose-700"
+                        : "text-gray-400"
+                    }`}
+                  >
+                    {VALUES_OPTION_LABELS[value]}
+                  </span>
                 </button>
               );
             })}
-          </div>
           <input
             type="hidden"
             {...form.register(`answers.${question.question_id}`, {
@@ -462,7 +487,7 @@ function QuestionField({
         <textarea
           rows={4}
           maxLength={MAX_FEEDBACK_FREE_TEXT}
-          className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl text-title-black font-poppins sm:text-2xl"
+          className="mt-3 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
           {...form.register(`answers.${question.question_id}`, {
             required: "Bu soru zorunlu.",
             maxLength: {
@@ -473,20 +498,20 @@ function QuestionField({
         />
       )}
 
-      <p className="text-lg text-gray-600 font-poppins">
-        {question.type === "likert" ? (
-          <span>{LIKERT_GUIDE_TEXT}</span>
-        ) : question.type === "percentage" ? (
-          <span>{PERCENTAGE_GUIDE_TEXT}</span>
-        ) : question.type === "free_text" ? (
-          `${MAX_FEEDBACK_FREE_TEXT - questionValue.length} karakter kaldı`
-        ) : (
-          "İstersen soruyu boş bırakabilirsin."
-        )}
-      </p>
+      {question.type !== "boolean" ? (
+        <p className="mt-2 text-[11px] text-gray-400">
+          {question.type === "likert" ? (
+            <span>{LIKERT_GUIDE_TEXT}</span>
+          ) : question.type === "percentage" ? (
+            <span>{PERCENTAGE_GUIDE_TEXT}</span>
+          ) : (
+            `${MAX_FEEDBACK_FREE_TEXT - questionValue.length} karakter kaldı`
+          )}
+        </p>
+      ) : null}
 
       {errorMessage ? (
-        <p className="text-lg text-red-600 font-poppins">{errorMessage}</p>
+        <p className="mt-2 text-xs text-red-600">{errorMessage}</p>
       ) : null}
     </div>
   );
@@ -512,6 +537,10 @@ function FeedbackPageContent() {
   const [moduleSuccess, setModuleSuccess] = useState<ModuleSuccessState>({
     survey: false,
     values: false,
+  });
+  const [successOverlay, setSuccessOverlay] = useState({
+    open: false,
+    message: "",
   });
 
   const queryClient = useQueryClient();
@@ -582,6 +611,7 @@ function FeedbackPageContent() {
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
+    setSuccessOverlay({ open: false, message: "" });
     surveyForm.reset({ answers: {}, finalComment: "" });
     valuesForm.reset({ answers: {}, finalComment: "" });
   }, [surveyForm, surveyType, valuesForm]);
@@ -599,6 +629,7 @@ function FeedbackPageContent() {
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
+    setSuccessOverlay({ open: false, message: "" });
     surveyForm.reset({ answers: {}, finalComment: "" });
     valuesForm.reset({ answers: {}, finalComment: "" });
   }, [isSelfMode, receiverId, receivers, surveyForm, valuesForm]);
@@ -612,6 +643,7 @@ function FeedbackPageContent() {
       setActiveTab("survey");
       setModuleStartTimes({ survey: Date.now(), values: null });
       setModuleSuccess({ survey: false, values: false });
+      setSuccessOverlay({ open: false, message: "" });
       surveyForm.reset({ answers: {}, finalComment: "" });
       valuesForm.reset({ answers: {}, finalComment: "" });
     }
@@ -642,7 +674,10 @@ function FeedbackPageContent() {
 
     setModuleSuccess((current) => ({ ...current, [module]: true }));
     setModuleStartTimes((current) => ({ ...current, [module]: Date.now() }));
-    toast.success(getSuccessCopy(module));
+    setSuccessOverlay({
+      open: true,
+      message: getSuccessCopy(module),
+    });
     queryClient.invalidateQueries({
       queryKey: ["feedbackQuestions", giverId, receiverId, surveyType],
     });
@@ -670,6 +705,7 @@ function FeedbackPageContent() {
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
+    setSuccessOverlay({ open: false, message: "" });
     surveyForm.reset({ answers: {}, finalComment: "" });
     valuesForm.reset({ answers: {}, finalComment: "" });
 
@@ -818,8 +854,8 @@ function FeedbackPageContent() {
 
   return (
     <FeedbackPageShell>
-      <div className="relative z-10 mx-auto max-w-6xl space-y-6 px-3 py-6 sm:px-4 sm:py-8">
-        <header className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white/95 p-4 shadow-sm sm:flex-row sm:items-start sm:gap-4">
+      <div className="relative z-10 mx-auto max-w-6xl space-y-3 px-2 pb-28 pt-5 sm:px-4">
+        <header className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white/95 px-5 py-[18px] shadow-sm sm:flex-row sm:items-start sm:gap-4">
           <Image
             src="/up.svg"
             alt="UP"
@@ -829,10 +865,10 @@ function FeedbackPageContent() {
           />
           <div className="flex-1 space-y-1">
             <div className="space-y-1">
-              <h1 className="text-3xl text-title-black font-righteous sm:text-4xl">
+              <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
                 {isSelfMode ? "Öz Değerlendirme" : "Geri Bildirim Ver"}
               </h1>
-              <p className="text-xl text-text-description-gray font-poppins sm:text-2xl">
+              <p className="text-[13px] text-text-description-gray">
                 {isSelfMode
                   ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
                   : "Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder."}
@@ -842,9 +878,9 @@ function FeedbackPageContent() {
         </header>
 
         <div className="space-y-4">
-          <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <section className="space-y-3 rounded-2xl border border-gray-200 bg-white px-5 py-[18px] shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-2xl font-semibold text-title-black font-poppins">
+              <p className="text-[15px] font-semibold text-title-black">
                 {isSelfMode ? "Değerlendirilen kişi" : "Değerlendirilecek kişiyi seç"}
               </p>
               {loadingReceivers && (
@@ -853,13 +889,13 @@ function FeedbackPageContent() {
             </div>
 
             {receiversError && (
-              <p className="text-xl text-red-600 font-poppins">
+              <p className="text-sm text-red-600">
                 {formatApiError(receiversError)}
               </p>
             )}
 
             {receiversEmpty && (
-              <p className="text-xl text-gray-600 font-poppins">
+              <p className="text-sm text-gray-500">
                 {isSelfMode
                   ? "Öz değerlendirme için kullanıcı bilgisi bulunamadı."
                   : "Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz."}
@@ -869,11 +905,11 @@ function FeedbackPageContent() {
             {loadingReceivers ? (
               <LottieSpinner size={140} className="py-6" />
             ) : isSelfMode && selfReceiver ? (
-              <div className="rounded-md border border-gray-300 bg-gray-50 px-4 py-3">
-                <p className="text-xl text-title-black font-poppins sm:text-2xl">
+              <div className="rounded-[10px] border border-gray-300 bg-gray-50 px-4 py-3">
+                <p className="text-[15px] text-title-black">
                   {formatReceiverLabel(selfReceiver)}
                 </p>
-                <p className="mt-1 text-sm text-gray-600 font-poppins sm:text-base">
+                <p className="mt-1 text-xs text-gray-500">
                   Öz değerlendirme modunda alıcı otomatik seçilir.
                 </p>
               </div>
@@ -882,7 +918,7 @@ function FeedbackPageContent() {
                 value={receiverId}
                 onChange={(event) => handleReceiverChange(event.target.value)}
                 disabled={!canQuery}
-                className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl text-title-black font-poppins sm:text-2xl"
+                className="w-full rounded-[10px] border border-gray-300 bg-white px-[14px] py-[13px] text-[15px] text-title-black"
               >
                 <option value="">Seç...</option>
                 {receivers.feedback_receivers.map((receiver) => (
@@ -895,28 +931,28 @@ function FeedbackPageContent() {
                 ))}
               </select>
             ) : !receiversEmpty ? (
-              <p className="text-xl text-gray-600 font-poppins">
+              <p className="text-sm text-gray-500">
                 Alıcılar burada görünecek.
               </p>
             ) : null}
           </section>
 
-          <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <section className="space-y-3">
             {loadingQuestions && receiverId ? (
               <LottieSpinner size={160} className="py-8" />
             ) : null}
 
             {!receiverId && (
-              <p className="text-xl text-gray-600 font-poppins">
+              <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
                 {isSelfMode
                   ? "Sorular hazırlanıyor. Öz değerlendirme alıcısı otomatik seçilecek."
                   : "Yetkinlik ve soruları görmek için bir alıcı seç."}
-              </p>
+              </div>
             )}
 
             {questionsError && (
-              <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                <p className="text-xl text-red-700 font-poppins">
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
+                <p className="text-sm text-red-700">
                   {formatApiError(questionsError)}
                 </p>
               </div>
@@ -925,14 +961,14 @@ function FeedbackPageContent() {
             {questionsResp && receiverId ? (
               <div className="space-y-4">
                 {valuesAvailable ? (
-                  <div className="grid gap-2 rounded-2xl bg-[#EEF3FF] p-1 md:grid-cols-2">
+                  <div className="flex rounded-xl bg-gray-100 p-1">
                     <button
                       type="button"
                       onClick={() => setActiveTab("survey")}
-                      className={`rounded-2xl px-4 py-3 text-xl font-semibold font-poppins transition-colors ${
+                      className={`flex-1 rounded-[9px] border px-4 py-[9px] text-[13px] font-medium transition-all ${
                         activeTab === "survey"
-                          ? "bg-white text-title-black shadow-sm"
-                          : "text-gray-500"
+                          ? "border-gray-200 bg-white text-title-black shadow-sm"
+                          : "border-transparent bg-transparent text-gray-500"
                       }`}
                     >
                       Anket Soruları
@@ -940,10 +976,10 @@ function FeedbackPageContent() {
                     <button
                       type="button"
                       onClick={() => setActiveTab("values")}
-                      className={`rounded-2xl px-4 py-3 text-xl font-semibold font-poppins transition-colors ${
+                      className={`flex-1 rounded-[9px] border px-4 py-[9px] text-[13px] font-medium transition-all ${
                         activeTab === "values"
-                          ? "bg-white text-title-black shadow-sm"
-                          : "text-gray-500"
+                          ? "border-gray-200 bg-white text-title-black shadow-sm"
+                          : "border-transparent bg-transparent text-gray-500"
                       }`}
                     >
                       Davranış İlkeleri
@@ -951,41 +987,29 @@ function FeedbackPageContent() {
                   </div>
                 ) : null}
 
-                {moduleSuccess[activeTab] ? (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                    <p className="text-lg font-semibold text-emerald-700 font-poppins">
-                      {getSuccessCopy(activeTab)}
-                    </p>
-                  </div>
-                ) : null}
-
                 {activeModule.competency?.name ? (
                   <div className="space-y-1">
-                    <p className="text-lg text-gray-600 font-poppins">
+                    <p className="px-0.5 text-[12px] text-gray-500">
                       {activeModule.competency.name}
                     </p>
-                    {activeModule.competency.description ? (
-                      <p className="text-base text-gray-500 font-poppins">
-                        {activeModule.competency.description}
-                      </p>
-                    ) : null}
                   </div>
                 ) : null}
 
                 {!activeModule.available ? (
-                  <p className="text-xl text-gray-600 font-poppins">
+                  <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
                     {activeTab === "survey"
                       ? "Şu anda gösterilebilecek anket sorusu yok."
                       : "Bu kişi için davranış ilkeleri modülü bulunmuyor."}
-                  </p>
+                  </div>
                 ) : !activeQuestions.length ? (
-                  <p className="text-xl text-gray-600 font-poppins">
+                  <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
                     {activeTab === "survey"
                       ? "Anket soruları bulunamadı."
                       : "Davranış ilkeleri soruları bulunamadı."}
-                  </p>
+                  </div>
                 ) : activeTab === "survey" ? (
                   <form
+                    id="survey-form"
                     className="space-y-4"
                     onSubmit={surveyForm.handleSubmit(handleSurveySubmit)}
                   >
@@ -998,15 +1022,15 @@ function FeedbackPageContent() {
                       />
                     ))}
 
-                    <div className="space-y-2">
-                      <label className="block text-2xl font-semibold text-title-black font-poppins sm:text-3xl">
+                    <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
+                      <label className="block text-[12px] font-medium text-gray-500">
                         Eklemek istediğin not var mı?
                       </label>
                       <textarea
                         rows={4}
                         maxLength={MAX_FEEDBACK_FREE_TEXT}
-                        className="w-full rounded-md border border-gray-300 bg-white p-3 text-xl text-title-black font-poppins sm:text-2xl"
-                        placeholder="İsteğe bağlı"
+                        className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
+                        placeholder="İsteğe bağlı..."
                         {...surveyForm.register("finalComment", {
                           maxLength: {
                             value: MAX_FEEDBACK_FREE_TEXT,
@@ -1014,35 +1038,20 @@ function FeedbackPageContent() {
                           },
                         })}
                       />
-                      <p className="text-lg text-gray-600 font-poppins">
+                      <p className="mt-2 text-[11px] text-gray-400">
                         {MAX_FEEDBACK_FREE_TEXT - surveyFinalComment.length} karakter
                         kaldı.
                       </p>
                       {surveyForm.formState.errors.finalComment?.message ? (
-                        <p className="text-lg text-red-600 font-poppins">
+                        <p className="mt-2 text-xs text-red-600">
                           {surveyForm.formState.errors.finalComment.message}
                         </p>
                       ) : null}
                     </div>
-
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="submit"
-                        disabled={surveySubmitDisabled}
-                        className={`rounded-md px-5 py-2 text-xl font-semibold font-poppins shadow-sm transition-colors ${
-                          surveySubmitDisabled
-                            ? "cursor-not-allowed bg-[#99BCFF] text-white"
-                            : "bg-primary text-white hover:bg-blue-700"
-                        }`}
-                      >
-                        {surveySubmitMutation.isPending
-                          ? "Gönderiliyor..."
-                          : getSubmitButtonLabel("survey")}
-                      </button>
-                    </div>
                   </form>
                 ) : (
                   <form
+                    id="values-form"
                     className="space-y-4"
                     onSubmit={valuesForm.handleSubmit(handleValuesSubmit)}
                   >
@@ -1055,20 +1064,32 @@ function FeedbackPageContent() {
                       />
                     ))}
 
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="submit"
-                        disabled={valuesSubmitDisabled}
-                        className={`rounded-md px-5 py-2 text-xl font-semibold font-poppins shadow-sm transition-colors ${
-                          valuesSubmitDisabled
-                            ? "cursor-not-allowed bg-[#9FD7C7] text-white"
-                            : "bg-[#0B7A57] text-white hover:bg-[#096647]"
-                        }`}
-                      >
-                        {valuesSubmitMutation.isPending
-                          ? "Gönderiliyor..."
-                          : getSubmitButtonLabel("values")}
-                      </button>
+                    <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
+                      <label className="block text-[12px] font-medium text-gray-500">
+                        Eklemek istediğin not var mı?
+                      </label>
+                      <textarea
+                        rows={4}
+                        maxLength={MAX_FEEDBACK_FREE_TEXT}
+                        className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
+                        placeholder="İsteğe bağlı..."
+                        {...valuesForm.register("finalComment", {
+                          maxLength: {
+                            value: MAX_FEEDBACK_FREE_TEXT,
+                            message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
+                          },
+                        })}
+                      />
+                      <p className="mt-2 text-[11px] text-gray-400">
+                        {MAX_FEEDBACK_FREE_TEXT -
+                          (valuesForm.watch("finalComment")?.length || 0)} karakter
+                        kaldı.
+                      </p>
+                      {valuesForm.formState.errors.finalComment?.message ? (
+                        <p className="mt-2 text-xs text-red-600">
+                          {valuesForm.formState.errors.finalComment.message}
+                        </p>
+                      ) : null}
                     </div>
                   </form>
                 )}
@@ -1076,7 +1097,67 @@ function FeedbackPageContent() {
             ) : null}
           </section>
         </div>
+
+        {receiverId && questionsResp && activeModule.available && activeQuestions.length ? (
+          <div className="fixed inset-x-0 bottom-0 z-[100] border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
+            <div className="mx-auto max-w-6xl">
+              <button
+                type="submit"
+                form={activeTab === "survey" ? "survey-form" : "values-form"}
+                disabled={activeTab === "survey" ? surveySubmitDisabled : valuesSubmitDisabled}
+                className={`w-full rounded-xl px-5 py-3.5 text-[15px] font-medium text-white transition-opacity ${
+                  activeTab === "survey"
+                    ? surveySubmitDisabled
+                      ? "cursor-not-allowed bg-[#99BCFF]"
+                      : "bg-primary hover:opacity-90"
+                    : valuesSubmitDisabled
+                      ? "cursor-not-allowed bg-[#9FD7C7]"
+                      : "bg-[#0F6E56] hover:opacity-90"
+                }`}
+              >
+                {activeTab === "survey"
+                  ? surveySubmitMutation.isPending
+                    ? "Gönderiliyor..."
+                    : getSubmitButtonLabel("survey")
+                  : valuesSubmitMutation.isPending
+                    ? "Gönderiliyor..."
+                    : getSubmitButtonLabel("values")}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
+
+      {successOverlay.open ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 px-5">
+          <div className="w-full max-w-[360px] rounded-[18px] bg-white px-[22px] py-7 text-center shadow-xl">
+            <div className="mx-auto mb-[14px] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-emerald-100">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M5 13l4 4L19 7"
+                  stroke="#16a34a"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <p className="mb-1.5 text-base font-semibold text-title-black">
+              Gönderildi!
+            </p>
+            <p className="mb-5 text-[13px] leading-6 text-gray-500">
+              {successOverlay.message}
+            </p>
+            <button
+              type="button"
+              onClick={() => setSuccessOverlay((current) => ({ ...current, open: false }))}
+              className="w-full rounded-[10px] bg-primary px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            >
+              Tamam
+            </button>
+          </div>
+        </div>
+      ) : null}
     </FeedbackPageShell>
   );
 }
