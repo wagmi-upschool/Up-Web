@@ -3,7 +3,12 @@
 const base = process.env.NEXT_PUBLIC_REMOTE_URL;
 
 export type FeedbackSurveyType = "peer" | "self";
-export type FeedbackQuestionType = "likert" | "percentage" | "free_text";
+export type FeedbackModuleKey = "survey" | "values";
+export type FeedbackQuestionType =
+  | "likert"
+  | "percentage"
+  | "free_text"
+  | "boolean";
 
 async function api<T>(path: string, init: RequestInit = {}) {
   if (!base) {
@@ -53,20 +58,33 @@ export type FeedbackQuestion = {
   scale_labels?: { min: string; max: string };
 };
 
+export type FeedbackCompetency = {
+  competency_id: string;
+  name: string;
+  description: string;
+};
+
+export type FeedbackQuestionModule = {
+  available: boolean;
+  competency?: FeedbackCompetency;
+  questions: FeedbackQuestion[];
+};
+
 export type QuestionsResponse = {
   feedback_receiver_id: string;
-  competency: {
-    competency_id: string;
-    name: string;
-    description: string;
+  competency?: FeedbackCompetency;
+  questions?: FeedbackQuestion[];
+  feedback_modules?: {
+    survey: FeedbackQuestionModule;
+    values: FeedbackQuestionModule;
   };
-  questions: FeedbackQuestion[];
 };
 
 export type SubmitSurveyPayload = {
   feedback_giver_id: string;
   feedback_receiver_id: string;
   competency_id: string;
+  feedback_module?: FeedbackModuleKey;
   answers: {
     question_id: string;
     answer_value: string | number | null;

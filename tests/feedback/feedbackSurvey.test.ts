@@ -32,6 +32,12 @@ const questions: FeedbackQuestion[] = [
     type: "free_text",
     order: 3,
   },
+  {
+    question_id: "values-1",
+    question_text: "Values question",
+    type: "boolean",
+    order: 4,
+  },
 ];
 
 test("validateFeedbackAnswer applies rules per question type", () => {
@@ -41,6 +47,8 @@ test("validateFeedbackAnswer applies rules per question type", () => {
   assert.equal(validateFeedbackAnswer(questions[0], ""), true);
   assert.equal(validateFeedbackAnswer(questions[1], null), true);
   assert.equal(validateFeedbackAnswer(questions[2], undefined), true);
+  assert.equal(validateFeedbackAnswer(questions[3], "did"), true);
+  assert.equal(validateFeedbackAnswer(questions[3], "didnt"), true);
 });
 
 test("validateFeedbackAnswer rejects invalid percentage values", () => {
@@ -67,6 +75,7 @@ test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => 
     "likert-1": "4",
     "percentage-1": "73,5",
     "free-text-1": "  Strong collaborator  ",
+    "values-1": "did",
   });
 
   assert.deepEqual(answers, [
@@ -84,6 +93,11 @@ test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => 
       question_id: "free-text-1",
       answer_type: "free_text",
       answer_value: "Strong collaborator",
+    },
+    {
+      question_id: "values-1",
+      answer_type: "boolean",
+      answer_value: "did",
     },
   ]);
 });
@@ -111,6 +125,18 @@ test("buildFeedbackSubmitAnswers serializes unanswered questions as null", () =>
       answer_value: null,
     },
   ]);
+});
+
+test("buildFeedbackSubmitAnswers can omit unanswered values answers", () => {
+  const answers = buildFeedbackSubmitAnswers(
+    [questions[3]],
+    {
+      "values-1": "",
+    },
+    { omitEmpty: true },
+  );
+
+  assert.deepEqual(answers, []);
 });
 
 test("numeric scale helpers fall back to type defaults", () => {

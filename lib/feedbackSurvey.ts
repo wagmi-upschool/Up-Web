@@ -11,7 +11,7 @@ const DEFAULT_NUMERIC_SCALES = {
 } as const;
 
 function getNumericBounds(question: FeedbackQuestion) {
-  if (question.type === "free_text") {
+  if (question.type === "free_text" || question.type === "boolean") {
     return { min: undefined, max: undefined };
   }
 
@@ -68,6 +68,14 @@ export function validateFeedbackAnswer(
     return true;
   }
 
+  if (question.type === "boolean") {
+    if (value !== "did" && value !== "didnt") {
+      return "Lütfen geçerli bir seçim yapın.";
+    }
+
+    return true;
+  }
+
   const numericValue =
     question.type === "percentage"
       ? parsePercentageValue(value)
@@ -115,7 +123,9 @@ export function serializeFeedbackAnswer(
     question_id: question.question_id,
     answer_type: question.type,
     answer_value:
-      question.type === "percentage"
+      question.type === "boolean"
+        ? value
+        : question.type === "percentage"
         ? parsePercentageValue(value)
         : isNumericQuestion(question)
           ? Number(value)
@@ -126,10 +136,16 @@ export function serializeFeedbackAnswer(
 export function buildFeedbackSubmitAnswers(
   questions: FeedbackQuestion[],
   answers: Record<string, string>,
+  options?: { omitEmpty?: boolean },
 ): SubmitSurveyPayload["answers"] {
-  return questions.map((question) =>
-    serializeFeedbackAnswer(question, answers[question.question_id]),
-  );
+  return questions.flatMap((question) => {
+    const value = answers[question.question_id] || "";
+    if (options?.omitEmpty && value === "") {
+      return [];
+    }
+
+    return [serializeFeedbackAnswer(question, value)];
+  });
 }
 
 export function getQuestionScaleMin(question: FeedbackQuestion) {
