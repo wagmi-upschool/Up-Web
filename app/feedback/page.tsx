@@ -385,12 +385,12 @@ function FeedbackPageContent() {
           <div className="flex-1 space-y-1">
             <div className="space-y-1">
               <h1 className="font-righteous text-3xl sm:text-4xl text-title-black">
-                {isSelfMode ? "Öz Değerlendirme" : "Geri Bildirim Ver"}
+                {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
               </h1>
               <p className="text-xl sm:text-2xl font-poppins text-text-description-gray">
                 {isSelfMode
                   ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
-                  : "Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder."}
+                  : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
               </p>
             </div>
           </div>
@@ -718,7 +718,7 @@ function FeedbackPageContent() {
                             : "bg-primary text-white hover:bg-blue-700"
                         }`}
                       >
-                        {submitMutation.isPending ? "Gönderiliyor..." : "Geri bildirimi gönder"}
+                        {submitMutation.isPending ? "Gönderiliyor..." : "Gönder"}
                       </button>
                     </div>
                   </form>
