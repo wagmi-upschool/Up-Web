@@ -11,7 +11,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Frown, Smile, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   type FeedbackCompetency,
@@ -450,11 +450,17 @@ function QuestionField({
                         : "border-gray-200 text-gray-400"
                     }`}
                   >
-                    {value === "did" ? (
-                      <Smile className="h-6 w-6" />
-                    ) : (
-                      <Frown className="h-6 w-6" />
-                    )}
+                    <Image
+                      src={
+                        value === "did"
+                          ? "/up_face_mutlu_icon.svg"
+                          : "/up_face_uzgun_icon.svg"
+                      }
+                      alt={VALUES_OPTION_LABELS[value]}
+                      width={24}
+                      height={24}
+                      className={`${active ? "" : "grayscale opacity-50"}`}
+                    />
                   </span>
                   <span
                     className={`text-[11px] font-medium ${
