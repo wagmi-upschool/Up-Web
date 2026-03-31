@@ -11,7 +11,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Frown, Smile, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   type FeedbackCompetency,
@@ -450,11 +450,17 @@ function QuestionField({
                         : "border-gray-200 text-gray-400"
                     }`}
                   >
-                    {value === "did" ? (
-                      <Smile className="h-6 w-6" />
-                    ) : (
-                      <Frown className="h-6 w-6" />
-                    )}
+                    <Image
+                      src={
+                        value === "did"
+                          ? "/up_face_mutlu_icon.svg"
+                          : "/up_face_uzgun_icon.svg"
+                      }
+                      alt={VALUES_OPTION_LABELS[value]}
+                      width={24}
+                      height={24}
+                      className={`${active ? "" : "grayscale opacity-50"}`}
+                    />
                   </span>
                   <span
                     className={`text-[11px] font-medium ${
@@ -866,12 +872,12 @@ function FeedbackPageContent() {
           <div className="flex-1 space-y-1">
             <div className="space-y-1">
               <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
-                {isSelfMode ? "Öz Değerlendirme" : "Geri Bildirim Ver"}
+                {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
               </h1>
               <p className="text-[13px] text-text-description-gray">
                 {isSelfMode
                   ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
-                  : "Bir ekip arkadaşı seç, soruları yanıtla ve geri bildirimi gönder."}
+                  : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
               </p>
             </div>
           </div>
