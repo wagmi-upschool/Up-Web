@@ -1167,7 +1167,7 @@ function FeedbackPageContent() {
                       />
                     ) : (
                       <div className="rounded-[14px] border border-dashed border-gray-200 bg-white px-5 py-4 text-[14px] text-gray-500">
-                        Did / Didn&apos;t seçimini görmek için bir davranış ilkesi seç.
+                        Davranış ilkesini seçtikten sonra geri bildirimini verebilirsin.
                       </div>
                     )}
 
