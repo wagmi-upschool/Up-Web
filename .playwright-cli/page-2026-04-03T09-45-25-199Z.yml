@@ -1,0 +1,16 @@
+- generic [active] [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img "UP" [ref=e8]
+        - generic [ref=e10]:
+          - heading "İleri Bildirim Ver" [level=1] [ref=e11]
+          - paragraph [ref=e12]: Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder.
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - paragraph [ref=e16]: Değerlendirilecek kişiyi seç
+          - combobox [ref=e42]:
+            - option "Seç..."
+            - option "onat arzoglu" [selected]
+        - img [ref=e45]
+  - alert [ref=e41]

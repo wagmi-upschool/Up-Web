@@ -1,0 +1,35 @@
+- generic [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img "UP" [ref=e8]
+        - generic [ref=e10]:
+          - heading "Öz Değerlendirme" [level=1] [ref=e11]
+          - paragraph [ref=e12]: Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir.
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - paragraph [ref=e16]: Değerlendirilen kişi
+          - generic [ref=e42]:
+            - paragraph [ref=e43]: yusuf erdogan
+            - paragraph [ref=e44]: Öz değerlendirme modunda alıcı otomatik seçilir.
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - button "Anket Soruları" [ref=e47] [cursor=pointer]
+            - button "Davranış İlkeleri" [active] [ref=e48] [cursor=pointer]
+          - paragraph [ref=e50]: Eczacıbaşı Davranış İlkeleri
+          - generic [ref=e51]:
+            - generic [ref=e159]:
+              - generic [ref=e160]: Davranış ilkesi seç
+              - combobox "Davranış ilkesi seç" [ref=e161]:
+                - option "Seç..." [selected]
+                - option "1. Ekip üyelerinin farklı görüşlerine saygı gösterir ve kapsayıcı bir ortam yaratır."
+                - option "2. Söz verdiği işleri zamanında ve eksiksiz tamamlar."
+                - option "3. Proaktif olarak bilgi paylaşır; beklemeden iletişim kurar."
+                - option "4. Hata yaptığında kabul eder ve çözüme odaklanır."
+            - generic [ref=e152]: Did / Didn't seçimini görmek için bir davranış ilkesi seç.
+            - generic [ref=e162]:
+              - generic [ref=e163]: Eklemek istediğin not var mı?
+              - textbox "İsteğe bağlı..." [ref=e164]
+              - paragraph [ref=e165]: 2000 karakter kaldı.
+      - button "Davranış Değerlendirmesini Gönder" [disabled] [ref=e166]
+  - alert [ref=e41]

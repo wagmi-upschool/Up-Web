@@ -1,0 +1,62 @@
+- generic [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img "UP" [ref=e8]
+        - generic [ref=e10]:
+          - heading "Öz Değerlendirme" [level=1] [ref=e11]
+          - paragraph [ref=e12]: Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir.
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - paragraph [ref=e16]: Değerlendirilen kişi
+          - generic [ref=e42]:
+            - paragraph [ref=e43]: yusuf erdogan
+            - paragraph [ref=e44]: Öz değerlendirme modunda alıcı otomatik seçilir.
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - button "Anket Soruları" [ref=e47] [cursor=pointer]
+            - button "Davranış İlkeleri" [active] [ref=e48] [cursor=pointer]
+          - paragraph [ref=e50]: Eczacıbaşı Davranış İlkeleri
+          - generic [ref=e51]:
+            - generic [ref=e159]:
+              - generic [ref=e160]: 1. Ekip üyelerinin farklı görüşlerine saygı gösterir ve kapsayıcı bir ortam yaratır.
+              - generic [ref=e161]:
+                - button "Yaptı Yaptı" [ref=e162] [cursor=pointer]:
+                  - img "Yaptı" [ref=e164]
+                  - generic [ref=e165]: Yaptı
+                - button "Yapmadı Yapmadı" [ref=e166] [cursor=pointer]:
+                  - img "Yapmadı" [ref=e168]
+                  - generic [ref=e169]: Yapmadı
+            - generic [ref=e170]:
+              - generic [ref=e171]: 2. Söz verdiği işleri zamanında ve eksiksiz tamamlar.
+              - generic [ref=e172]:
+                - button "Yaptı Yaptı" [ref=e173] [cursor=pointer]:
+                  - img "Yaptı" [ref=e175]
+                  - generic [ref=e176]: Yaptı
+                - button "Yapmadı Yapmadı" [ref=e177] [cursor=pointer]:
+                  - img "Yapmadı" [ref=e179]
+                  - generic [ref=e180]: Yapmadı
+            - generic [ref=e181]:
+              - generic [ref=e182]: 3. Proaktif olarak bilgi paylaşır; beklemeden iletişim kurar.
+              - generic [ref=e183]:
+                - button "Yaptı Yaptı" [ref=e184] [cursor=pointer]:
+                  - img "Yaptı" [ref=e186]
+                  - generic [ref=e187]: Yaptı
+                - button "Yapmadı Yapmadı" [ref=e188] [cursor=pointer]:
+                  - img "Yapmadı" [ref=e190]
+                  - generic [ref=e191]: Yapmadı
+            - generic [ref=e192]:
+              - generic [ref=e193]: 4. Hata yaptığında kabul eder ve çözüme odaklanır.
+              - generic [ref=e194]:
+                - button "Yaptı Yaptı" [ref=e195] [cursor=pointer]:
+                  - img "Yaptı" [ref=e197]
+                  - generic [ref=e198]: Yaptı
+                - button "Yapmadı Yapmadı" [ref=e199] [cursor=pointer]:
+                  - img "Yapmadı" [ref=e201]
+                  - generic [ref=e202]: Yapmadı
+            - generic [ref=e152]:
+              - generic [ref=e153]: Eklemek istediğin not var mı?
+              - textbox "İsteğe bağlı..." [ref=e154]
+              - paragraph [ref=e155]: 2000 karakter kaldı.
+      - button "Davranış Değerlendirmesini Gönder" [disabled] [ref=e203]
+  - alert [ref=e41]
