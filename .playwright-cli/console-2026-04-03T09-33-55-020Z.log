@@ -1,0 +1,7 @@
+[    2410ms] [LOG] AuthProvider render - User: null Loading: true @ https://staging.d233kdx1k3bny.amplifyapp.com/_next/static/chunks/app/layout-e76577b3e7b530f6.js:0
+[    2424ms] [LOG] No user found: UserUnAuthenticatedException: User needs to be authenticated to call this API.
+    at o (https://staging.d233kdx1k3bny.amplifyapp.com/_next/static/chunks/978-60e035704b394ecc.js:6:24153)
+    at s (https://staging.d233kdx1k3bny.amplifyapp.com/_next/static/chunks/978-60e035704b394ecc.js:6:23767)
+    at async h (https://staging.d233kdx1k3bny.amplifyapp.com/_next/static/chunks/app/layout-e76577b3e7b530f6.js:1:8774) @ https://staging.d233kdx1k3bny.amplifyapp.com/_next/static/chunks/app/layout-e76577b3e7b530f6.js:0
+[    2446ms] [LOG] AuthProvider render - User: null Loading: false @ https://staging.d233kdx1k3bny.amplifyapp.com/_next/static/chunks/app/layout-e76577b3e7b530f6.js:0
+[   30741ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://ixoy0ncts9.execute-api.us-east-1.amazonaws.com/myenv/feedback/questions?feedbackGiverId=24884438-5081-7057-145f-9dc70f734036&feedbackReceiverId=64489438-2061-7013-e9a7-b16d57108d0e:0

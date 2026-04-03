@@ -179,6 +179,15 @@ function getSuccessCopy(module: FeedbackTab) {
     : "Davranış değerlendirmesi kaydedildi.";
 }
 
+function getPreferredActiveTab(
+  surveyVisible: boolean,
+  valuesVisible: boolean,
+): FeedbackTab {
+  if (surveyVisible) return "survey";
+  if (valuesVisible) return "values";
+  return "survey";
+}
+
 function validateRequiredModuleAnswers(
   questions: FeedbackQuestion[],
   answers: Record<string, string>,
@@ -218,7 +227,7 @@ function validateOptionalModuleAnswers(
   }
 
   if (answeredQuestionCount === 0) {
-    return "Lütfen en az bir davranış ilkesi seçin.";
+    return "Lütfen bir davranış ilkesi seçin.";
   }
 
   return null;
@@ -533,6 +542,7 @@ function FeedbackPageContent() {
 
   const [receiverId, setReceiverId] = useState("");
   const [activeTab, setActiveTab] = useState<FeedbackTab>("survey");
+  const [selectedValuesQuestionId, setSelectedValuesQuestionId] = useState("");
   const [lastQuestionReceiver, setLastQuestionReceiver] = useState<string | null>(
     null,
   );
@@ -600,20 +610,56 @@ function FeedbackPageContent() {
     () => sortQuestions(valuesModule.questions),
     [valuesModule.questions],
   );
+  const selectedValuesQuestion = useMemo(
+    () =>
+      valuesQuestions.find(
+        (question) => question.question_id === selectedValuesQuestionId,
+      ) || null,
+    [selectedValuesQuestionId, valuesQuestions],
+  );
+  const selectedValuesQuestions = useMemo(
+    () => (selectedValuesQuestion ? [selectedValuesQuestion] : []),
+    [selectedValuesQuestion],
+  );
+  const surveyTabVisible = Boolean(
+    surveyModule.available &&
+      surveyModule.competency &&
+      surveyQuestions.length > 0,
+  );
+  const valuesTabVisible = Boolean(
+    valuesModule.available &&
+      valuesModule.competency &&
+      valuesQuestions.length > 0,
+  );
+  const preferredActiveTab = getPreferredActiveTab(
+    surveyTabVisible,
+    valuesTabVisible,
+  );
+  const resolvedActiveTab =
+    activeTab === "survey"
+      ? surveyTabVisible
+        ? "survey"
+        : preferredActiveTab
+      : valuesTabVisible
+        ? "values"
+        : preferredActiveTab;
+  const showTabSwitcher = surveyTabVisible && valuesTabVisible;
   const valuesAvailable = valuesModule.available;
-  const activeModule = activeTab === "survey" ? surveyModule : valuesModule;
-  const activeQuestions = activeTab === "survey" ? surveyQuestions : valuesQuestions;
+  const activeModule =
+    resolvedActiveTab === "survey" ? surveyModule : valuesModule;
+  const activeQuestions =
+    resolvedActiveTab === "survey" ? surveyQuestions : valuesQuestions;
 
   const surveyFinalComment = surveyForm.watch("finalComment");
   const valuesAnswers = valuesForm.watch("answers");
-  const valuesAnsweredCount = valuesQuestions.filter((question) => {
-    const answer = valuesAnswers?.[question.question_id];
-    return answer !== undefined && answer !== null && answer !== "";
-  }).length;
+  const selectedValuesAnswer = selectedValuesQuestionId
+    ? valuesAnswers?.[selectedValuesQuestionId] || ""
+    : "";
 
   useEffect(() => {
     setReceiverId("");
     setActiveTab("survey");
+    setSelectedValuesQuestionId("");
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
@@ -632,6 +678,7 @@ function FeedbackPageContent() {
 
     setReceiverId(selfReceiverId);
     setActiveTab("survey");
+    setSelectedValuesQuestionId("");
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
@@ -647,6 +694,7 @@ function FeedbackPageContent() {
     ) {
       setLastQuestionReceiver(questionsResp.feedback_receiver_id);
       setActiveTab("survey");
+      setSelectedValuesQuestionId("");
       setModuleStartTimes({ survey: Date.now(), values: null });
       setModuleSuccess({ survey: false, values: false });
       setSuccessOverlay({ open: false, message: "" });
@@ -656,10 +704,22 @@ function FeedbackPageContent() {
   }, [lastQuestionReceiver, questionsResp, surveyForm, valuesForm]);
 
   useEffect(() => {
-    if (!valuesAvailable && activeTab === "values") {
-      setActiveTab("survey");
+    if (activeTab !== resolvedActiveTab) {
+      setActiveTab(resolvedActiveTab);
     }
-  }, [activeTab, valuesAvailable]);
+  }, [activeTab, resolvedActiveTab]);
+
+  useEffect(() => {
+    if (!selectedValuesQuestionId) return;
+
+    const questionStillExists = valuesQuestions.some(
+      (question) => question.question_id === selectedValuesQuestionId,
+    );
+
+    if (!questionStillExists) {
+      setSelectedValuesQuestionId("");
+    }
+  }, [selectedValuesQuestionId, valuesQuestions]);
 
   useEffect(() => {
     if (!questionsResp || !receiverId || !activeModule.available) return;
@@ -708,6 +768,7 @@ function FeedbackPageContent() {
   const handleReceiverChange = (value: string) => {
     setReceiverId(value);
     setActiveTab("survey");
+    setSelectedValuesQuestionId("");
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
@@ -774,7 +835,7 @@ function FeedbackPageContent() {
     if (!valuesModule.competency) return;
 
     const validationMessage = validateOptionalModuleAnswers(
-      valuesQuestions,
+      selectedValuesQuestions,
       values.answers,
     );
     if (validationMessage) {
@@ -782,9 +843,13 @@ function FeedbackPageContent() {
       return;
     }
 
-    const answers = buildFeedbackSubmitAnswers(valuesQuestions, values.answers, {
-      omitEmpty: true,
-    });
+    const answers = buildFeedbackSubmitAnswers(
+      selectedValuesQuestions,
+      values.answers,
+      {
+        omitEmpty: true,
+      },
+    );
     const payload = buildBasePayload(
       "values",
       valuesModule.competency.competency_id,
@@ -804,7 +869,7 @@ function FeedbackPageContent() {
       ? receivers.feedback_receivers[0]
       : null;
   const activeSubmitMutation =
-    activeTab === "survey" ? surveySubmitMutation : valuesSubmitMutation;
+    resolvedActiveTab === "survey" ? surveySubmitMutation : valuesSubmitMutation;
   const formDisabled =
     activeSubmitMutation.isPending || loadingQuestions || !receiverId || !questionsResp;
   const surveySubmitDisabled =
@@ -817,8 +882,8 @@ function FeedbackPageContent() {
     formDisabled ||
     !valuesAvailable ||
     !valuesModule.competency ||
-    !valuesQuestions.length ||
-    valuesAnsweredCount === 0;
+    !selectedValuesQuestion ||
+    !selectedValuesAnswer;
 
   if (!giverId) {
     return (
@@ -966,13 +1031,13 @@ function FeedbackPageContent() {
 
             {questionsResp && receiverId ? (
               <div className="space-y-4">
-                {valuesAvailable ? (
+                {showTabSwitcher ? (
                   <div className="flex rounded-xl bg-gray-100 p-1">
                     <button
                       type="button"
                       onClick={() => setActiveTab("survey")}
                       className={`flex-1 rounded-[9px] border px-4 py-[9px] text-[13px] font-medium transition-all ${
-                        activeTab === "survey"
+                        resolvedActiveTab === "survey"
                           ? "border-gray-200 bg-white text-title-black shadow-sm"
                           : "border-transparent bg-transparent text-gray-500"
                       }`}
@@ -983,7 +1048,7 @@ function FeedbackPageContent() {
                       type="button"
                       onClick={() => setActiveTab("values")}
                       className={`flex-1 rounded-[9px] border px-4 py-[9px] text-[13px] font-medium transition-all ${
-                        activeTab === "values"
+                        resolvedActiveTab === "values"
                           ? "border-gray-200 bg-white text-title-black shadow-sm"
                           : "border-transparent bg-transparent text-gray-500"
                       }`}
@@ -1001,19 +1066,23 @@ function FeedbackPageContent() {
                   </div>
                 ) : null}
 
-                {!activeModule.available ? (
+                {!surveyTabVisible && !valuesTabVisible ? (
                   <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
-                    {activeTab === "survey"
+                    Bu kişi için gösterilebilecek değerlendirme modülü bulunmuyor.
+                  </div>
+                ) : !activeModule.available ? (
+                  <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
+                    {resolvedActiveTab === "survey"
                       ? "Şu anda gösterilebilecek anket sorusu yok."
                       : "Bu kişi için davranış ilkeleri modülü bulunmuyor."}
                   </div>
                 ) : !activeQuestions.length ? (
                   <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
-                    {activeTab === "survey"
+                    {resolvedActiveTab === "survey"
                       ? "Anket soruları bulunamadı."
                       : "Davranış ilkeleri soruları bulunamadı."}
                   </div>
-                ) : activeTab === "survey" ? (
+                ) : resolvedActiveTab === "survey" ? (
                   <form
                     id="survey-form"
                     className="space-y-4"
@@ -1061,14 +1130,46 @@ function FeedbackPageContent() {
                     className="space-y-4"
                     onSubmit={valuesForm.handleSubmit(handleValuesSubmit)}
                   >
-                    {valuesQuestions.map((question) => (
+                    <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
+                      <label
+                        htmlFor="values-question-select"
+                        className="block text-[12px] font-medium text-gray-500"
+                      >
+                        Davranış ilkesi seç
+                      </label>
+                      <select
+                        id="values-question-select"
+                        value={selectedValuesQuestionId}
+                        onChange={(event) =>
+                          setSelectedValuesQuestionId(event.target.value)
+                        }
+                        disabled={formDisabled || !valuesQuestions.length}
+                        className="mt-2 w-full rounded-[10px] border border-gray-300 bg-white px-[14px] py-[13px] text-[15px] text-title-black"
+                      >
+                        <option value="">Seç...</option>
+                        {valuesQuestions.map((question) => (
+                          <option
+                            key={question.question_id}
+                            value={question.question_id}
+                          >
+                            {question.order}. {question.question_text}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {selectedValuesQuestion ? (
                       <QuestionField
-                        key={question.question_id}
+                        key={selectedValuesQuestion.question_id}
                         form={valuesForm}
                         module="values"
-                        question={question}
+                        question={selectedValuesQuestion}
                       />
-                    ))}
+                    ) : (
+                      <div className="rounded-[14px] border border-dashed border-gray-200 bg-white px-5 py-4 text-[14px] text-gray-500">
+                        Did / Didn&apos;t seçimini görmek için bir davranış ilkesi seç.
+                      </div>
+                    )}
 
                     <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
                       <label className="block text-[12px] font-medium text-gray-500">
@@ -1104,15 +1205,24 @@ function FeedbackPageContent() {
           </section>
         </div>
 
-        {receiverId && questionsResp && activeModule.available && activeQuestions.length ? (
+        {receiverId &&
+        questionsResp &&
+        activeModule.available &&
+        (resolvedActiveTab === "survey"
+          ? surveyQuestions.length > 0
+          : valuesQuestions.length > 0) ? (
           <div className="fixed inset-x-0 bottom-0 z-[100] border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
             <div className="mx-auto max-w-6xl">
               <button
                 type="submit"
-                form={activeTab === "survey" ? "survey-form" : "values-form"}
-                disabled={activeTab === "survey" ? surveySubmitDisabled : valuesSubmitDisabled}
+                form={resolvedActiveTab === "survey" ? "survey-form" : "values-form"}
+                disabled={
+                  resolvedActiveTab === "survey"
+                    ? surveySubmitDisabled
+                    : valuesSubmitDisabled
+                }
                 className={`w-full rounded-xl px-5 py-3.5 text-[15px] font-medium text-white transition-opacity ${
-                  activeTab === "survey"
+                  resolvedActiveTab === "survey"
                     ? surveySubmitDisabled
                       ? "cursor-not-allowed bg-[#99BCFF]"
                       : "bg-primary hover:opacity-90"
@@ -1121,7 +1231,7 @@ function FeedbackPageContent() {
                       : "bg-[#0F6E56] hover:opacity-90"
                 }`}
               >
-                {activeTab === "survey"
+                {resolvedActiveTab === "survey"
                   ? surveySubmitMutation.isPending
                     ? "Gönderiliyor..."
                     : getSubmitButtonLabel("survey")

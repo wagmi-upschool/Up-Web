@@ -1,0 +1,14 @@
+- generic [active] [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img "UP" [ref=e8]
+        - generic [ref=e10]:
+          - heading "Öz Değerlendirme" [level=1] [ref=e11]
+          - paragraph [ref=e12]: Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir.
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - paragraph [ref=e16]: Değerlendirilen kişi
+          - img [ref=e20]
+        - generic [ref=e40]: Sorular hazırlanıyor. Öz değerlendirme alıcısı otomatik seçilecek.
+  - alert [ref=e41]

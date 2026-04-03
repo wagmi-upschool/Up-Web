@@ -1,0 +1,6 @@
+[     242ms] [LOG] AuthProvider render - User: null Loading: true @ http://localhost:3002/_next/static/chunks/app/layout-17de1c45544b4cdc.js:0
+[     256ms] [LOG] No user found: UserUnAuthenticatedException: User needs to be authenticated to call this API.
+    at o (http://localhost:3002/_next/static/chunks/978-60e035704b394ecc.js:6:24153)
+    at s (http://localhost:3002/_next/static/chunks/978-60e035704b394ecc.js:6:23767)
+    at async h (http://localhost:3002/_next/static/chunks/app/layout-17de1c45544b4cdc.js:1:8774) @ http://localhost:3002/_next/static/chunks/app/layout-17de1c45544b4cdc.js:0
+[     280ms] [LOG] AuthProvider render - User: null Loading: false @ http://localhost:3002/_next/static/chunks/app/layout-17de1c45544b4cdc.js:0
