@@ -124,6 +124,11 @@ test("buildFeedbackSubmitAnswers serializes unanswered questions as null", () =>
       answer_type: "free_text",
       answer_value: null,
     },
+    {
+      question_id: "values-1",
+      answer_type: "boolean",
+      answer_value: null,
+    },
   ]);
 });
 
