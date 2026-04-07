@@ -188,14 +188,14 @@ function getPreferredActiveTab(
   return "survey";
 }
 
-function validateRequiredModuleAnswers(
+function validateSubmittedModuleAnswers(
   questions: FeedbackQuestion[],
   answers: Record<string, string>,
 ) {
   for (const question of questions) {
     const rawValue = answers[question.question_id];
     if (rawValue === undefined || rawValue === null || rawValue === "") {
-      return "Lütfen tüm soruları yanıtlayın.";
+      continue;
     }
 
     const verdict = validateFeedbackAnswer(question, rawValue);
@@ -818,7 +818,7 @@ function FeedbackPageContent() {
   const handleSurveySubmit = (values: ModuleFormValues) => {
     if (!surveyModule.competency) return;
 
-    const validationMessage = validateRequiredModuleAnswers(
+    const validationMessage = validateSubmittedModuleAnswers(
       surveyQuestions,
       values.answers,
     );
