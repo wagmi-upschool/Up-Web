@@ -348,10 +348,14 @@ function QuestionField({
                   key={value}
                   type="button"
                   onClick={() =>
-                    form.setValue(`answers.${question.question_id}`, String(value), {
+                    form.setValue(
+                      `answers.${question.question_id}`,
+                      current === value ? "" : String(value),
+                      {
                       shouldValidate: true,
                       shouldDirty: true,
-                    })
+                    },
+                    )
                   }
                   className="inline-flex rounded transition-transform duration-150 hover:scale-110 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                   aria-label={
@@ -359,6 +363,7 @@ function QuestionField({
                       ? `Puan ${value} - ${LIKERT_LEVEL_LABELS[value]}`
                       : `Puan ${value}`
                   }
+                  aria-pressed={active}
                 >
                   <Star
                     className="h-[26px] w-[26px]"
@@ -370,6 +375,20 @@ function QuestionField({
               );
             })}
           </div>
+          {current > 0 ? (
+            <button
+              type="button"
+              onClick={() =>
+                form.setValue(`answers.${question.question_id}`, "", {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+              }
+              className="text-xs font-medium text-amber-700 transition-colors hover:text-amber-800"
+            >
+              Yıldızı kaldır
+            </button>
+          ) : null}
           <input
             type="hidden"
             {...form.register(`answers.${question.question_id}`, {
@@ -442,10 +461,14 @@ function QuestionField({
                   key={value}
                   type="button"
                   onClick={() =>
-                    form.setValue(`answers.${question.question_id}`, value, {
+                    form.setValue(
+                      `answers.${question.question_id}`,
+                      active ? "" : value,
+                      {
                       shouldValidate: true,
                       shouldDirty: true,
-                    })
+                    },
+                    )
                   }
                   className="group flex flex-col items-center gap-1"
                   aria-pressed={active}
