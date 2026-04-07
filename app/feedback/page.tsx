@@ -106,7 +106,9 @@ function formatApiError(error: unknown) {
   }
 
   if (code?.startsWith("VAL_")) {
-    return message || "Bazı yanıtlar geçersiz. Lütfen kontrol edip tekrar deneyin.";
+    return (
+      message || "Bazı yanıtlar geçersiz. Lütfen kontrol edip tekrar deneyin."
+    );
   }
 
   return message || raw || "Bir şeyler ters gitti. Lütfen tekrar deneyin.";
@@ -300,8 +302,9 @@ function QuestionField({
   question: FeedbackQuestion;
 }) {
   const questionValue = form.watch(`answers.${question.question_id}`) || "";
-  const answerErrors = form.formState.errors
-    .answers as Record<string, { message?: string }> | undefined;
+  const answerErrors = form.formState.errors.answers as
+    | Record<string, { message?: string }>
+    | undefined;
   const errorMessage = answerErrors?.[question.question_id]?.message;
 
   const questionScaleMin = getQuestionScaleMin(question);
@@ -453,61 +456,61 @@ function QuestionField({
         </div>
       ) : question.type === "boolean" ? (
         <div className="mt-3 flex items-center gap-3">
-            {(["did", "didnt"] as const).map((value) => {
-              const active = questionValue === value;
+          {(["did", "didnt"] as const).map((value) => {
+            const active = questionValue === value;
 
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() =>
-                    form.setValue(
-                      `answers.${question.question_id}`,
-                      active ? "" : value,
-                      {
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() =>
+                  form.setValue(
+                    `answers.${question.question_id}`,
+                    active ? "" : value,
+                    {
                       shouldValidate: true,
                       shouldDirty: true,
                     },
-                    )
-                  }
-                  className="group flex flex-col items-center gap-1"
-                  aria-pressed={active}
+                  )
+                }
+                className="group flex flex-col items-center gap-1"
+                aria-pressed={active}
+              >
+                <span
+                  className={`flex h-[50px] w-[50px] items-center justify-center rounded-full border-[1.5px] bg-gray-50 transition-transform duration-150 group-hover:scale-105 ${
+                    active
+                      ? value === "did"
+                        ? "border-emerald-600 bg-emerald-100 text-emerald-700"
+                        : "border-gray-300 bg-gray-100 text-gray-600"
+                      : "border-gray-200 text-gray-400"
+                  }`}
                 >
-                  <span
-                    className={`flex h-[50px] w-[50px] items-center justify-center rounded-full border-[1.5px] bg-gray-50 transition-transform duration-150 group-hover:scale-105 ${
-                      active
-                        ? value === "did"
-                          ? "border-emerald-600 bg-emerald-100 text-emerald-700"
-                          : "border-gray-300 bg-gray-100 text-gray-600"
-                        : "border-gray-200 text-gray-400"
-                    }`}
-                  >
-                    <Image
-                      src={
-                        value === "did"
-                          ? "/up_face_mutlu_icon.svg"
-                          : "/up_face_uzgun_icon.svg"
-                      }
-                      alt={VALUES_OPTION_LABELS[value]}
-                      width={24}
-                      height={24}
-                      className={`${active ? "" : "grayscale opacity-50"}`}
-                    />
-                  </span>
-                  <span
-                    className={`text-[11px] font-medium ${
-                      active
-                        ? value === "did"
-                          ? "text-emerald-700"
-                          : "text-gray-600"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {VALUES_OPTION_LABELS[value]}
-                  </span>
-                </button>
-              );
-            })}
+                  <Image
+                    src={
+                      value === "did"
+                        ? "/up_face_mutlu_icon.svg"
+                        : "/up_face_uzgun_icon.svg"
+                    }
+                    alt={VALUES_OPTION_LABELS[value]}
+                    width={24}
+                    height={24}
+                    className={`${active ? "" : "grayscale opacity-50"}`}
+                  />
+                </span>
+                <span
+                  className={`text-[11px] font-medium ${
+                    active
+                      ? value === "did"
+                        ? "text-emerald-700"
+                        : "text-gray-600"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {VALUES_OPTION_LABELS[value]}
+                </span>
+              </button>
+            );
+          })}
           <input
             type="hidden"
             {...form.register(`answers.${question.question_id}`, {
@@ -560,15 +563,16 @@ function FeedbackPageContent() {
   const searchParams = useSearchParams();
   const giverId = searchParams?.get("feedbackGiverId") || "";
   const rawSurveyType = searchParams?.get("feedbackSurveyType");
-  const surveyType: FeedbackSurveyType = rawSurveyType === "self" ? "self" : "peer";
+  const surveyType: FeedbackSurveyType =
+    rawSurveyType === "self" ? "self" : "peer";
   const isSelfMode = surveyType === "self";
 
   const [receiverId, setReceiverId] = useState("");
   const [activeTab, setActiveTab] = useState<FeedbackTab>("survey");
   const [selectedValuesQuestionId, setSelectedValuesQuestionId] = useState("");
-  const [lastQuestionReceiver, setLastQuestionReceiver] = useState<string | null>(
-    null,
-  );
+  const [lastQuestionReceiver, setLastQuestionReceiver] = useState<
+    string | null
+  >(null);
   const [moduleStartTimes, setModuleStartTimes] = useState<ModuleStartTimes>({
     survey: null,
     values: null,
@@ -752,7 +756,13 @@ function FeedbackPageContent() {
       ...current,
       [activeTab]: Date.now(),
     }));
-  }, [activeModule.available, activeTab, moduleStartTimes, questionsResp, receiverId]);
+  }, [
+    activeModule.available,
+    activeTab,
+    moduleStartTimes,
+    questionsResp,
+    receiverId,
+  ]);
 
   const handleModuleSubmitSuccess = (module: FeedbackTab) => {
     if (module === "survey") {
@@ -822,7 +832,9 @@ function FeedbackPageContent() {
       answers,
       survey_type: surveyType,
       channel: "in_app",
-      completion_time_seconds: getCompletionTimeSeconds(moduleStartTimes[module]),
+      completion_time_seconds: getCompletionTimeSeconds(
+        moduleStartTimes[module],
+      ),
     };
   };
 
@@ -892,9 +904,14 @@ function FeedbackPageContent() {
       ? receivers.feedback_receivers[0]
       : null;
   const activeSubmitMutation =
-    resolvedActiveTab === "survey" ? surveySubmitMutation : valuesSubmitMutation;
+    resolvedActiveTab === "survey"
+      ? surveySubmitMutation
+      : valuesSubmitMutation;
   const formDisabled =
-    activeSubmitMutation.isPending || loadingQuestions || !receiverId || !questionsResp;
+    activeSubmitMutation.isPending ||
+    loadingQuestions ||
+    !receiverId ||
+    !questionsResp;
   const surveySubmitDisabled =
     formDisabled ||
     !surveyModule.available ||
@@ -975,7 +992,9 @@ function FeedbackPageContent() {
           <section className="space-y-3 rounded-2xl border border-gray-200 bg-white px-5 py-[18px] shadow-sm">
             <div className="flex items-center justify-between">
               <p className="text-[15px] font-semibold text-title-black">
-                {isSelfMode ? "Değerlendirilen kişi" : "Değerlendirilecek kişiyi seç"}
+                {isSelfMode
+                  ? "Değerlendirilen kişi"
+                  : "Değerlendirilecek kişiyi seç"}
               </p>
               {loadingReceivers && (
                 <div className="h-4 w-20 animate-pulse rounded bg-primary/20" />
@@ -1083,7 +1102,8 @@ function FeedbackPageContent() {
 
                 {!surveyTabVisible && !valuesTabVisible ? (
                   <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
-                    Bu kişi için gösterilebilecek değerlendirme modülü bulunmuyor.
+                    Bu kişi için gösterilebilecek değerlendirme modülü
+                    bulunmuyor.
                   </div>
                 ) : !activeModule.available ? (
                   <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
@@ -1129,8 +1149,8 @@ function FeedbackPageContent() {
                         })}
                       />
                       <p className="mt-2 text-[11px] text-gray-400">
-                        {MAX_FEEDBACK_FREE_TEXT - surveyFinalComment.length} karakter
-                        kaldı.
+                        {MAX_FEEDBACK_FREE_TEXT - surveyFinalComment.length}{" "}
+                        karakter kaldı.
                       </p>
                       {surveyForm.formState.errors.finalComment?.message ? (
                         <p className="mt-2 text-xs text-red-600">
@@ -1182,7 +1202,8 @@ function FeedbackPageContent() {
                       />
                     ) : (
                       <div className="rounded-[14px] border border-dashed border-gray-200 bg-white px-5 py-4 text-[14px] text-gray-500">
-                        Davranış ilkesini seçtikten sonra geri bildirimini verebilirsin.
+                        Davranış ilkesini seçtikten sonra geri bildirimini
+                        verebilirsin.
                       </div>
                     )}
 
@@ -1204,8 +1225,8 @@ function FeedbackPageContent() {
                       />
                       <p className="mt-2 text-[11px] text-gray-400">
                         {MAX_FEEDBACK_FREE_TEXT -
-                          (valuesForm.watch("finalComment")?.length || 0)} karakter
-                        kaldı.
+                          (valuesForm.watch("finalComment")?.length || 0)}{" "}
+                        karakter kaldı.
                       </p>
                       {valuesForm.formState.errors.finalComment?.message ? (
                         <p className="mt-2 text-xs text-red-600">
@@ -1230,7 +1251,9 @@ function FeedbackPageContent() {
             <div className="mx-auto max-w-6xl">
               <button
                 type="submit"
-                form={resolvedActiveTab === "survey" ? "survey-form" : "values-form"}
+                form={
+                  resolvedActiveTab === "survey" ? "survey-form" : "values-form"
+                }
                 disabled={
                   resolvedActiveTab === "survey"
                     ? surveySubmitDisabled
@@ -1281,7 +1304,9 @@ function FeedbackPageContent() {
             </p>
             <button
               type="button"
-              onClick={() => setSuccessOverlay((current) => ({ ...current, open: false }))}
+              onClick={() =>
+                setSuccessOverlay((current) => ({ ...current, open: false }))
+              }
               className="w-full rounded-[10px] bg-primary px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Tamam
