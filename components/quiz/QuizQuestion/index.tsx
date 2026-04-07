@@ -263,13 +263,11 @@ const QuizQuestionComponent: React.FC<QuizQuestionProps> = ({
             <div className="text-center mt-4">
               {!hasAnswer ? (
                 <p className="font-poppins text-sm text-amber-600">
-                  Bir seçenek seçebilir ya da soruyu boş bırakarak devam edebilirsiniz.
+                  Bir seçenek seçebilir, seçimi geri alabilir ya da soruyu boş bırakarak devam edebilirsiniz.
                 </p>
               ) : (
                 <p className="font-poppins text-xs text-text-light">
-                  {isLastQuestion
-                    ? "Son soru - test tamamlanmak üzere"
-                    : `${totalQuestions - currentQuestionIndex - 1} soru kaldı`}
+                  Cevabı kaldırmak için seçili şıkkı tekrar tıklayabilir veya farklı bir seçenek seçebilirsiniz.
                 </p>
               )}
             </div>
