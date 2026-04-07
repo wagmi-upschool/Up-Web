@@ -133,6 +133,10 @@ export const quizSlice = createSlice({
       state.answers[action.payload.questionId] = action.payload.answer
     },
 
+    clearAnswer: (state, action: PayloadAction<string>) => {
+      delete state.answers[action.payload]
+    },
+
     submitAnswer: (state) => {
       state.isSubmitting = true
     },
@@ -190,6 +194,7 @@ export const {
   nextQuestion,
   previousQuestion,
   setAnswer,
+  clearAnswer,
   submitAnswer,
   answerSubmitted,
   answerSubmitFailed,

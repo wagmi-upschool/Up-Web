@@ -14,6 +14,7 @@ import {
   setPhase,
   setQuestions,
   setAnswer,
+  clearAnswer,
   nextQuestion,
   previousQuestion,
   resetQuiz,
@@ -118,11 +119,22 @@ const QuizContainer: React.FC<QuizContainerProps> = ({
 
   // Handle answer selection
   const handleAnswerSelect = useCallback((questionId: string, selectedOptionId: string, userAnswer?: string) => {
+    const answerValue = userAnswer || selectedOptionId;
+    const isFillInBlankAnswer = selectedOptionId === "fill-in-blank";
+
+    if (!isFillInBlankAnswer && currentAnswer === answerValue) {
+      dispatch(clearAnswer(questionId));
+      toast("Seçim geri alındı", {
+        icon: "↩️",
+      });
+      return;
+    }
+
     dispatch(setAnswer({
       questionId,
-      answer: userAnswer || selectedOptionId,
+      answer: answerValue,
     }));
-  }, [dispatch]);
+  }, [dispatch, currentAnswer]);
 
   // Handle navigation to next question
   const handleNext = useCallback(async () => {
