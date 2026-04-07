@@ -315,6 +315,9 @@ function QuestionField({
         : String(questionScaleMin ?? 0);
   const currentLikertValue = Number(questionValue || 0);
   const isValuesQuestion = module === "values";
+  const booleanOptions = isValuesQuestion
+    ? (["did"] as const)
+    : (["did", "didnt"] as const);
   const containerClass = isValuesQuestion
     ? `relative overflow-hidden rounded-[14px] border bg-white px-4 py-3 transition-colors ${
         questionValue === "did"
@@ -439,7 +442,7 @@ function QuestionField({
         </div>
       ) : question.type === "boolean" ? (
         <div className="mt-3 flex items-center gap-3">
-            {(["did", "didnt"] as const).map((value) => {
+            {booleanOptions.map((value) => {
               const active = questionValue === value;
 
               return (
