@@ -313,6 +313,7 @@ function QuestionField({
       : Number.isFinite(parsedPercentageSliderValue)
         ? String(parsedPercentageSliderValue)
         : String(questionScaleMin ?? 0);
+  const currentLikertValue = Number(questionValue || 0);
   const isValuesQuestion = module === "values";
   const containerClass = isValuesQuestion
     ? `relative overflow-hidden rounded-[14px] border bg-white px-4 py-3 transition-colors ${
@@ -340,8 +341,7 @@ function QuestionField({
               length: (questionScaleMax ?? 5) - (questionScaleMin ?? 1) + 1,
             }).map((_, index) => {
               const value = (questionScaleMin ?? 1) + index;
-              const current = Number(questionValue || 0);
-              const active = current >= value;
+              const active = currentLikertValue >= value;
 
               return (
                 <button
@@ -350,11 +350,11 @@ function QuestionField({
                   onClick={() =>
                     form.setValue(
                       `answers.${question.question_id}`,
-                      current === value ? "" : String(value),
+                      currentLikertValue === value ? "" : String(value),
                       {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    },
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      },
                     )
                   }
                   className="inline-flex rounded transition-transform duration-150 hover:scale-110 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
@@ -375,7 +375,7 @@ function QuestionField({
               );
             })}
           </div>
-          {current > 0 ? (
+          {currentLikertValue > 0 ? (
             <button
               type="button"
               onClick={() =>
