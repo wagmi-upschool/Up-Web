@@ -1081,14 +1081,6 @@ function FeedbackPageContent() {
                   </div>
                 ) : null}
 
-                {activeModule.competency?.name ? (
-                  <div className="space-y-1">
-                    <p className="px-0.5 text-[12px] text-gray-500">
-                      {activeModule.competency.name}
-                    </p>
-                  </div>
-                ) : null}
-
                 {!surveyTabVisible && !valuesTabVisible ? (
                   <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
                     Bu kişi için gösterilebilecek değerlendirme modülü bulunmuyor.
