@@ -319,7 +319,7 @@ function QuestionField({
         questionValue === "did"
           ? "border-emerald-600 bg-emerald-50"
           : questionValue === "didnt"
-            ? "border-rose-600 bg-rose-50"
+            ? "border-gray-300 bg-white"
             : "border-gray-200"
       }`
     : "rounded-[14px] border border-gray-200 bg-white px-5 py-4";
@@ -478,7 +478,7 @@ function QuestionField({
                       active
                         ? value === "did"
                           ? "border-emerald-600 bg-emerald-100 text-emerald-700"
-                          : "border-rose-600 bg-rose-100 text-rose-700"
+                          : "border-gray-300 bg-gray-100 text-gray-600"
                         : "border-gray-200 text-gray-400"
                     }`}
                   >
@@ -499,7 +499,7 @@ function QuestionField({
                       active
                         ? value === "did"
                           ? "text-emerald-700"
-                          : "text-rose-700"
+                          : "text-gray-600"
                         : "text-gray-400"
                     }`}
                   >
