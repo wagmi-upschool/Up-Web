@@ -35,6 +35,7 @@ import {
   sanitizePercentageInput,
   validateFeedbackAnswer,
 } from "@/lib/feedbackSurvey";
+import { FEEDBACK_FEATURE_FLAGS } from "@/lib/feedbackFeatureFlags";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type FeedbackTab = FeedbackModuleKey;
@@ -195,7 +196,11 @@ function validateSubmittedModuleAnswers(
   for (const question of questions) {
     const rawValue = answers[question.question_id];
     if (rawValue === undefined || rawValue === null || rawValue === "") {
-      continue;
+      if (FEEDBACK_FEATURE_FLAGS.allowBlankSurveyAnswers) {
+        continue;
+      }
+
+      return "Lütfen tüm soruları yanıtlayın.";
     }
 
     const verdict = validateFeedbackAnswer(question, rawValue);
@@ -353,7 +358,10 @@ function QuestionField({
                   onClick={() =>
                     form.setValue(
                       `answers.${question.question_id}`,
-                      currentLikertValue === value ? "" : String(value),
+                      FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo &&
+                        currentLikertValue === value
+                        ? ""
+                        : String(value),
                       {
                         shouldValidate: true,
                         shouldDirty: true,
@@ -452,11 +460,13 @@ function QuestionField({
                   onClick={() =>
                     form.setValue(
                       `answers.${question.question_id}`,
-                      active ? "" : value,
+                      FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
+                        ? ""
+                        : value,
                       {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    },
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      },
                     )
                   }
                   className="group flex flex-col items-center gap-1"
@@ -516,7 +526,7 @@ function QuestionField({
           maxLength={MAX_FEEDBACK_FREE_TEXT}
           className="mt-3 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
           {...form.register(`answers.${question.question_id}`, {
-            required: "Bu soru zorunlu.",
+            validate: (value) => validateFeedbackAnswer(question, value),
             maxLength: {
               value: MAX_FEEDBACK_FREE_TEXT,
               message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
