@@ -378,20 +378,6 @@ function QuestionField({
               );
             })}
           </div>
-          {currentLikertValue > 0 ? (
-            <button
-              type="button"
-              onClick={() =>
-                form.setValue(`answers.${question.question_id}`, "", {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                })
-              }
-              className="text-xs font-medium text-amber-700 transition-colors hover:text-amber-800"
-            >
-              Yıldızı kaldır
-            </button>
-          ) : null}
           <input
             type="hidden"
             {...form.register(`answers.${question.question_id}`, {
