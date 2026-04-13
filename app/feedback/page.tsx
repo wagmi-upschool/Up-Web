@@ -1137,6 +1137,20 @@ function FeedbackPageContent() {
                         </p>
                       ) : null}
                     </div>
+
+                    <button
+                      type="submit"
+                      disabled={surveySubmitDisabled}
+                      className={`w-full rounded-xl px-5 py-3.5 text-[15px] font-medium text-white transition-opacity ${
+                        surveySubmitDisabled
+                          ? "cursor-not-allowed bg-[#99BCFF]"
+                          : "bg-primary hover:opacity-90"
+                      }`}
+                    >
+                      {surveySubmitMutation.isPending
+                        ? "Gönderiliyor..."
+                        : getSubmitButtonLabel("survey")}
+                    </button>
                   </form>
                 ) : (
                   <form
@@ -1212,50 +1226,26 @@ function FeedbackPageContent() {
                         </p>
                       ) : null}
                     </div>
+
+                    <button
+                      type="submit"
+                      disabled={valuesSubmitDisabled}
+                      className={`w-full rounded-xl px-5 py-3.5 text-[15px] font-medium text-white transition-opacity ${
+                        valuesSubmitDisabled
+                          ? "cursor-not-allowed bg-[#9FD7C7]"
+                          : "bg-[#0F6E56] hover:opacity-90"
+                      }`}
+                    >
+                      {valuesSubmitMutation.isPending
+                        ? "Gönderiliyor..."
+                        : getSubmitButtonLabel("values")}
+                    </button>
                   </form>
                 )}
               </div>
             ) : null}
           </section>
         </div>
-
-        {receiverId &&
-        questionsResp &&
-        activeModule.available &&
-        (resolvedActiveTab === "survey"
-          ? surveyQuestions.length > 0
-          : valuesQuestions.length > 0) ? (
-          <div className="fixed inset-x-0 bottom-0 z-[100] border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
-            <div className="mx-auto max-w-6xl">
-              <button
-                type="submit"
-                form={resolvedActiveTab === "survey" ? "survey-form" : "values-form"}
-                disabled={
-                  resolvedActiveTab === "survey"
-                    ? surveySubmitDisabled
-                    : valuesSubmitDisabled
-                }
-                className={`w-full rounded-xl px-5 py-3.5 text-[15px] font-medium text-white transition-opacity ${
-                  resolvedActiveTab === "survey"
-                    ? surveySubmitDisabled
-                      ? "cursor-not-allowed bg-[#99BCFF]"
-                      : "bg-primary hover:opacity-90"
-                    : valuesSubmitDisabled
-                      ? "cursor-not-allowed bg-[#9FD7C7]"
-                      : "bg-[#0F6E56] hover:opacity-90"
-                }`}
-              >
-                {resolvedActiveTab === "survey"
-                  ? surveySubmitMutation.isPending
-                    ? "Gönderiliyor..."
-                    : getSubmitButtonLabel("survey")
-                  : valuesSubmitMutation.isPending
-                    ? "Gönderiliyor..."
-                    : getSubmitButtonLabel("values")}
-              </button>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {successOverlay.open ? (
