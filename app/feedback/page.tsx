@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type UseFormReturn, useForm } from "react-hook-form";
@@ -35,17 +35,18 @@ import {
   sanitizePercentageInput,
   validateFeedbackAnswer,
 } from "@/lib/feedbackSurvey";
+import {
+  createClosedSuccessOverlay,
+  createEmptyModuleFormValues,
+  getStateAfterSuccessOverlayClose,
+  type ModuleFormValues,
+  type ModuleStartTimes,
+  type SuccessOverlayState,
+} from "@/lib/feedbackFormState";
 import { FEEDBACK_FEATURE_FLAGS } from "@/lib/feedbackFeatureFlags";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type FeedbackTab = FeedbackModuleKey;
-
-type ModuleFormValues = {
-  answers: Record<string, string>;
-  finalComment: string;
-};
-
-type ModuleStartTimes = Record<FeedbackTab, number | null>;
 type ModuleSuccessState = Record<FeedbackTab, boolean>;
 
 type NormalizedFeedbackModule = {
@@ -576,10 +577,9 @@ function FeedbackPageContent() {
     survey: false,
     values: false,
   });
-  const [successOverlay, setSuccessOverlay] = useState({
-    open: false,
-    message: "",
-  });
+  const [successOverlay, setSuccessOverlay] = useState<SuccessOverlayState>(
+    createClosedSuccessOverlay,
+  );
 
   const queryClient = useQueryClient();
   const surveyForm = useForm<ModuleFormValues>({
@@ -678,17 +678,33 @@ function FeedbackPageContent() {
     ? valuesAnswers?.[selectedValuesQuestionId] || ""
     : "";
 
+  const applyModuleFormValues = (
+    module: FeedbackTab,
+    formValues: ModuleFormValues,
+  ) => {
+    if (module === "survey") {
+      surveyForm.reset(formValues);
+      return;
+    }
+
+    valuesForm.reset(formValues);
+  };
+
+  const resetAllForms = useCallback(() => {
+    surveyForm.reset(createEmptyModuleFormValues());
+    valuesForm.reset(createEmptyModuleFormValues());
+    setSelectedValuesQuestionId("");
+  }, [surveyForm, valuesForm]);
+
   useEffect(() => {
     setReceiverId("");
     setActiveTab("survey");
-    setSelectedValuesQuestionId("");
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
-    setSuccessOverlay({ open: false, message: "" });
-    surveyForm.reset({ answers: {}, finalComment: "" });
-    valuesForm.reset({ answers: {}, finalComment: "" });
-  }, [surveyForm, surveyType, valuesForm]);
+    setSuccessOverlay(createClosedSuccessOverlay());
+    resetAllForms();
+  }, [resetAllForms, surveyType]);
 
   useEffect(() => {
     if (!isSelfMode) return;
@@ -700,14 +716,12 @@ function FeedbackPageContent() {
 
     setReceiverId(selfReceiverId);
     setActiveTab("survey");
-    setSelectedValuesQuestionId("");
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
-    setSuccessOverlay({ open: false, message: "" });
-    surveyForm.reset({ answers: {}, finalComment: "" });
-    valuesForm.reset({ answers: {}, finalComment: "" });
-  }, [isSelfMode, receiverId, receivers, surveyForm, valuesForm]);
+    setSuccessOverlay(createClosedSuccessOverlay());
+    resetAllForms();
+  }, [isSelfMode, receiverId, receivers, resetAllForms]);
 
   useEffect(() => {
     if (
@@ -716,14 +730,12 @@ function FeedbackPageContent() {
     ) {
       setLastQuestionReceiver(questionsResp.feedback_receiver_id);
       setActiveTab("survey");
-      setSelectedValuesQuestionId("");
       setModuleStartTimes({ survey: Date.now(), values: null });
       setModuleSuccess({ survey: false, values: false });
-      setSuccessOverlay({ open: false, message: "" });
-      surveyForm.reset({ answers: {}, finalComment: "" });
-      valuesForm.reset({ answers: {}, finalComment: "" });
+      setSuccessOverlay(createClosedSuccessOverlay());
+      resetAllForms();
     }
-  }, [lastQuestionReceiver, questionsResp, surveyForm, valuesForm]);
+  }, [lastQuestionReceiver, questionsResp, resetAllForms]);
 
   useEffect(() => {
     if (activeTab !== resolvedActiveTab) {
@@ -754,21 +766,42 @@ function FeedbackPageContent() {
   }, [activeModule.available, activeTab, moduleStartTimes, questionsResp, receiverId]);
 
   const handleModuleSubmitSuccess = (module: FeedbackTab) => {
-    if (module === "survey") {
-      surveyForm.reset({ answers: {}, finalComment: "" });
-    } else {
-      valuesForm.reset({ answers: {}, finalComment: "" });
-    }
-
     setModuleSuccess((current) => ({ ...current, [module]: true }));
-    setModuleStartTimes((current) => ({ ...current, [module]: Date.now() }));
     setSuccessOverlay({
       open: true,
       message: getSuccessCopy(module),
+      module,
     });
     queryClient.invalidateQueries({
       queryKey: ["feedbackQuestions", giverId, receiverId, surveyType],
     });
+  };
+
+  const handleSuccessOverlayClose = () => {
+    const nextState = getStateAfterSuccessOverlayClose(
+      {
+        receiverId,
+        selectedValuesQuestionId,
+        moduleStartTimes,
+        successOverlay,
+        forms: {
+          survey: surveyForm.getValues(),
+          values: valuesForm.getValues(),
+        },
+      },
+      Date.now(),
+    );
+
+    setSelectedValuesQuestionId(nextState.selectedValuesQuestionId);
+    setModuleStartTimes(nextState.moduleStartTimes);
+    setSuccessOverlay(nextState.successOverlay);
+
+    if (successOverlay.module) {
+      applyModuleFormValues(
+        successOverlay.module,
+        nextState.forms[successOverlay.module],
+      );
+    }
   };
 
   const surveySubmitMutation = useMutation({
@@ -790,13 +823,11 @@ function FeedbackPageContent() {
   const handleReceiverChange = (value: string) => {
     setReceiverId(value);
     setActiveTab("survey");
-    setSelectedValuesQuestionId("");
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
-    setSuccessOverlay({ open: false, message: "" });
-    surveyForm.reset({ answers: {}, finalComment: "" });
-    valuesForm.reset({ answers: {}, finalComment: "" });
+    setSuccessOverlay(createClosedSuccessOverlay());
+    resetAllForms();
 
     if (giverId && canQuery) {
       queryClient.prefetchQuery({
@@ -1270,7 +1301,7 @@ function FeedbackPageContent() {
             </p>
             <button
               type="button"
-              onClick={() => setSuccessOverlay((current) => ({ ...current, open: false }))}
+              onClick={handleSuccessOverlayClose}
               className="w-full rounded-[10px] bg-primary px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
             >
               Tamam
