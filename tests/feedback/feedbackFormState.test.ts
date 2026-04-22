@@ -6,9 +6,11 @@ import {
   getStateAfterSuccessOverlayClose,
 } from "../../lib/feedbackFormState";
 
-test("closing survey success overlay resets only survey form data", () => {
+test("closing survey success overlay clears receiver and resets page state", () => {
   const state = {
     receiverId: "receiver-1",
+    activeTab: "values" as const,
+    lastQuestionReceiver: "receiver-1",
     selectedValuesQuestionId: "values-question-1",
     moduleStartTimes: {
       survey: 120,
@@ -31,22 +33,26 @@ test("closing survey success overlay resets only survey form data", () => {
     },
   };
 
-  const nextState = getStateAfterSuccessOverlayClose(state, 999);
+  const nextState = getStateAfterSuccessOverlayClose(state);
 
-  assert.equal(nextState.receiverId, "receiver-1");
-  assert.equal(nextState.selectedValuesQuestionId, "values-question-1");
+  assert.equal(nextState.receiverId, "");
+  assert.equal(nextState.activeTab, "survey");
+  assert.equal(nextState.lastQuestionReceiver, null);
+  assert.equal(nextState.selectedValuesQuestionId, "");
   assert.deepEqual(nextState.forms.survey, createEmptyModuleFormValues());
-  assert.deepEqual(nextState.forms.values, state.forms.values);
+  assert.deepEqual(nextState.forms.values, createEmptyModuleFormValues());
   assert.deepEqual(nextState.moduleStartTimes, {
-    survey: 999,
-    values: 240,
+    survey: null,
+    values: null,
   });
   assert.deepEqual(nextState.successOverlay, createClosedSuccessOverlay());
 });
 
-test("closing values success overlay resets values form data and selection", () => {
+test("closing values success overlay also clears receiver and resets page state", () => {
   const state = {
     receiverId: "receiver-2",
+    activeTab: "values" as const,
+    lastQuestionReceiver: "receiver-2",
     selectedValuesQuestionId: "values-question-7",
     moduleStartTimes: {
       survey: 320,
@@ -69,15 +75,17 @@ test("closing values success overlay resets values form data and selection", () 
     },
   };
 
-  const nextState = getStateAfterSuccessOverlayClose(state, 1500);
+  const nextState = getStateAfterSuccessOverlayClose(state);
 
-  assert.equal(nextState.receiverId, "receiver-2");
+  assert.equal(nextState.receiverId, "");
+  assert.equal(nextState.activeTab, "survey");
+  assert.equal(nextState.lastQuestionReceiver, null);
   assert.equal(nextState.selectedValuesQuestionId, "");
   assert.deepEqual(nextState.forms.values, createEmptyModuleFormValues());
-  assert.deepEqual(nextState.forms.survey, state.forms.survey);
+  assert.deepEqual(nextState.forms.survey, createEmptyModuleFormValues());
   assert.deepEqual(nextState.moduleStartTimes, {
-    survey: 320,
-    values: 1500,
+    survey: null,
+    values: null,
   });
   assert.deepEqual(nextState.successOverlay, createClosedSuccessOverlay());
 });

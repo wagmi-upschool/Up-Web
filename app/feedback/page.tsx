@@ -781,6 +781,8 @@ function FeedbackPageContent() {
     const nextState = getStateAfterSuccessOverlayClose(
       {
         receiverId,
+        activeTab,
+        lastQuestionReceiver,
         selectedValuesQuestionId,
         moduleStartTimes,
         successOverlay,
@@ -789,19 +791,16 @@ function FeedbackPageContent() {
           values: valuesForm.getValues(),
         },
       },
-      Date.now(),
     );
 
+    setReceiverId(nextState.receiverId);
+    setActiveTab(nextState.activeTab);
+    setLastQuestionReceiver(nextState.lastQuestionReceiver);
     setSelectedValuesQuestionId(nextState.selectedValuesQuestionId);
     setModuleStartTimes(nextState.moduleStartTimes);
     setSuccessOverlay(nextState.successOverlay);
-
-    if (successOverlay.module) {
-      applyModuleFormValues(
-        successOverlay.module,
-        nextState.forms[successOverlay.module],
-      );
-    }
+    applyModuleFormValues("survey", nextState.forms.survey);
+    applyModuleFormValues("values", nextState.forms.values);
   };
 
   const surveySubmitMutation = useMutation({

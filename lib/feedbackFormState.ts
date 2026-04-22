@@ -18,6 +18,8 @@ export type SuccessOverlayState = {
 
 export type SuccessOverlayCloseState = {
   receiverId: string;
+  activeTab: FeedbackTab;
+  lastQuestionReceiver: string | null;
   selectedValuesQuestionId: string;
   moduleStartTimes: ModuleStartTimes;
   successOverlay: SuccessOverlayState;
@@ -34,29 +36,20 @@ export function createClosedSuccessOverlay(): SuccessOverlayState {
 
 export function getStateAfterSuccessOverlayClose(
   state: SuccessOverlayCloseState,
-  timestamp: number,
 ): SuccessOverlayCloseState {
-  const targetModule = state.successOverlay.module;
-
-  if (!targetModule) {
-    return {
-      ...state,
-      successOverlay: createClosedSuccessOverlay(),
-    };
-  }
-
   return {
-    receiverId: state.receiverId,
-    selectedValuesQuestionId:
-      targetModule === "values" ? "" : state.selectedValuesQuestionId,
+    receiverId: "",
+    activeTab: "survey",
+    lastQuestionReceiver: null,
+    selectedValuesQuestionId: "",
     moduleStartTimes: {
-      ...state.moduleStartTimes,
-      [targetModule]: timestamp,
+      survey: null,
+      values: null,
     },
     successOverlay: createClosedSuccessOverlay(),
     forms: {
-      ...state.forms,
-      [targetModule]: createEmptyModuleFormValues(),
+      survey: createEmptyModuleFormValues(),
+      values: createEmptyModuleFormValues(),
     },
   };
 }
