@@ -7,6 +7,7 @@ const publicPages = [
     '/register',
     '/forgot-password',
     '/feedback',
+    '/analytics',
 ];
 
 export async function middleware(request: NextRequest) {
