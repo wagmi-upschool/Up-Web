@@ -19,6 +19,36 @@
 - Use PascalCase for components (`components/Header/UserMenu.tsx`), camelCase for utilities, and uppercase constants only in config modules.
 - Prefer functional components with explicit prop types and Tailwind utilities kept in Prettier order; route-level CSS stays in `app/globals.css`.
 
+## UI / Design Contract
+
+Yeni `/analytics` dashboard'u görsel olarak yeni bir tasarım dili üretmemeli.
+Mevcut [`/feedback/analytics`](https://chat.updaily.ai/feedback/analytics) dashboard'unun tasarım sistemi birebir korunmalı; yalnızca veri contract'ı ve query modeli `competencyId` bazlı olmalı.
+
+### Tasarım Kuralları
+
+- Header yapısı mevcut dashboard ile aynı olmalı.
+- `UP Pulse` görsel dili korunmalı.
+- Başlıkta `Eczacıbaşı` gösterilmeli.
+- Background, kart yapıları, shadow, border, radius, spacing ve layout oranları aynı olmalı.
+- Kullanılan font aileleri, font boyutları, font ağırlıkları, harf aralıkları ve sayı gösterim stilleri aynı olmalı.
+- Grafiklerde kullanılan:
+  - renkler
+  - grid yapısı
+  - axis stilleri
+  - tooltip stili
+  - line/area stroke kalınlıkları
+  - dot stilleri
+  - ölçeklendirme yaklaşımı
+  - padding/margin oranları
+  mevcut `/feedback/analytics` ile aynı olmalı.
+- KPI kartları, badge/pill component'leri, section container'ları, loading/error/empty state görselleri aynı component mantığıyla kullanılmalı.
+- İkon seti ve ikon kullanım biçimi mevcut dashboard ile aynı olmalı.
+- Yeni sayfa "aynı design system, farklı data contract" prensibiyle geliştirilmelidir.
+
+### Özet
+
+`/analytics?competencyId=<uuid>` sayfası, UI açısından `/feedback/analytics` ile aynı görünmeli; yalnızca data source, request shape ve query param yapısı farklı olmalıdır.
+
 ## Testing Guidelines
 - Place unit and integration specs under `tests/`, mirroring the feature path (e.g., `tests/messages/...`) for easy discovery.
 - Name files `*.test.ts` or `*.test.tsx`, mock services via `services/__mocks__/`, and assert against Amplify schemas.

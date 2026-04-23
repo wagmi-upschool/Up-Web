@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { type DashboardSummaryResponse } from "@/lib/dashboardSummary";
 import {
-  buildAnalyticsCompetencyDashboardQuery,
-  isValidAnalyticsCompetencyId,
   type AnalyticsSummaryResponse,
-  resolveAnalyticsCompetency,
+  isValidAnalyticsCompetencyId,
 } from "@/lib/analyticsCompetencies";
 
-const dashboardBase =
+const analyticsBase =
   process.env.DASHBOARD_REMOTE_URL ||
   process.env.NEXT_PUBLIC_DASHBOARD_REMOTE_URL ||
   process.env.REMOTE_URL ||
@@ -22,7 +19,6 @@ function jsonError(message: string, status: number, code: string) {
 
 export async function handleAnalyticsSummaryRequest(request: NextRequest) {
   const competencyId = request.nextUrl.searchParams.get("competencyId");
-  const competency = resolveAnalyticsCompetency(competencyId);
 
   if (!competencyId?.trim()) {
     return jsonError(
@@ -40,37 +36,26 @@ export async function handleAnalyticsSummaryRequest(request: NextRequest) {
     );
   }
 
-  if (!competency) {
+  if (!analyticsBase) {
     return jsonError(
-      "Unknown analytics competency. Use a configured competencyId value.",
-      404,
-      "COMPETENCY_NOT_FOUND",
-    );
-  }
-
-  if (!dashboardBase) {
-    return jsonError(
-      "Dashboard remote URL is not configured.",
+      "Analytics remote URL is not configured.",
       500,
-      "DASHBOARD_URL_MISSING",
+      "ANALYTICS_URL_MISSING",
     );
   }
 
-  const query = buildAnalyticsCompetencyDashboardQuery(competency.competencyId);
-  if (!query) {
-    return jsonError(
-      "Analytics competency is not mapped to a dashboard query.",
-      500,
-      "COMPETENCY_QUERY_MISSING",
-    );
-  }
-
-  const response = await fetch(`${dashboardBase}/dashboard/summary?${query}`, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
+  const query = new URLSearchParams({
+    competencyId: competencyId.trim(),
   });
+  const response = await fetch(
+    `${analyticsBase}/analytics/summary?${query.toString()}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    },
+  );
 
   let json: any = null;
   try {
@@ -93,17 +78,5 @@ export async function handleAnalyticsSummaryRequest(request: NextRequest) {
     );
   }
 
-  const summary = (json?.body ?? json) as DashboardSummaryResponse;
-  const { feedbackReceiverIds: _feedbackReceiverIds, ...publicSummary } =
-    summary;
-  const payload: AnalyticsSummaryResponse = {
-    ...publicSummary,
-    competency: {
-      competencyId: competency.competencyId,
-      displayName: competency.displayName,
-      periodLabel: competency.periodLabel,
-    },
-  };
-
-  return NextResponse.json(payload);
+  return NextResponse.json((json?.body ?? json) as AnalyticsSummaryResponse);
 }
