@@ -1,18 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { startTransition, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   QueryClient,
   QueryClientProvider,
   useQuery,
 } from "@tanstack/react-query";
-import PulseDashboard from "@/components/analytics/pulse-dashboard";
-import type { AnalyticsSummaryResponse } from "@/lib/analyticsCompetencies";
+import AnalyticsDashboardPage from "@/components/analytics-dashboard/dashboard-page";
+import type { AnalyticsDashboardResponse } from "@/lib/analyticsDashboard";
 
-async function getAnalyticsSummary(competencyId: string) {
+async function getAnalyticsDashboard(
+  competencyId: string,
+  period: string,
+  company: string,
+) {
+  const query = new URLSearchParams({
+    competencyId,
+  });
+
+  if (period) {
+    query.set("period", period);
+  }
+
+  if (company && company !== "all") {
+    query.set("company", company);
+  }
+
   const response = await fetch(
-    `/analytics/summary?competencyId=${encodeURIComponent(competencyId)}`,
+    `/analytics/dashboard?${query.toString()}`,
     {
       headers: {
         "Content-Type": "application/json",
@@ -35,8 +51,9 @@ async function getAnalyticsSummary(competencyId: string) {
     throw new Error(`${code}: ${message}`);
   }
 
-  return json as AnalyticsSummaryResponse;
+  return json as AnalyticsDashboardResponse;
 }
+
 function formatApiError(error: unknown) {
   const raw = error instanceof Error ? error.message : `${error}`;
   const [, ...messageParts] = raw.split(":");
@@ -44,31 +61,46 @@ function formatApiError(error: unknown) {
 }
 
 function AnalyticsPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const rawCompetencyId = searchParams.get("competencyId") || "";
   const competencyId = rawCompetencyId.trim();
+  const period = (searchParams.get("period") || "").trim();
+  const company = (searchParams.get("company") || "all").trim() || "all";
   const hasCompetencyId = competencyId.length > 0;
 
-  const summaryQuery = useQuery({
-    queryKey: ["analyticsSummary", competencyId],
-    queryFn: () => getAnalyticsSummary(competencyId),
+  const dashboardQuery = useQuery({
+    queryKey: ["analyticsDashboard", competencyId, period, company],
+    queryFn: () => getAnalyticsDashboard(competencyId, period, company),
     enabled: hasCompetencyId,
+    placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
 
-  const summary = summaryQuery.data;
+  const handleCompanySelect = (slug: string) => {
+    const query = new URLSearchParams(searchParams.toString());
+
+    if (slug === "all") {
+      query.delete("company");
+    } else {
+      query.set("company", slug);
+    }
+
+    startTransition(() => {
+      router.replace(`/analytics?${query.toString()}`);
+    });
+  };
 
   return (
-    <PulseDashboard
-      badgeLabel={summary?.competency.periodLabel || "UP Pulse"}
-      companyName={summary?.competency.displayName || "Eczacıbaşı"}
-      errorMessage={summaryQuery.error ? formatApiError(summaryQuery.error) : null}
-      hasRequestedData={hasCompetencyId}
-      isLoading={summaryQuery.isLoading}
-      missingDataDescription="Bu sayfa `/analytics?competencyId=<uuid>` formatıyla çalışır."
-      missingDataTitle="competencyId gerekli"
-      summary={summary}
-      subtitle="Pulse Dashboard"
+    <AnalyticsDashboardPage
+      errorMessage={
+        dashboardQuery.error ? formatApiError(dashboardQuery.error) : null
+      }
+      hasCompetencyId={hasCompetencyId}
+      isLoading={dashboardQuery.isLoading}
+      isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
+      onCompanySelect={handleCompanySelect}
+      response={dashboardQuery.data}
     />
   );
 }
