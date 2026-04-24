@@ -88,13 +88,15 @@ export function AnalyticsDashboardHeader({
                   <Sparkles className="h-3.5 w-3.5" />
                   UP Pulse
                 </div>
-                <div className="space-y-2">
-                  <h1 className="font-righteous text-[2.85rem] leading-[0.9] tracking-[-0.05em] text-[#171717] sm:text-[4.5rem] lg:text-[5.2rem]">
-                    Eczacıbaşı
-                  </h1>
-                  <p className="font-righteous text-[1.55rem] uppercase tracking-[0.1em] text-[#171717] [text-shadow:0.55px_0_0_currentColor,-0.55px_0_0_currentColor] sm:text-[2rem]">
-                    SİNYAL ANALİZ PANELİ
-                  </p>
+                <div>
+                  <div className="flex flex-col gap-1 md:flex-row md:items-end md:gap-6">
+                    <h1 className="font-righteous text-[2.7rem] leading-[0.9] tracking-[-0.05em] text-[#171717] sm:text-[4.35rem] lg:text-[4.95rem]">
+                      Eczacıbaşı
+                    </h1>
+                    <p className="pb-1 font-righteous text-[1.22rem] uppercase leading-none tracking-[0.06em] text-[#171717] [text-shadow:0.55px_0_0_currentColor,-0.55px_0_0_currentColor] sm:text-[1.85rem] lg:pb-2 lg:text-[2.45rem]">
+                      SİNYAL ANALİZ PANELİ
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
