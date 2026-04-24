@@ -319,9 +319,7 @@ export function PeopleAndSummarySection({
                   className="grid grid-cols-[36px_48px_minmax(0,1fr)_120px] items-center gap-4 rounded-2xl border border-[#171717]/8 bg-[#FFFFFF]/70 px-4 py-4 transition-all duration-300 hover:scale-[1.015] hover:border-white/40 hover:bg-white/35 hover:shadow-[0_18px_35px_rgba(23,23,23,0.1)] hover:backdrop-blur-xl"
                   key={sender.personId}
                 >
-                  <p
-                    className="font-righteous text-3xl text-[#AD7A00]"
-                  >
+                  <p className="font-righteous text-3xl text-[#AD7A00]">
                     {sender.rank}
                   </p>
                   <div

@@ -5,6 +5,18 @@ import Image from "next/image";
 import { Sparkles } from "lucide-react";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
+const MOCK_COMPANY_TABS = [
+  { id: "all", slug: "all", label: "TÜM ŞİRKETLER", disabled: false },
+  { id: "esan", slug: "esan", label: "ESAN", disabled: true },
+  { id: "eyap", slug: "eyap", label: "EYAP", disabled: true },
+  { id: "eip", slug: "eip", label: "EİP", disabled: true },
+  { id: "gensenta", slug: "gensenta", label: "GENSENTA", disabled: true },
+  { id: "holding", slug: "holding", label: "HOLDİNG", disabled: true },
+  { id: "saniverse", slug: "saniverse", label: "SANIVERSE", disabled: true },
+  { id: "vitra-fliesen", slug: "vitra-fliesen", label: "VİTRA FLIESEN", disabled: true },
+  { id: "vitra-karo", slug: "vitra-karo", label: "VİTRA KARO", disabled: true },
+] as const;
+
 export function AnalyticsDashboardPageShell({
   children,
 }: {
@@ -31,32 +43,34 @@ export function AnalyticsDashboardBody({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-3 py-6 sm:px-4 sm:py-8">
+    <div className="mx-auto max-w-[1440px] space-y-6 px-4 py-6 sm:px-5 sm:py-8 lg:px-6">
       {children}
     </div>
   );
 }
 
 export function AnalyticsDashboardHeader({
-  title,
-  subtitle,
   companies,
   selectedCompany,
   onCompanySelect,
   isUpdating,
 }: {
-  title: string;
-  subtitle: string;
   companies: Array<{ id: string; slug: string; label: string }>;
   selectedCompany: string;
   onCompanySelect: (slug: string) => void;
   isUpdating: boolean;
 }) {
-  const showCompanyTabs = companies.length > 1;
-  const displayTitle = title.split("·")[0]?.trim() || "Eczacıbaşı";
+  const usesMockTabs = companies.length <= 1;
+  const displayedTabs = usesMockTabs
+    ? MOCK_COMPANY_TABS
+    : companies.map((company) => ({
+        ...company,
+        label: company.label.toLocaleUpperCase("tr-TR"),
+        disabled: false,
+      }));
 
   return (
-    <div className="mx-auto max-w-6xl px-3 pt-6 sm:px-4 sm:pt-8">
+    <div className="mx-auto max-w-[1440px] px-4 pt-6 sm:px-5 sm:pt-8 lg:px-6">
       <div className="group relative overflow-hidden rounded-[30px] border border-[#171717]/10 bg-[#FFFFFF]/88 p-5 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] hover:border-white/45 hover:bg-white/40 hover:shadow-[0_28px_70px_rgba(23,23,23,0.14)] hover:backdrop-blur-xl sm:p-6">
         <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.18)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         <div className="relative">
@@ -76,13 +90,11 @@ export function AnalyticsDashboardHeader({
                 </div>
                 <div className="space-y-1">
                   <h1 className="font-righteous text-3xl text-[#171717] sm:text-4xl">
-                    {displayTitle}
+                    Eczacıbaşı
                   </h1>
-                  {subtitle ? (
-                    <p className="font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/48">
-                      {subtitle}
-                    </p>
-                  ) : null}
+                  <p className="font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/48">
+                    UP PULSE PANELİ
+                  </p>
                 </div>
               </div>
             </div>
@@ -95,31 +107,33 @@ export function AnalyticsDashboardHeader({
               </div>
             ) : null}
           </div>
+        </div>
+      </div>
 
-          {showCompanyTabs ? (
-            <div className="mt-6 overflow-x-auto border-t border-[#171717]/10 pt-4">
-              <div className="flex min-w-max items-center gap-2">
-                {companies.map((company) => {
-                  const isActive = company.slug === selectedCompany;
+      <div className="mt-3 overflow-x-auto border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
+        <div className="flex min-w-max items-center gap-8 px-4 py-4 sm:px-5 lg:px-6">
+          {displayedTabs.map((company) => {
+            const isActive = company.slug === selectedCompany;
 
-                  return (
-                    <button
-                      className={`rounded-full px-4 py-2 font-poppins text-sm font-semibold transition-colors ${
-                        isActive
-                          ? "bg-[#F6E8C0] text-[#A06C00]"
-                          : "text-[#171717]/60 hover:bg-[#FFFFFF] hover:text-[#171717]"
-                      }`}
-                      key={company.id}
-                      onClick={() => onCompanySelect(company.slug)}
-                      type="button"
-                    >
-                      {company.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
+            return (
+              <button
+                aria-disabled={company.disabled}
+                className={`font-poppins text-[17px] font-semibold uppercase tracking-[0.01em] transition-colors ${
+                  isActive
+                    ? "text-[#A06C00]"
+                    : company.disabled
+                      ? "cursor-not-allowed text-[#171717]/48"
+                      : "text-[#171717]/62 hover:text-[#171717]"
+                }`}
+                disabled={company.disabled}
+                key={company.id}
+                onClick={() => onCompanySelect(company.slug)}
+                type="button"
+              >
+                {company.label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -45,8 +45,6 @@ export default function AnalyticsDashboardPage({
           isUpdating={isUpdating}
           onCompanySelect={onCompanySelect}
           selectedCompany={viewModel.meta.selectedCompany}
-          subtitle={viewModel.meta.periodLabel}
-          title={viewModel.meta.dashboardTitle}
         />
       ) : null}
 
