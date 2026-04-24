@@ -45,14 +45,11 @@ function AnalyticsChartTooltip({
   const point = payload[0].payload;
 
   return (
-    <div className="rounded-xl border border-[#E4DCCF] bg-white px-4 py-3 shadow-lg">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8B8376]">
+    <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
+      <p className="font-poppins text-xs uppercase tracking-[0.2em] text-white/55">
         {point.label}
       </p>
-      <p
-        className="mt-2 text-2xl font-bold"
-        style={{ color, fontFamily: "Georgia, serif" }}
-      >
+      <p className="mt-2 font-righteous text-3xl leading-none" style={{ color }}>
         {formatAnalyticsNumber(point.value)}
       </p>
     </div>
@@ -91,14 +88,24 @@ function AnalyticsLineChartCard({
           <XAxis
             axisLine={false}
             dataKey="label"
-            tick={{ fill: "#948B7E", fontSize: 14 }}
+            tick={{
+              fill: "#171717",
+              fillOpacity: 0.55,
+              fontFamily: "var(--font-poppins)",
+              fontSize: 11,
+            }}
             tickLine={false}
           />
           <YAxis
             allowDecimals={false}
             axisLine={false}
             domain={[0, maxValue]}
-            tick={{ fill: "#948B7E", fontSize: 14 }}
+            tick={{
+              fill: "#171717",
+              fillOpacity: 0.55,
+              fontFamily: "var(--font-poppins)",
+              fontSize: 11,
+            }}
             tickLine={false}
             width={42}
           />
@@ -143,7 +150,7 @@ function ProgressBar({
   return (
     <div className="h-3 overflow-hidden rounded-full bg-[#EFEAE0]">
       <div
-        className="h-full rounded-full"
+        className="h-full rounded-full transition-[width] duration-700"
         style={{
           width: `${Math.max(0, Math.min(progress, 100))}%`,
           backgroundColor: color,
@@ -166,16 +173,13 @@ export function KpiSection({
         return (
           <AnalyticsCard key={item.id}>
             <div className="mb-4 h-1 rounded-full" style={{ backgroundColor: colorStyle.line }} />
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#8B8376]">
+            <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
               {item.label}
             </p>
-            <p
-              className="mt-5 text-[62px] font-bold leading-none"
-              style={{ color: colorStyle.line, fontFamily: "Georgia, serif" }}
-            >
+            <p className="mt-3 font-righteous text-5xl leading-none text-[#171717]">
               {formatAnalyticsNumber(item.value)}
             </p>
-            <p className="mt-2 text-sm text-[#7B7368]">{item.subtitle}</p>
+            <p className="mt-2 font-poppins text-sm text-[#171717]/65">{item.subtitle}</p>
           </AnalyticsCard>
         );
       })}
@@ -200,7 +204,7 @@ export function OverallTrendSection({
     <>
       <AnalyticsSectionHeading>Zaman Trendi</AnalyticsSectionHeading>
       <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
-        <AnalyticsCard>
+        <AnalyticsCard variant="trend">
           <AnalyticsSubheading dotColor="#AD7A00">
             Günlük Sinyal Trendi
           </AnalyticsSubheading>
@@ -230,13 +234,10 @@ export function OverallTrendSection({
               return (
                 <div key={item.id}>
                   <div className="mb-2 flex items-center justify-between gap-4">
-                    <p className="text-[28px] leading-none text-[#2A241E] sm:text-lg">
+                    <p className="font-poppins text-sm leading-6 text-[#171717]/86 sm:text-base">
                       {item.label}
                     </p>
-                    <p
-                      className="text-[38px] font-bold leading-none sm:text-[24px]"
-                      style={{ color: colorStyle.line, fontFamily: "Georgia, serif" }}
-                    >
+                    <p className="font-righteous text-3xl leading-none" style={{ color: colorStyle.line }}>
                       {formatAnalyticsNumber(item.value)}
                     </p>
                   </div>
@@ -275,13 +276,10 @@ export function CompanyComparisonSection({
                 return (
                   <div key={item.id}>
                     <div className="mb-2 flex items-center justify-between gap-4">
-                      <p className="text-lg font-medium text-[#2A241E]">
+                      <p className="font-poppins text-base text-[#171717]/86">
                         {item.label}
                       </p>
-                      <p
-                        className="text-[24px] font-bold"
-                        style={{ color: colorStyle.line, fontFamily: "Georgia, serif" }}
-                      >
+                      <p className="font-righteous text-3xl leading-none" style={{ color: colorStyle.line }}>
                         {formatAnalyticsNumber(item.value)}
                       </p>
                     </div>
@@ -318,32 +316,28 @@ export function PeopleAndSummarySection({
 
               return (
                 <div
-                  className="grid grid-cols-[36px_48px_minmax(0,1fr)_120px] items-center gap-4 rounded-[18px] border border-[#ECE3D7] bg-[#FFFEFC] px-4 py-3"
+                  className="grid grid-cols-[36px_48px_minmax(0,1fr)_120px] items-center gap-4 rounded-2xl border border-[#171717]/8 bg-[#FFFFFF]/70 px-4 py-4 transition-all duration-300 hover:scale-[1.015] hover:border-white/40 hover:bg-white/35 hover:shadow-[0_18px_35px_rgba(23,23,23,0.1)] hover:backdrop-blur-xl"
                   key={sender.personId}
                 >
                   <p
-                    className="text-lg font-bold"
-                    style={{ color: "#AD7A00", fontFamily: "Georgia, serif" }}
+                    className="font-righteous text-3xl text-[#AD7A00]"
                   >
                     {sender.rank}
                   </p>
                   <div
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+                    className="flex h-10 w-10 items-center justify-center rounded-full font-poppins text-sm font-semibold text-white"
                     style={{ backgroundColor: colorStyle.line }}
                   >
                     {sender.initials}
                   </div>
-                  <p className="truncate text-lg font-medium text-[#2A241E]">
+                  <p className="truncate font-poppins text-sm leading-6 text-[#171717]/86 sm:text-base">
                     {sender.fullName}
                   </p>
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <ProgressBar color={colorStyle.line} progress={sender.progress} />
                     </div>
-                    <p
-                      className="text-[22px] font-bold"
-                      style={{ color: colorStyle.line, fontFamily: "Georgia, serif" }}
-                    >
+                    <p className="font-righteous text-3xl leading-none" style={{ color: colorStyle.line }}>
                       {formatAnalyticsNumber(sender.totalSignals)}
                     </p>
                   </div>
@@ -358,7 +352,7 @@ export function PeopleAndSummarySection({
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-y-3">
               <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-[0.24em] text-[#8B8376]">
+                <tr className="text-left font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
                   <th className="pb-2">Davranış</th>
                   <th className="pb-2">Toplam</th>
                   <th className="pb-2">En Yoğun Gün</th>
@@ -369,21 +363,18 @@ export function PeopleAndSummarySection({
                   <tr className="border-b border-[#F0E8DB]" key={item.behaviorId}>
                     <td className="py-2">
                       <span
-                        className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${item.toneClass}`}
+                        className={`inline-flex rounded-full px-3 py-1 font-poppins text-sm font-semibold ${item.toneClass}`}
                       >
                         {item.label}
                       </span>
                     </td>
                     <td
-                      className="py-2 text-[24px] font-bold"
-                      style={{
-                        color: ANALYTICS_COLOR_STYLES[item.colorToken].line,
-                        fontFamily: "Georgia, serif",
-                      }}
+                      className="py-2 font-righteous text-3xl leading-none"
+                      style={{ color: ANALYTICS_COLOR_STYLES[item.colorToken].line }}
                     >
                       {formatAnalyticsNumber(item.totalSignals)}
                     </td>
-                    <td className="py-2 text-base text-[#5F574B]">
+                    <td className="py-2 font-poppins text-base text-[#5F574B]">
                       {item.peakDayLabel}:{" "}
                       <span
                         className="font-semibold"
@@ -417,7 +408,7 @@ function BehaviorTrendCard({
   const points = trend.granularities[granularity].points;
 
   return (
-    <AnalyticsCard>
+        <AnalyticsCard variant="trend">
       <AnalyticsSubheading dotColor={colorStyle.line}>{trend.label}</AnalyticsSubheading>
       <div className="mb-6">
         <AnalyticsSegmentedToggle

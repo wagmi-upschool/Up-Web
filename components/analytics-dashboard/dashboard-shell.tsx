@@ -11,14 +11,14 @@ export function AnalyticsDashboardPageShell({
   children: ReactNode;
 }) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#F3F0E9] text-[#2A241E]">
+    <main className="relative min-h-screen min-h-[100dvh] overflow-hidden bg-[#F3EAD7] text-[#171717]">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(55,92,203,0.08)_0,_transparent_24%),radial-gradient(circle_at_top_right,_rgba(107,58,178,0.06)_0,_transparent_22%),radial-gradient(circle_at_bottom_left,_rgba(28,128,103,0.06)_0,_transparent_24%),linear-gradient(180deg,_#FBF8F2_0%,_#F3F0E9_100%)]"
+        className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,_#0057FF_0,_transparent_28%),radial-gradient(circle_at_top_right,_#985DF8_0,_transparent_24%),radial-gradient(circle_at_bottom_left,_#00D9C0_0,_transparent_20%),linear-gradient(180deg,_#F8F2E7_0%,_#F3EAD7_100%)] opacity-[0.08]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 top-0 h-44 bg-[linear-gradient(180deg,rgba(255,255,255,0.55),transparent)]"
+        className="pointer-events-none fixed inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(255,255,255,0.5),transparent)]"
       />
       <div className="relative z-10">{children}</div>
     </main>
@@ -31,7 +31,7 @@ export function AnalyticsDashboardBody({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto max-w-[1440px] space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-6xl space-y-6 px-3 py-6 sm:px-4 sm:py-8">
       {children}
     </div>
   );
@@ -58,35 +58,35 @@ export function AnalyticsDashboardHeader({
   const displayTitle = title.split("·")[0]?.trim() || "Eczacıbaşı";
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 pt-6 sm:px-6 lg:px-8">
-      <div className="group relative overflow-hidden rounded-[34px] border border-[#E3DACC] bg-white/82 shadow-[0_18px_44px_rgba(84,61,18,0.1)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.005] hover:border-white/45 hover:bg-white/62 hover:shadow-[0_26px_58px_rgba(84,61,18,0.14)] hover:backdrop-blur-xl">
-        <div className="pointer-events-none absolute inset-0 rounded-[34px] bg-[linear-gradient(135deg,rgba(255,255,255,0.3),rgba(255,255,255,0.08)_45%,rgba(255,255,255,0.2)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        <div className="relative mx-auto max-w-[1440px] px-6 py-6 sm:px-8">
+    <div className="mx-auto max-w-6xl px-3 pt-6 sm:px-4 sm:pt-8">
+      <div className="group relative overflow-hidden rounded-[30px] border border-[#171717]/10 bg-[#FFFFFF]/88 p-5 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] hover:border-white/45 hover:bg-white/40 hover:shadow-[0_28px_70px_rgba(23,23,23,0.14)] hover:backdrop-blur-xl sm:p-6">
+        <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.18)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        <div className="relative">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-4">
               <Image
                 alt="UP"
-                className="h-16 w-auto shrink-0 sm:h-20"
-                height={80}
+                className="h-14 w-auto shrink-0 sm:h-16"
+                height={64}
                 src="/up.svg"
-                width={120}
+                width={96}
               />
               <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#E4EBFF] px-4 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-[#1C5BFF]">
-                  <Sparkles className="h-4 w-4" />
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#0057FF]/10 px-3 py-1 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#0057FF]">
+                  <Sparkles className="h-3.5 w-3.5" />
                   UP Pulse
                 </div>
                 <div className="space-y-1">
-                  <h1 className="font-righteous text-4xl leading-none text-[#191919] sm:text-5xl">
+                  <h1 className="font-righteous text-3xl text-[#171717] sm:text-4xl">
                     {displayTitle}
                   </h1>
-                  <p className="text-xs uppercase tracking-[0.34em] text-[#8B8376]">
+                  <p className="font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/48">
                     {subtitle}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="inline-flex items-center gap-3 self-start rounded-full border border-[#D7B154] bg-[#FFF2BF] px-4 py-2 text-sm font-semibold text-[#A06C00]">
+            <div className="inline-flex items-center gap-3 self-start rounded-full border border-[#D7B154] bg-[#FFF2BF] px-4 py-2 font-poppins text-sm font-semibold text-[#A06C00]">
               {isUpdating ? (
                 <span className="inline-flex items-center gap-2">
                   <LottieSpinner className="!py-0" size={24} />
@@ -99,17 +99,17 @@ export function AnalyticsDashboardHeader({
           </div>
 
           {showCompanyTabs ? (
-            <div className="mt-6 overflow-x-auto border-t border-[#E3DACC] pt-4">
+            <div className="mt-6 overflow-x-auto border-t border-[#171717]/10 pt-4">
               <div className="flex min-w-max items-center gap-2">
                 {companies.map((company) => {
                   const isActive = company.slug === selectedCompany;
 
                   return (
                     <button
-                      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                      className={`rounded-full px-4 py-2 font-poppins text-sm font-semibold transition-colors ${
                         isActive
                           ? "bg-[#F6E8C0] text-[#A06C00]"
-                          : "text-[#7B7368] hover:bg-[#F6F1E7] hover:text-[#2A241E]"
+                          : "text-[#171717]/60 hover:bg-[#FFFFFF] hover:text-[#171717]"
                       }`}
                       key={company.id}
                       onClick={() => onCompanySelect(company.slug)}
@@ -135,10 +135,10 @@ export function AnalyticsSectionHeading({
 }) {
   return (
     <div className="flex items-center gap-4">
-      <h2 className="shrink-0 text-xs font-semibold uppercase tracking-[0.42em] text-[#8B8376]">
+      <h2 className="shrink-0 font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
         {children}
       </h2>
-      <div className="h-px flex-1 bg-[#E3DACC]" />
+      <div className="h-px flex-1 bg-[#171717]/10" />
     </div>
   );
 }
@@ -146,15 +146,39 @@ export function AnalyticsSectionHeading({
 export function AnalyticsCard({
   children,
   className = "",
+  variant = "default",
 }: {
   children: ReactNode;
   className?: string;
+  variant?: "default" | "trend";
 }) {
+  const cardTone =
+    variant === "trend"
+      ? "bg-[linear-gradient(140deg,#FFFDF8_0%,#F3EAD7_48%,#EFF1FF_100%)] backdrop-blur-md hover:border-white/45 hover:bg-[linear-gradient(140deg,rgba(255,255,255,0.7)_0%,rgba(243,234,215,0.6)_48%,rgba(239,241,255,0.7)_100%)] hover:backdrop-blur-xl"
+      : "bg-[#FFFFFF]/90 backdrop-blur-sm hover:border-white/45 hover:bg-white/40 hover:backdrop-blur-xl";
+
+  const baseOverlay =
+    variant === "trend"
+      ? "bg-[radial-gradient(circle_at_top_right,rgba(99,140,255,0.13),transparent_28%),radial-gradient(circle_at_18%_14%,rgba(255,255,255,0.88),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(202,226,255,0.1),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.22),rgba(255,255,255,0.06)_45%,rgba(211,226,255,0.16)_100%)]"
+      : "bg-transparent";
+
+  const hoverOverlay =
+    variant === "trend"
+      ? "bg-[linear-gradient(135deg,rgba(255,255,255,0.32),rgba(255,255,255,0.08)_45%,rgba(193,214,255,0.2)_100%)]"
+      : "bg-[linear-gradient(135deg,rgba(255,255,255,0.3),rgba(255,255,255,0.08)_45%,rgba(255,255,255,0.18)_100%)]";
+
   return (
     <section
-      className={`group relative overflow-hidden rounded-[24px] border border-[#E4DCCF] bg-white/88 p-6 shadow-[0_8px_24px_rgba(84,61,18,0.08)] backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] hover:border-white/45 hover:bg-white/58 hover:shadow-[0_22px_42px_rgba(84,61,18,0.14)] hover:backdrop-blur-xl ${className}`}
+      className={`group relative overflow-hidden rounded-[30px] border border-[#171717]/10 p-5 shadow-[0_24px_60px_rgba(23,23,23,0.08)] transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_28px_70px_rgba(23,23,23,0.14)] sm:p-6 ${cardTone} ${className}`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.3),rgba(255,255,255,0.08)_45%,rgba(255,255,255,0.18)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className={`pointer-events-none absolute inset-0 ${baseOverlay}`} />
+      {variant === "trend" ? (
+        <>
+          <div className="pointer-events-none absolute inset-x-12 top-0 h-16 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.76)_0%,rgba(255,255,255,0)_72%)] blur-2xl" />
+          <div className="pointer-events-none absolute -right-10 top-8 h-28 w-28 rounded-full bg-[#DDE8FF]/35 blur-3xl transition-transform duration-300 group-hover:scale-110" />
+        </>
+      ) : null}
+      <div className={`pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${hoverOverlay}`} />
       <div className="relative z-10">{children}</div>
     </section>
   );
@@ -168,7 +192,7 @@ export function AnalyticsSubheading({
   children: string;
 }) {
   return (
-    <div className="mb-6 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.34em] text-[#8B8376]">
+    <div className="mb-6 flex items-center gap-2 font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
       <span
         className="h-2 w-2 rounded-full"
         style={{ backgroundColor: dotColor }}
@@ -188,16 +212,16 @@ export function AnalyticsSegmentedToggle({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-[#E4DCCF] bg-[#F7F3EB] p-1">
+    <div className="inline-flex rounded-2xl border border-[#171717]/8 bg-[#F3EAD7] p-2">
       {options.map((option) => {
         const isActive = option.value === value;
 
         return (
           <button
-            className={`rounded-[10px] px-5 py-2 text-sm font-semibold transition-colors ${
+            className={`rounded-xl px-4 py-2 font-poppins text-sm font-semibold transition-colors ${
               isActive
-                ? "bg-[#AD7A00] text-white"
-                : "text-[#857C70] hover:text-[#2A241E]"
+                ? "bg-[#171717] text-[#FFFFFF] shadow-sm"
+                : "text-[#171717]/60 hover:bg-[#FFFFFF] hover:text-[#171717]"
             }`}
             key={option.value}
             onClick={() => onChange(option.value)}
@@ -221,8 +245,8 @@ export function AnalyticsEmptyState({
   return (
     <AnalyticsCard className="py-16">
       <div className="mx-auto max-w-xl space-y-3 text-center">
-        <p className="text-2xl font-semibold text-[#2A241E]">{title}</p>
-        <p className="text-sm text-[#7B7368]">{description}</p>
+        <p className="font-righteous text-3xl text-[#171717]">{title}</p>
+        <p className="font-poppins text-base text-[#171717]/62">{description}</p>
       </div>
     </AnalyticsCard>
   );
@@ -232,10 +256,10 @@ export function AnalyticsErrorState({ message }: { message: string }) {
   return (
     <AnalyticsCard className="py-16">
       <div className="mx-auto max-w-xl space-y-3 text-center">
-        <p className="text-2xl font-semibold text-[#8C1F31]">
+        <p className="font-righteous text-3xl text-[#171717]">
           Dashboard verisi yüklenemedi
         </p>
-        <p className="text-sm text-[#7B7368]">{message}</p>
+        <p className="font-poppins text-base text-[#A84E00]">{message}</p>
       </div>
     </AnalyticsCard>
   );

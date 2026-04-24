@@ -14,6 +14,8 @@ const analyticsBase =
   process.env.REMOTE_URL ||
   process.env.NEXT_PUBLIC_REMOTE_URL;
 
+const shouldUseLocalFallback = process.env.NODE_ENV !== "production";
+
 function jsonError(message: string, status: number, code: string) {
   return NextResponse.json(
     { errorCode: code, errorMessage: message },
@@ -75,15 +77,32 @@ export async function handleAnalyticsDashboardRequest(request: NextRequest) {
     query.set("company", company.trim());
   }
 
-  const response = await fetch(
-    `${analyticsBase}/analytics/dashboard?${query.toString()}`,
-    {
-      headers: {
-        "Content-Type": "application/json",
+  let response: Response;
+  try {
+    response = await fetch(
+      `${analyticsBase}/analytics/dashboard?${query.toString()}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    },
-  );
+    );
+  } catch {
+    if (shouldUseLocalFallback) {
+      return NextResponse.json(
+        buildFallbackDashboard(competencyId.trim(), period, company),
+      );
+    }
+
+    return NextResponse.json(
+      {
+        errorCode: "DASHBOARD_UPSTREAM_UNAVAILABLE",
+        errorMessage: "Dashboard data source is unavailable.",
+      },
+      { status: 502 },
+    );
+  }
 
   let json: any = null;
   try {
