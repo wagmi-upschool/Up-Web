@@ -11,7 +11,6 @@ import {
   AnalyticsLoadingState,
 } from "@/components/analytics-dashboard/dashboard-shell";
 import {
-  BehaviorTrendGridSection,
   CompanyComparisonSection,
   KpiSection,
   OverallTrendSection,
@@ -70,10 +69,6 @@ export default function AnalyticsDashboardPage({
             <PeopleAndSummarySection
               behaviorSummary={viewModel.behaviorSummary}
               topSenders={viewModel.topSenders}
-            />
-            <BehaviorTrendGridSection
-              availableGranularities={viewModel.filters.availableGranularities}
-              items={viewModel.behaviorTrends}
             />
           </>
         ) : (

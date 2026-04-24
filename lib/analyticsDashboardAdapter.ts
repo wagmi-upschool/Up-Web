@@ -179,14 +179,14 @@ export function adaptAnalyticsDashboard(
         id: "totalSignals",
         label: "TOPLAM SİNYAL",
         value: response.kpis.totalSignals,
-        subtitle: visiblePeriodLabel || "Seçili dönemdeki toplam sinyal",
+        subtitle: "toplam sinyal",
         colorToken: "gold",
       },
       {
         id: "uniqueParticipants",
-        label: "TOPLAM BENZERSİZ KATILIMCI",
+        label: "BENZERSİZ KİŞİ",
         value: response.kpis.uniqueParticipants,
-        subtitle: "Seçili dönemde benzersiz kişi",
+        subtitle: "benzersiz kişi",
         colorToken: "blue",
       },
       {

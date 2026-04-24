@@ -219,10 +219,10 @@ const TOP_SENDERS: AnalyticsDashboardTopSender[] = [
 
 function buildPeriodLabel(period: string | null | undefined) {
   if (!period) {
-    return "Sinyal Analiz Paneli · Nisan 2026";
+    return "CEO Dashboard · Nisan 2026";
   }
 
-  return `Sinyal Analiz Paneli · ${period}`;
+  return `CEO Dashboard · ${period}`;
 }
 
 function toDailyPoints(values: number[]): AnalyticsDashboardPoint[] {

@@ -113,17 +113,17 @@ function localizeDashboardTitle(title: string, competencyName: string) {
   const trimmed = title.trim();
 
   if (!trimmed) {
-    return `${competencyName} UP Pulse Paneli`;
+    return `${competencyName} CEO Dashboard`;
   }
 
-  return trimmed.replace(/\bDashboard\b/gi, "Paneli");
+  return trimmed;
 }
 
 function localizePeriodLabel(periodLabel: string) {
   const trimmed = periodLabel.trim();
 
   if (!trimmed) {
-    return "SİNYAL ANALİZ PANELİ · SON KAPALI DÖNEM";
+    return "CEO Dashboard · Son kapalı dönem";
   }
 
   if (/^all periods$/i.test(trimmed)) {
@@ -131,8 +131,7 @@ function localizePeriodLabel(periodLabel: string) {
   }
 
   return trimmed
-    .replace(/\bAll Periods\b/gi, "TÜM DÖNEMLER")
-    .replace(/\bDashboard\b/gi, "PANELİ");
+    .replace(/\bAll Periods\b/gi, "TÜM DÖNEMLER");
 }
 
 function localizeSignalsBadge(badge: string) {
@@ -162,8 +161,8 @@ export const DEFAULT_ANALYTICS_DASHBOARD_RESPONSE = (
   meta: {
     competencyId,
     competencyName: "Eczacıbaşı",
-    dashboardTitle: "Eczacıbaşı UP Pulse Paneli",
-    periodLabel: "SİNYAL ANALİZ PANELİ · SON KAPALI DÖNEM",
+    dashboardTitle: "Eczacıbaşı CEO Dashboard",
+    periodLabel: "CEO Dashboard · Son kapalı dönem",
     totalSignalsBadge: "0 SİNYAL",
     availableCompanies: [
       {

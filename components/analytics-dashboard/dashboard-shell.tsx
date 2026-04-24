@@ -93,8 +93,8 @@ export function AnalyticsDashboardHeader({
                     <h1 className="font-righteous text-[2.7rem] leading-[0.9] tracking-[-0.05em] text-[#171717] sm:text-[4.35rem] lg:text-[4.95rem]">
                       Eczacıbaşı
                     </h1>
-                    <p className="pb-1 font-righteous text-[1.22rem] uppercase leading-none tracking-[0.06em] text-[#171717] [text-shadow:0.55px_0_0_currentColor,-0.55px_0_0_currentColor] sm:text-[1.85rem] lg:pb-2 lg:text-[2.45rem]">
-                      SİNYAL ANALİZ PANELİ
+                    <p className="pb-1 font-righteous text-[1.22rem] leading-none tracking-[0.06em] text-[#171717] [text-shadow:0.55px_0_0_currentColor,-0.55px_0_0_currentColor] sm:text-[1.85rem] lg:pb-2 lg:text-[2.45rem]">
+                      CEO Dashboard
                     </p>
                   </div>
                 </div>

@@ -428,15 +428,13 @@ export function PeopleAndSummarySection({
           <div className="overflow-x-auto">
             <table className="min-w-full table-fixed border-separate border-spacing-y-3">
               <colgroup>
-                <col className="w-[58%]" />
-                <col className="w-[14%]" />
-                <col className="w-[28%]" />
+                <col className="w-[76%]" />
+                <col className="w-[24%]" />
               </colgroup>
               <thead>
                 <tr className="text-left font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
                   <th className="pb-2 pr-8">DAVRANIŞ</th>
                   <th className="pb-2 pr-6 text-center">TOPLAM</th>
-                  <th className="pb-2 pl-6">EN YOĞUN GÜN</th>
                 </tr>
               </thead>
               <tbody>
@@ -452,15 +450,6 @@ export function PeopleAndSummarySection({
                       style={{ color: ANALYTICS_COLOR_STYLES[item.colorToken].line }}
                     >
                       {formatAnalyticsNumber(item.totalSignals)}
-                    </td>
-                    <td className="py-2 pl-6 align-top font-poppins text-base text-[#5F574B]">
-                      {item.peakDayLabel}:{" "}
-                      <span
-                        className="font-semibold"
-                        style={{ color: ANALYTICS_COLOR_STYLES[item.colorToken].line }}
-                      >
-                        {formatAnalyticsNumber(item.peakDayValue)}
-                      </span>
                     </td>
                   </tr>
                 ))}
