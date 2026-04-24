@@ -386,7 +386,7 @@ export function PeopleAndSummarySection({
                   className="grid grid-cols-[36px_48px_minmax(0,1fr)_120px] items-center gap-4 rounded-2xl border border-[#171717]/8 bg-[#FFFFFF]/70 px-4 py-4 transition-all duration-300 hover:scale-[1.015] hover:border-white/40 hover:bg-white/35 hover:shadow-[0_18px_35px_rgba(23,23,23,0.1)] hover:backdrop-blur-xl"
                   key={sender.personId}
                 >
-                  <p className="font-righteous text-3xl text-[#AD7A00]">
+                  <p className="font-righteous text-3xl text-[#FC7700]">
                     {sender.rank}
                   </p>
                   <div
@@ -415,31 +415,34 @@ export function PeopleAndSummarySection({
         <AnalyticsCard>
           <AnalyticsSubheading dotColor="#6B3AB2">DAVRANIŞ ÖZETİ</AnalyticsSubheading>
           <div className="overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-y-3">
+            <table className="min-w-full table-fixed border-separate border-spacing-y-3">
+              <colgroup>
+                <col className="w-[58%]" />
+                <col className="w-[14%]" />
+                <col className="w-[28%]" />
+              </colgroup>
               <thead>
                 <tr className="text-left font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
-                  <th className="pb-2">DAVRANIŞ</th>
-                  <th className="pb-2">TOPLAM</th>
-                  <th className="pb-2">EN YOĞUN GÜN</th>
+                  <th className="pb-2 pr-8">DAVRANIŞ</th>
+                  <th className="pb-2 pr-6 text-center">TOPLAM</th>
+                  <th className="pb-2 pl-6">EN YOĞUN GÜN</th>
                 </tr>
               </thead>
               <tbody>
                 {behaviorSummary.map((item) => (
                   <tr className="border-b border-[#F0E8DB]" key={item.behaviorId}>
-                    <td className="py-2">
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 font-poppins text-sm font-semibold ${item.toneClass}`}
-                      >
+                    <td className="py-2 pr-8 align-top">
+                      <span className="inline-flex font-poppins text-sm font-semibold leading-6 text-[#171717] sm:text-base">
                         {item.label}
                       </span>
                     </td>
                     <td
-                      className="py-2 font-righteous text-3xl leading-none"
+                      className="py-2 text-center align-top font-righteous text-3xl leading-none"
                       style={{ color: ANALYTICS_COLOR_STYLES[item.colorToken].line }}
                     >
                       {formatAnalyticsNumber(item.totalSignals)}
                     </td>
-                    <td className="py-2 font-poppins text-base text-[#5F574B]">
+                    <td className="py-2 pl-6 align-top font-poppins text-base text-[#5F574B]">
                       {item.peakDayLabel}:{" "}
                       <span
                         className="font-semibold"

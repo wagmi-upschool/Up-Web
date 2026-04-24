@@ -19,11 +19,11 @@ export const ANALYTICS_COLOR_STYLES: Record<
   }
 > = {
   gold: {
-    line: "#AD7A00",
-    fill: "#FFF1C7",
-    surface: "bg-[#FFF1C7] text-[#8A6100]",
-    text: "text-[#AD7A00]",
-    dot: "#AD7A00",
+    line: "#FC7700",
+    fill: "#FFE6CF",
+    surface: "bg-[#FC7700]/12 text-[#A84E00]",
+    text: "text-[#FC7700]",
+    dot: "#FC7700",
   },
   blue: {
     line: "#375CCB",
