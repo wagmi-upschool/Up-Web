@@ -65,11 +65,8 @@ export default function AnalyticsDashboardPage({
               behaviorTotals={viewModel.behaviorTotals}
               overallTrend={viewModel.overallTrend}
             />
-            <CompanyComparisonSection items={viewModel.companyComparison} />
-            <PeopleAndSummarySection
-              behaviorSummary={viewModel.behaviorSummary}
-              topSenders={viewModel.topSenders}
-            />
+            {/* <CompanyComparisonSection items={viewModel.companyComparison} /> */}
+            <PeopleAndSummarySection topSenders={viewModel.topSenders} />
           </>
         ) : (
           <AnalyticsEmptyState

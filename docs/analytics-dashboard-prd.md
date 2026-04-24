@@ -64,8 +64,6 @@ type AnalyticsDashboardResponse = {
     behaviorId: string;
     label: string;
     totalSignals: number;
-    peakDayLabel: string;
-    peakDayValue: number;
     colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
   }>;
   behaviorTrends: Array<{

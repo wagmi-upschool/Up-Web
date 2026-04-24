@@ -285,8 +285,6 @@ function buildBehaviorSummary(
     behaviorId: behavior.behaviorId,
     label: behavior.label,
     totalSignals: behavior.totalSignals,
-    peakDayLabel: "21 Nis",
-    peakDayValue: Math.max(0, Math.round(behavior.totalSignals * 0.72)),
     colorToken: behavior.colorToken,
   }));
 }

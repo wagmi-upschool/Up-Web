@@ -68,8 +68,6 @@ export type AnalyticsDashboardBehaviorSummary = {
   behaviorId: string;
   label: string;
   totalSignals: number;
-  peakDayLabel: string;
-  peakDayValue: number;
   colorToken: AnalyticsColorToken;
 };
 

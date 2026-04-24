@@ -375,15 +375,13 @@ export function CompanyComparisonSection({
 
 export function PeopleAndSummarySection({
   topSenders,
-  behaviorSummary,
 }: {
   topSenders: AnalyticsDashboardViewModel["topSenders"];
-  behaviorSummary: AnalyticsDashboardViewModel["behaviorSummary"];
 }) {
   return (
     <>
-      <AnalyticsSectionHeading>SİNYAL GÖNDERENLER & DAVRANIŞ ÖZETİ</AnalyticsSectionHeading>
-      <section className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
+      <AnalyticsSectionHeading>SİNYAL GÖNDERENLER</AnalyticsSectionHeading>
+      <section>
         <AnalyticsCard>
           <AnalyticsSubheading dotColor="#B52E45">
             EN ÇOK SİNYAL VERENLER
@@ -420,41 +418,6 @@ export function PeopleAndSummarySection({
                 </div>
               );
             })}
-          </div>
-        </AnalyticsCard>
-
-        <AnalyticsCard>
-          <AnalyticsSubheading dotColor="#6B3AB2">DAVRANIŞ ÖZETİ</AnalyticsSubheading>
-          <div className="overflow-x-auto">
-            <table className="min-w-full table-fixed border-separate border-spacing-y-3">
-              <colgroup>
-                <col className="w-[76%]" />
-                <col className="w-[24%]" />
-              </colgroup>
-              <thead>
-                <tr className="text-left font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
-                  <th className="pb-2 pr-8">DAVRANIŞ</th>
-                  <th className="pb-2 pr-6 text-center">TOPLAM</th>
-                </tr>
-              </thead>
-              <tbody>
-                {behaviorSummary.map((item) => (
-                  <tr className="border-b border-[#F0E8DB]" key={item.behaviorId}>
-                    <td className="py-2 pr-8 align-top">
-                      <span className="inline-flex font-poppins text-sm font-semibold leading-6 text-[#171717] sm:text-base">
-                        {item.label}
-                      </span>
-                    </td>
-                    <td
-                      className="py-2 text-center align-top font-righteous text-3xl leading-none"
-                      style={{ color: ANALYTICS_COLOR_STYLES[item.colorToken].line }}
-                    >
-                      {formatAnalyticsNumber(item.totalSignals)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </AnalyticsCard>
       </section>
