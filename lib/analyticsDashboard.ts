@@ -99,6 +99,57 @@ export type AnalyticsDashboardResponse = {
   filters: AnalyticsDashboardFilters;
 };
 
+const COMPANY_LABEL_FIXES: Record<string, string> = {
+  HOLDING: "HOLDİNG",
+  VITRA: "VİTRA",
+};
+
+function localizeCompanyLabel(label: string) {
+  const trimmed = label.trim();
+  return COMPANY_LABEL_FIXES[trimmed] || trimmed;
+}
+
+function localizeDashboardTitle(title: string, competencyName: string) {
+  const trimmed = title.trim();
+
+  if (!trimmed) {
+    return `${competencyName} UP Pulse Paneli`;
+  }
+
+  return trimmed.replace(/\bDashboard\b/gi, "Paneli");
+}
+
+function localizePeriodLabel(periodLabel: string) {
+  const trimmed = periodLabel.trim();
+
+  if (!trimmed) {
+    return "SİNYAL ANALİZ PANELİ · SON KAPALI DÖNEM";
+  }
+
+  if (/^all periods$/i.test(trimmed)) {
+    return "TÜM DÖNEMLER";
+  }
+
+  return trimmed
+    .replace(/\bAll Periods\b/gi, "TÜM DÖNEMLER")
+    .replace(/\bDashboard\b/gi, "PANELİ");
+}
+
+function localizeSignalsBadge(badge: string) {
+  const trimmed = badge.trim();
+
+  if (!trimmed) {
+    return "0 SİNYAL";
+  }
+
+  const signalMatch = trimmed.match(/^(\d+)\s+signals?$/i);
+  if (signalMatch) {
+    return `${signalMatch[1]} SİNYAL`;
+  }
+
+  return trimmed.replace(/\bsignals?\b/gi, "SİNYAL");
+}
+
 export const DEFAULT_ANALYTICS_GRANULARITIES: AnalyticsGranularity[] = [
   "daily",
   "weekly",
@@ -111,9 +162,9 @@ export const DEFAULT_ANALYTICS_DASHBOARD_RESPONSE = (
   meta: {
     competencyId,
     competencyName: "Eczacıbaşı",
-    dashboardTitle: "Eczacıbaşı · UP Pulse",
-    periodLabel: "Sinyal Analiz Paneli · Son Kapalı Dönem",
-    totalSignalsBadge: "0 Sinyal",
+    dashboardTitle: "Eczacıbaşı UP Pulse Paneli",
+    periodLabel: "SİNYAL ANALİZ PANELİ · SON KAPALI DÖNEM",
+    totalSignalsBadge: "0 SİNYAL",
     availableCompanies: [
       {
         id: "all",
@@ -168,20 +219,29 @@ export function normalizeAnalyticsDashboardResponse(
   competencyId: string,
 ): AnalyticsDashboardResponse {
   const fallback = DEFAULT_ANALYTICS_DASHBOARD_RESPONSE(competencyId);
+  const competencyName =
+    input?.meta?.competencyName || fallback.meta.competencyName;
 
   return {
     meta: {
       competencyId: input?.meta?.competencyId || fallback.meta.competencyId,
-      competencyName:
-        input?.meta?.competencyName || fallback.meta.competencyName,
-      dashboardTitle:
+      competencyName,
+      dashboardTitle: localizeDashboardTitle(
         input?.meta?.dashboardTitle || fallback.meta.dashboardTitle,
-      periodLabel: input?.meta?.periodLabel || fallback.meta.periodLabel,
-      totalSignalsBadge:
+        competencyName,
+      ),
+      periodLabel: localizePeriodLabel(
+        input?.meta?.periodLabel || fallback.meta.periodLabel,
+      ),
+      totalSignalsBadge: localizeSignalsBadge(
         input?.meta?.totalSignalsBadge || fallback.meta.totalSignalsBadge,
+      ),
       availableCompanies:
         input?.meta?.availableCompanies?.length
-          ? input.meta.availableCompanies
+          ? input.meta.availableCompanies.map((company) => ({
+              ...company,
+              label: localizeCompanyLabel(company.label),
+            }))
           : fallback.meta.availableCompanies,
       selectedCompany:
         input?.meta?.selectedCompany || fallback.meta.selectedCompany,

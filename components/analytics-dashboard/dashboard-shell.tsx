@@ -40,7 +40,6 @@ export function AnalyticsDashboardBody({
 export function AnalyticsDashboardHeader({
   title,
   subtitle,
-  badge,
   companies,
   selectedCompany,
   onCompanySelect,
@@ -48,7 +47,6 @@ export function AnalyticsDashboardHeader({
 }: {
   title: string;
   subtitle: string;
-  badge: string;
   companies: Array<{ id: string; slug: string; label: string }>;
   selectedCompany: string;
   onCompanySelect: (slug: string) => void;
@@ -80,22 +78,22 @@ export function AnalyticsDashboardHeader({
                   <h1 className="font-righteous text-3xl text-[#171717] sm:text-4xl">
                     {displayTitle}
                   </h1>
-                  <p className="font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/48">
-                    {subtitle}
-                  </p>
+                  {subtitle ? (
+                    <p className="font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/48">
+                      {subtitle}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
-            <div className="inline-flex items-center gap-3 self-start rounded-full border border-[#D7B154] bg-[#FFF2BF] px-4 py-2 font-poppins text-sm font-semibold text-[#A06C00]">
-              {isUpdating ? (
+            {isUpdating ? (
+              <div className="inline-flex items-center gap-3 self-start rounded-full border border-[#D7B154] bg-[#FFF2BF] px-4 py-2 font-poppins text-sm font-semibold text-[#A06C00]">
                 <span className="inline-flex items-center gap-2">
                   <LottieSpinner className="!py-0" size={24} />
                   Güncelleniyor
                 </span>
-              ) : (
-                badge
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
 
           {showCompanyTabs ? (

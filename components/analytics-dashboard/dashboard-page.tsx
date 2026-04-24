@@ -41,7 +41,6 @@ export default function AnalyticsDashboardPage({
     <AnalyticsDashboardPageShell>
       {viewModel ? (
         <AnalyticsDashboardHeader
-          badge={viewModel.meta.totalSignalsBadge}
           companies={viewModel.meta.availableCompanies}
           isUpdating={isUpdating}
           onCompanySelect={onCompanySelect}

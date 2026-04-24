@@ -98,6 +98,16 @@ export type AnalyticsDashboardViewModel = {
   filters: AnalyticsDashboardResponse["filters"];
 };
 
+function getVisiblePeriodLabel(periodLabel: string) {
+  const trimmed = periodLabel.trim();
+
+  if (!trimmed || trimmed === "TÜM DÖNEMLER") {
+    return "";
+  }
+
+  return trimmed;
+}
+
 function toProgress(value: number, maxValue: number) {
   if (maxValue <= 0) return 0;
   return Math.max(6, Math.round((value / maxValue) * 100));
@@ -156,36 +166,39 @@ function adaptBehaviorSummary(
 export function adaptAnalyticsDashboard(
   response: AnalyticsDashboardResponse,
 ): AnalyticsDashboardViewModel {
+  const visiblePeriodLabel = getVisiblePeriodLabel(response.meta.periodLabel);
+
   return {
     meta: {
       ...response.meta,
+      periodLabel: visiblePeriodLabel,
       showCompanyTabs: response.meta.availableCompanies.length > 1,
     },
     kpis: [
       {
         id: "totalSignals",
-        label: "Toplam Sinyal",
+        label: "TOPLAM SİNYAL",
         value: response.kpis.totalSignals,
-        subtitle: response.meta.periodLabel,
+        subtitle: visiblePeriodLabel || "Seçili dönemdeki toplam sinyal",
         colorToken: "gold",
       },
       {
         id: "uniqueParticipants",
-        label: "Toplam Benzersiz Katılımcı",
+        label: "TOPLAM BENZERSİZ KATILIMCI",
         value: response.kpis.uniqueParticipants,
         subtitle: "Seçili dönemde benzersiz kişi",
         colorToken: "blue",
       },
       {
         id: "uniqueSenders",
-        label: "Sinyal Veren",
+        label: "SİNYAL VEREN",
         value: response.kpis.uniqueSenders,
         subtitle: "Benzersiz katılımcı",
         colorToken: "green",
       },
       {
         id: "uniqueReceivers",
-        label: "Sinyal Alan",
+        label: "SİNYAL ALAN",
         value: response.kpis.uniqueReceivers,
         subtitle: "Benzersiz kişi",
         colorToken: "red",

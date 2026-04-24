@@ -69,7 +69,7 @@ function AnalyticsLineChartCard({
   if (!points.length) {
     return (
       <div className="flex h-[320px] items-center justify-center rounded-2xl border border-dashed border-[#E4DCCF] bg-[#FCFBF8] text-sm text-[#8B8376]">
-        Trend verisi bulunamadı.
+        TREND VERİSİ BULUNAMADI.
       </div>
     );
   }
@@ -202,11 +202,11 @@ export function OverallTrendSection({
 
   return (
     <>
-      <AnalyticsSectionHeading>Zaman Trendi</AnalyticsSectionHeading>
+      <AnalyticsSectionHeading>ZAMAN TRENDİ</AnalyticsSectionHeading>
       <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
         <AnalyticsCard variant="trend">
           <AnalyticsSubheading dotColor="#AD7A00">
-            Günlük Sinyal Trendi
+            GÜNLÜK SİNYAL TRENDİ
           </AnalyticsSubheading>
           <div className="mb-6">
             <AnalyticsSegmentedToggle
@@ -225,7 +225,7 @@ export function OverallTrendSection({
 
         <AnalyticsCard>
           <AnalyticsSubheading dotColor="#1C8067">
-            Davranış Başına Toplam Sinyal
+            DAVRANIŞ BAŞINA TOPLAM SİNYAL
           </AnalyticsSubheading>
           <div className="space-y-7">
             {behaviorTotals.map((item) => {
@@ -262,10 +262,10 @@ export function CompanyComparisonSection({
 
   return (
     <>
-      <AnalyticsSectionHeading>Şirket Karşılaştırması</AnalyticsSectionHeading>
+      <AnalyticsSectionHeading>ŞİRKET KARŞILAŞTIRMASI</AnalyticsSectionHeading>
       <AnalyticsCard>
         <AnalyticsSubheading dotColor="#375CCB">
-          Şirket Başına Toplam Sinyal
+          ŞİRKET BAŞINA TOPLAM SİNYAL
         </AnalyticsSubheading>
         <div className="grid gap-8 lg:grid-cols-2">
           {[leftColumn, rightColumn].map((column, index) => (
@@ -304,11 +304,11 @@ export function PeopleAndSummarySection({
 }) {
   return (
     <>
-      <AnalyticsSectionHeading>Sinyal Gönderenler & Davranış Özeti</AnalyticsSectionHeading>
+      <AnalyticsSectionHeading>SİNYAL GÖNDERENLER & DAVRANIŞ ÖZETİ</AnalyticsSectionHeading>
       <section className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
         <AnalyticsCard>
           <AnalyticsSubheading dotColor="#B52E45">
-            En Çok Sinyal Verenler
+            EN ÇOK SİNYAL VERENLER
           </AnalyticsSubheading>
           <div className="space-y-3">
             {topSenders.map((sender) => {
@@ -348,14 +348,14 @@ export function PeopleAndSummarySection({
         </AnalyticsCard>
 
         <AnalyticsCard>
-          <AnalyticsSubheading dotColor="#6B3AB2">Davranış Özeti</AnalyticsSubheading>
+          <AnalyticsSubheading dotColor="#6B3AB2">DAVRANIŞ ÖZETİ</AnalyticsSubheading>
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-y-3">
               <thead>
                 <tr className="text-left font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
-                  <th className="pb-2">Davranış</th>
-                  <th className="pb-2">Toplam</th>
-                  <th className="pb-2">En Yoğun Gün</th>
+                  <th className="pb-2">DAVRANIŞ</th>
+                  <th className="pb-2">TOPLAM</th>
+                  <th className="pb-2">EN YOĞUN GÜN</th>
                 </tr>
               </thead>
               <tbody>
@@ -433,7 +433,7 @@ export function BehaviorTrendGridSection({
 }) {
   return (
     <>
-      <AnalyticsSectionHeading>Davranış Trendleri</AnalyticsSectionHeading>
+      <AnalyticsSectionHeading>DAVRANIŞ TRENDLERİ</AnalyticsSectionHeading>
       <section className="grid gap-4 xl:grid-cols-2">
         {items.map((trend) => (
           <BehaviorTrendCard
