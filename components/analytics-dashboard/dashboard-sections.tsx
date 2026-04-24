@@ -32,6 +32,8 @@ const GRANULARITY_OPTIONS: Array<{ value: AnalyticsGranularity; label: string }>
 ];
 
 const TREND_LINE_COLOR = "#145AF2";
+const TREND_AREA_FILL = "#C7D8FF";
+const TREND_POINT_INNER_FILL = "#0E2EA8";
 const TREND_POINT_COLORS = {
   high: "#1FD7CF",
   medium: "#1C5BFF",
@@ -88,7 +90,7 @@ function renderTrendDot({
         stroke="#FFFFFF"
         strokeWidth={3}
       />
-      <circle cx={cx} cy={cy} fill={fill} r={innerRadius} />
+      <circle cx={cx} cy={cy} fill={TREND_POINT_INNER_FILL} r={innerRadius} />
     </g>
   );
 }
@@ -139,13 +141,6 @@ function AnalyticsLineChartCard({
     <div className="h-[320px]">
       <ResponsiveContainer height="100%" width="100%">
         <AreaChart data={points} margin={{ top: 18, right: 18, left: 18, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`fill-${colorToken}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#AFC6FF" stopOpacity={0.52} />
-              <stop offset="48%" stopColor="#D2E0FF" stopOpacity={0.28} />
-              <stop offset="100%" stopColor="#F5FAFF" stopOpacity={0.1} />
-            </linearGradient>
-          </defs>
           <CartesianGrid
             stroke="#D6CEC2"
             strokeDasharray="4 4"
@@ -187,7 +182,8 @@ function AnalyticsLineChartCard({
           />
           <Area
             dataKey="value"
-            fill={`url(#fill-${colorToken})`}
+            fill={TREND_AREA_FILL}
+            fillOpacity={0.72}
             stroke="none"
             type="monotone"
           />

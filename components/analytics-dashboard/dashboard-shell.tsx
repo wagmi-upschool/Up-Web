@@ -92,7 +92,7 @@ export function AnalyticsDashboardHeader({
                   <h1 className="font-righteous text-[2.85rem] leading-[0.9] tracking-[-0.05em] text-[#171717] sm:text-[4.5rem] lg:text-[5.2rem]">
                     Eczacıbaşı
                   </h1>
-                  <p className="font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/48">
+                  <p className="font-righteous text-lg uppercase tracking-[0.16em] text-[#171717]/78 sm:text-[1.45rem]">
                     UP PULSE PANELİ
                   </p>
                 </div>
