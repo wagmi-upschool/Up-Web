@@ -31,6 +31,68 @@ const GRANULARITY_OPTIONS: Array<{ value: AnalyticsGranularity; label: string }>
   { value: "monthly", label: "Aylık" },
 ];
 
+const TREND_LINE_COLOR = "#145AF2";
+const TREND_POINT_COLORS = {
+  high: "#1FD7CF",
+  medium: "#1C5BFF",
+  warning: "#FF7A1A",
+  low: "#A15CFF",
+} as const;
+
+function getTrendPointColor(value: number, maxValue: number) {
+  const ratio = maxValue > 0 ? value / maxValue : 0;
+
+  if (ratio >= 0.85) {
+    return TREND_POINT_COLORS.high;
+  }
+
+  if (ratio >= 0.7) {
+    return TREND_POINT_COLORS.medium;
+  }
+
+  if (ratio >= 0.55) {
+    return TREND_POINT_COLORS.warning;
+  }
+
+  return TREND_POINT_COLORS.low;
+}
+
+function renderTrendDot({
+  cx,
+  cy,
+  value,
+  maxValue,
+  active = false,
+}: {
+  cx?: number;
+  cy?: number;
+  value: number;
+  maxValue: number;
+  active?: boolean;
+}) {
+  if (typeof cx !== "number" || typeof cy !== "number") {
+    return <g />;
+  }
+
+  const fill = getTrendPointColor(value, maxValue);
+  const outerRadius = active ? 10 : 8;
+  const innerRadius = active ? 6 : 5;
+
+  return (
+    <g>
+      <circle
+        cx={cx}
+        cy={cy}
+        fill={fill}
+        r={outerRadius}
+        stroke="#FFFFFF"
+        strokeWidth={3}
+      />
+      <circle cx={cx} cy={cy} fill={fill} r={innerRadius} />
+    </g>
+  );
+}
+
 function AnalyticsChartTooltip({
   active,
   payload,
@@ -63,7 +125,6 @@ function AnalyticsLineChartCard({
   points: Array<{ label: string; value: number }>;
   colorToken: keyof typeof ANALYTICS_COLOR_STYLES;
 }) {
-  const colorStyle = ANALYTICS_COLOR_STYLES[colorToken];
   const maxValue = getAnalyticsChartMax(points);
 
   if (!points.length) {
@@ -80,8 +141,9 @@ function AnalyticsLineChartCard({
         <AreaChart data={points} margin={{ top: 18, right: 18, left: 18, bottom: 0 }}>
           <defs>
             <linearGradient id={`fill-${colorToken}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor={colorStyle.line} stopOpacity={0.16} />
-              <stop offset="100%" stopColor={colorStyle.line} stopOpacity={0.02} />
+              <stop offset="0%" stopColor="#98B8FF" stopOpacity={0.34} />
+              <stop offset="58%" stopColor="#B9CEFF" stopOpacity={0.18} />
+              <stop offset="100%" stopColor="#F5FAFF" stopOpacity={0.05} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="#E8E0D4" strokeDasharray="0" vertical={false} />
@@ -109,7 +171,7 @@ function AnalyticsLineChartCard({
             tickLine={false}
             width={42}
           />
-          <Tooltip content={<AnalyticsChartTooltip color={colorStyle.line} />} />
+          <Tooltip content={<AnalyticsChartTooltip color={TREND_LINE_COLOR} />} />
           <Area
             dataKey="value"
             fill={`url(#fill-${colorToken})`}
@@ -117,21 +179,26 @@ function AnalyticsLineChartCard({
             type="monotone"
           />
           <Line
-            activeDot={{
-              fill: colorStyle.line,
-              r: 7,
-              stroke: "#FFFFFF",
-              strokeWidth: 3,
-            }}
+            activeDot={({ cx, cy, payload }: any) =>
+              renderTrendDot({
+                cx,
+                cy,
+                value: payload?.value ?? 0,
+                maxValue,
+                active: true,
+              })
+            }
             dataKey="value"
-            dot={{
-              fill: colorStyle.line,
-              r: 6,
-              stroke: "#FFFFFF",
-              strokeWidth: 3,
-            }}
-            stroke={colorStyle.line}
-            strokeWidth={4}
+            dot={({ cx, cy, payload }: any) =>
+              renderTrendDot({
+                cx,
+                cy,
+                value: payload?.value ?? 0,
+                maxValue,
+              })
+            }
+            stroke={TREND_LINE_COLOR}
+            strokeWidth={5}
             type="monotone"
           />
         </AreaChart>
