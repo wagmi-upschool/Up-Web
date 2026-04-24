@@ -88,8 +88,8 @@ export function AnalyticsDashboardHeader({
                   <Sparkles className="h-3.5 w-3.5" />
                   UP Pulse
                 </div>
-                <div className="space-y-1">
-                  <h1 className="font-righteous text-3xl text-[#171717] sm:text-4xl">
+                <div className="space-y-2">
+                  <h1 className="font-righteous text-[2.85rem] leading-[0.9] tracking-[-0.05em] text-[#171717] sm:text-[4.5rem] lg:text-[5.2rem]">
                     Eczacıbaşı
                   </h1>
                   <p className="font-poppins text-sm uppercase tracking-[0.22em] text-[#171717]/48">

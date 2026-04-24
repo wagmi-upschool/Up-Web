@@ -75,8 +75,8 @@ function renderTrendDot({
   }
 
   const fill = getTrendPointColor(value, maxValue);
-  const outerRadius = active ? 10 : 8;
-  const innerRadius = active ? 6 : 5;
+  const outerRadius = active ? 9 : 7.5;
+  const innerRadius = active ? 6.4 : 5.25;
 
   return (
     <g>
@@ -141,21 +141,29 @@ function AnalyticsLineChartCard({
         <AreaChart data={points} margin={{ top: 18, right: 18, left: 18, bottom: 0 }}>
           <defs>
             <linearGradient id={`fill-${colorToken}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#98B8FF" stopOpacity={0.34} />
-              <stop offset="58%" stopColor="#B9CEFF" stopOpacity={0.18} />
-              <stop offset="100%" stopColor="#F5FAFF" stopOpacity={0.05} />
+              <stop offset="0%" stopColor="#AFC6FF" stopOpacity={0.52} />
+              <stop offset="48%" stopColor="#D2E0FF" stopOpacity={0.28} />
+              <stop offset="100%" stopColor="#F5FAFF" stopOpacity={0.1} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#E8E0D4" strokeDasharray="0" vertical={false} />
+          <CartesianGrid
+            stroke="#D6CEC2"
+            strokeDasharray="4 4"
+            strokeOpacity={0.85}
+            vertical={false}
+          />
           <XAxis
             axisLine={false}
             dataKey="label"
+            minTickGap={18}
             tick={{
               fill: "#171717",
-              fillOpacity: 0.55,
+              fillOpacity: 0.68,
               fontFamily: "var(--font-poppins)",
-              fontSize: 11,
+              fontSize: 12,
+              fontWeight: 500,
             }}
+            tickMargin={10}
             tickLine={false}
           />
           <YAxis
@@ -164,14 +172,19 @@ function AnalyticsLineChartCard({
             domain={[0, maxValue]}
             tick={{
               fill: "#171717",
-              fillOpacity: 0.55,
+              fillOpacity: 0.66,
               fontFamily: "var(--font-poppins)",
-              fontSize: 11,
+              fontSize: 12,
+              fontWeight: 500,
             }}
+            tickMargin={10}
             tickLine={false}
             width={42}
           />
-          <Tooltip content={<AnalyticsChartTooltip color={TREND_LINE_COLOR} />} />
+          <Tooltip
+            content={<AnalyticsChartTooltip color={TREND_LINE_COLOR} />}
+            cursor={{ stroke: "#7A96F8", strokeDasharray: "4 4", strokeOpacity: 0.8 }}
+          />
           <Area
             dataKey="value"
             fill={`url(#fill-${colorToken})`}
@@ -197,6 +210,8 @@ function AnalyticsLineChartCard({
                 maxValue,
               })
             }
+            strokeLinecap="round"
+            strokeLinejoin="round"
             stroke={TREND_LINE_COLOR}
             strokeWidth={5}
             type="monotone"
