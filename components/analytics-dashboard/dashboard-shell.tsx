@@ -5,21 +5,6 @@ import Image from "next/image";
 import { Sparkles } from "lucide-react";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
-const MOCK_COMPANY_TABS = [
-  { id: "all", slug: "all", label: "TÜM ŞİRKETLER", disabled: false },
-  { id: "topluluk", slug: "topluluk", label: "TOPLULUK", disabled: true },
-  { id: "karo", slug: "karo", label: "KARO", disabled: true },
-  { id: "banyo", slug: "banyo", label: "BANYO", disabled: true },
-  { id: "saglik", slug: "saglik", label: "SAĞLIK", disabled: true },
-  { id: "esan", slug: "esan", label: "ESAN", disabled: true },
-  {
-    id: "tuketim-urunleri",
-    slug: "tuketim-urunleri",
-    label: "TÜKETİM ÜRÜNLERİ",
-    disabled: true,
-  },
-] as const;
-
 export function AnalyticsDashboardPageShell({
   children,
 }: {
@@ -63,14 +48,10 @@ export function AnalyticsDashboardHeader({
   onCompanySelect: (slug: string) => void;
   isUpdating: boolean;
 }) {
-  const usesMockTabs = companies.length <= 1;
-  const displayedTabs = usesMockTabs
-    ? MOCK_COMPANY_TABS
-    : companies.map((company) => ({
-        ...company,
-        label: company.label.toLocaleUpperCase("tr-TR"),
-        disabled: false,
-      }));
+  const displayedTabs = companies.map((company) => ({
+    ...company,
+    label: company.label.toLocaleUpperCase("tr-TR"),
+  }));
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 pt-6 sm:px-5 sm:pt-8 lg:px-6">
@@ -119,32 +100,30 @@ export function AnalyticsDashboardHeader({
         </div>
       </div>
 
-      <div className="mt-3 overflow-x-auto border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
-        <div className="flex min-w-max items-center gap-8 px-4 py-4 sm:px-5 lg:px-6">
-          {displayedTabs.map((company) => {
-            const isActive = company.slug === selectedCompany;
+      {displayedTabs.length > 1 ? (
+        <div className="mt-3 overflow-x-auto border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
+          <div className="flex min-w-max items-center gap-8 px-4 py-4 sm:px-5 lg:px-6">
+            {displayedTabs.map((company) => {
+              const isActive = company.slug === selectedCompany;
 
-            return (
-              <button
-                aria-disabled={company.disabled}
-                className={`font-poppins text-[17px] font-semibold uppercase tracking-[0.01em] transition-colors ${
-                  isActive
-                    ? "text-[#A06C00]"
-                    : company.disabled
-                      ? "cursor-not-allowed text-[#171717]/48"
+              return (
+                <button
+                  className={`font-poppins text-[17px] font-semibold uppercase tracking-[0.01em] transition-colors ${
+                    isActive
+                      ? "text-[#A06C00]"
                       : "text-[#171717]/62 hover:text-[#171717]"
-                }`}
-                disabled={company.disabled}
-                key={company.id}
-                onClick={() => onCompanySelect(company.slug)}
-                type="button"
-              >
-                {company.label}
-              </button>
-            );
-          })}
+                  }`}
+                  key={company.id}
+                  onClick={() => onCompanySelect(company.slug)}
+                  type="button"
+                >
+                  {company.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
