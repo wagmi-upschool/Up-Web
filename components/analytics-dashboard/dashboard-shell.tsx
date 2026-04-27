@@ -7,14 +7,17 @@ import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 const MOCK_COMPANY_TABS = [
   { id: "all", slug: "all", label: "TÜM ŞİRKETLER", disabled: false },
+  { id: "topluluk", slug: "topluluk", label: "TOPLULUK", disabled: true },
+  { id: "karo", slug: "karo", label: "KARO", disabled: true },
+  { id: "banyo", slug: "banyo", label: "BANYO", disabled: true },
+  { id: "saglik", slug: "saglik", label: "SAĞLIK", disabled: true },
   { id: "esan", slug: "esan", label: "ESAN", disabled: true },
-  { id: "eyap", slug: "eyap", label: "EYAP", disabled: true },
-  { id: "eip", slug: "eip", label: "EİP", disabled: true },
-  { id: "gensenta", slug: "gensenta", label: "GENSENTA", disabled: true },
-  { id: "holding", slug: "holding", label: "HOLDİNG", disabled: true },
-  { id: "saniverse", slug: "saniverse", label: "SANIVERSE", disabled: true },
-  { id: "vitra-fliesen", slug: "vitra-fliesen", label: "VİTRA FLIESEN", disabled: true },
-  { id: "vitra-karo", slug: "vitra-karo", label: "VİTRA KARO", disabled: true },
+  {
+    id: "tuketim-urunleri",
+    slug: "tuketim-urunleri",
+    label: "TÜKETİM ÜRÜNLERİ",
+    disabled: true,
+  },
 ] as const;
 
 export function AnalyticsDashboardPageShell({

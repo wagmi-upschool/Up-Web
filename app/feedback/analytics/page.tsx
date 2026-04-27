@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   QueryClient,
@@ -8,8 +8,43 @@ import {
   useQuery,
 } from "@tanstack/react-query";
 import PulseDashboard from "@/components/analytics/pulse-dashboard";
-import { parseDashboardReceiverFilters } from "@/lib/dashboardSummary";
-import { getDashboardSummary } from "@/lib/dashboardSummaryClient";
+import type {
+  AnalyticsSummaryResponse,
+  CompanySummaryData,
+} from "@/lib/analyticsCompetencies";
+import { isValidAnalyticsCompetencyId } from "@/lib/analyticsCompetencies";
+
+async function getAnalyticsSummary(competencyId: string) {
+  const query = new URLSearchParams({
+    competencyId,
+  });
+
+  const response = await fetch(
+    `/analytics/summary?${query.toString()}`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    },
+  );
+
+  let json: any = null;
+  try {
+    json = await response.json();
+  } catch {
+    json = null;
+  }
+
+  if (!response.ok) {
+    const code = json?.errorCode || response.status;
+    const message =
+      json?.errorMessage || response.statusText || "Dashboard verisi alınamadı.";
+    throw new Error(`${code}: ${message}`);
+  }
+
+  return json as AnalyticsSummaryResponse;
+}
 
 function formatApiError(error: unknown) {
   const raw = error instanceof Error ? error.message : `${error}`;
@@ -29,27 +64,68 @@ function formatApiError(error: unknown) {
 
 function AnalyticsPageContent() {
   const searchParams = useSearchParams();
-  const filters = parseDashboardReceiverFilters(searchParams);
-  const hasRequestedFilters = filters.receiverIds.length > 0;
-  const hasInvalidFilters = filters.invalidReceiverIds.length > 0;
+  const [selectedCompany, setSelectedCompany] = useState("all");
+  const rawCompetencyId = searchParams.get("competencyId") || "";
+  const competencyId = rawCompetencyId.trim();
+  const hasRequestedData = isValidAnalyticsCompetencyId(competencyId);
 
   const summaryQuery = useQuery({
-    queryKey: ["dashboardSummary", filters.receiverIds.join(",")],
-    queryFn: () => getDashboardSummary(filters.receiverIds),
-    enabled: hasRequestedFilters && !hasInvalidFilters,
+    queryKey: ["analyticsSummary", competencyId],
+    queryFn: () => getAnalyticsSummary(competencyId),
+    enabled: hasRequestedData,
+    placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
 
+  const response = summaryQuery.data;
+  const availableCompanies = response?.availableCompanies ?? [];
+
+  useEffect(() => {
+    setSelectedCompany("all");
+  }, [competencyId]);
+
+  useEffect(() => {
+    const companyList = response?.availableCompanies ?? [];
+
+    if (
+      selectedCompany !== "all" &&
+      !companyList.includes(selectedCompany)
+    ) {
+      setSelectedCompany("all");
+    }
+  }, [response, selectedCompany]);
+
+  const activeSummary = (() => {
+    if (!response) {
+      return undefined;
+    }
+
+    const activeSlice: CompanySummaryData =
+      response.byCompany[selectedCompany] ?? response.byCompany.all;
+
+    return {
+      ...activeSlice,
+      maxRating: response.maxRating,
+      hourlyRatings: activeSlice.hourlyRatings.map((rating) => ({
+        ...rating,
+        hour: rating.hour.endsWith("Z") ? rating.hour : `${rating.hour}Z`,
+      })),
+    };
+  })();
+
   return (
     <PulseDashboard
+      availableCompanies={availableCompanies}
       badgeLabel="UP Pulse"
       companyName="Eczacıbaşı"
       errorMessage={summaryQuery.error ? formatApiError(summaryQuery.error) : null}
-      hasRequestedData={hasRequestedFilters && !hasInvalidFilters}
+      hasRequestedData={hasRequestedData}
       isLoading={summaryQuery.isLoading}
-      missingDataDescription="En az bir `feedbackReceiverId` veya `feedbackReceiverIds` parametresi olmadan API çağrısı yapılmaz."
-      missingDataTitle="Receiver seç ve dashboardu çalıştır"
-      summary={summaryQuery.data}
+      missingDataDescription="Geçerli bir `competencyId` parametresi olmadan API çağrısı yapılmaz."
+      missingDataTitle="Yetkinlik seç ve dashboardu çalıştır"
+      onCompanySelect={setSelectedCompany}
+      selectedCompany={selectedCompany}
+      summary={activeSummary}
       subtitle="Pulse Dashboard"
     />
   );

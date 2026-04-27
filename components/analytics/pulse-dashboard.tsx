@@ -47,6 +47,9 @@ type PulseDashboardProps = {
   badgeLabel?: string;
   title?: string;
   subtitle?: string;
+  availableCompanies?: string[];
+  selectedCompany?: string;
+  onCompanySelect?: (company: string) => void;
 };
 
 type EmptyStateProps = {
@@ -420,6 +423,48 @@ function LoadingState() {
   );
 }
 
+function CompanyTabBar({
+  availableCompanies,
+  selectedCompany,
+  onCompanySelect,
+}: {
+  availableCompanies: string[];
+  selectedCompany: string;
+  onCompanySelect: (company: string) => void;
+}) {
+  const tabs = [
+    { key: "all", label: "Tümü" },
+    ...availableCompanies
+      .filter((company) => company !== "all")
+      .map((company) => ({ key: company, label: company })),
+  ];
+
+  return (
+    <div className="overflow-x-auto rounded-[24px] border border-[#171717]/10 bg-[#FFFFFF]/88 shadow-[0_18px_40px_rgba(23,23,23,0.08)] backdrop-blur-sm">
+      <div className="flex min-w-max items-center gap-2 p-2">
+        {tabs.map((tab) => {
+          const isActive = selectedCompany === tab.key;
+
+          return (
+            <button
+              key={tab.key}
+              className={`rounded-xl px-4 py-2 font-poppins text-sm font-semibold transition-colors ${
+                isActive
+                  ? "bg-[#171717] text-[#FFFFFF] shadow-sm"
+                  : "text-[#171717]/60 hover:bg-[#F3EAD7] hover:text-[#171717]"
+              }`}
+              onClick={() => onCompanySelect(tab.key)}
+              type="button"
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function PulseDashboard({
   companyName,
   summary,
@@ -431,6 +476,9 @@ export default function PulseDashboard({
   badgeLabel = "UP Pulse",
   title,
   subtitle = "Pulse Dashboard",
+  availableCompanies = [],
+  selectedCompany,
+  onCompanySelect,
 }: PulseDashboardProps) {
   const [activeInterval, setActiveInterval] =
     useState<DashboardIntervalHours>(5);
@@ -483,6 +531,14 @@ export default function PulseDashboard({
             </div>
           </div>
         </header>
+
+        {availableCompanies.length > 0 && onCompanySelect ? (
+          <CompanyTabBar
+            availableCompanies={availableCompanies}
+            onCompanySelect={onCompanySelect}
+            selectedCompany={selectedCompany ?? "all"}
+          />
+        ) : null}
 
         <section className="grid gap-4 md:grid-cols-2">
           <MetricCard

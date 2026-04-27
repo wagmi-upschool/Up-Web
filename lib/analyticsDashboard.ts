@@ -99,6 +99,9 @@ export type AnalyticsDashboardResponse = {
 
 const COMPANY_LABEL_FIXES: Record<string, string> = {
   HOLDING: "HOLDİNG",
+  SAGLIK: "SAĞLIK",
+  "TUKETIM URUNLERI": "TÜKETİM ÜRÜNLERİ",
+  "TUKETIM ÜRÜNLERI": "TÜKETİM ÜRÜNLERİ",
   VITRA: "VİTRA",
 };
 

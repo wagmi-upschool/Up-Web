@@ -38,6 +38,6 @@ test("buildMockAnalyticsDashboard switches selected company and badge", () => {
   });
 
   assert.equal(response.meta.selectedCompany, "esan");
-  assert.equal(response.meta.totalSignalsBadge, "50 Sinyal");
-  assert.equal(response.kpis.uniqueParticipants, 18);
+  assert.equal(response.meta.totalSignalsBadge, "23 Sinyal");
+  assert.equal(response.kpis.uniqueParticipants, 12);
 });

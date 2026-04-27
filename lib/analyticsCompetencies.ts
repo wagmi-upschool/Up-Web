@@ -1,14 +1,28 @@
-import type { DashboardSummaryResponse } from "@/lib/dashboardSummary";
+import type {
+  DashboardCultureQuestion,
+  DashboardHourlyRating,
+} from "@/lib/dashboardSummary";
 
-export type AnalyticsSummaryResponse = Omit<
-  DashboardSummaryResponse,
-  "feedbackReceiverIds"
-> & {
+export type CompanySummaryData = {
+  totalFeedbacks: number;
+  overallAverageRating: number;
+  hourlyRatings: DashboardHourlyRating[];
+  cultureScore: {
+    overallAverageRating: number;
+    maxRating: number;
+    questions: DashboardCultureQuestion[];
+  };
+};
+
+export type AnalyticsSummaryResponse = {
   competency: {
     competencyId: string;
     displayName: string;
     periodLabel: string;
   };
+  maxRating: number;
+  availableCompanies: string[];
+  byCompany: Record<string, CompanySummaryData>;
 };
 
 export function normalizeAnalyticsCompetencyId(
