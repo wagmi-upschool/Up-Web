@@ -10,6 +10,7 @@ import {
 import AnalyticsDashboardPage from "@/components/analytics-dashboard/dashboard-page";
 import type {
   AnalyticsColorToken,
+  AnalyticsDashboardBehaviorTotal,
   AnalyticsDashboardResponse,
 } from "@/lib/analyticsDashboard";
 import type { AnalyticsSummaryResponse } from "@/lib/analyticsCompetencies";
@@ -118,12 +119,24 @@ function transformSummaryToDashboardResponse(
       label: companyLabel,
     })),
   ];
-  const behaviorTotals = activeCompany.cultureScore.questions.map((question, index) => ({
-    behaviorId: question.questionId,
-    label: question.questionText,
-    totalSignals: question.totalFeedbacks,
-    colorToken: SUMMARY_COLOR_TOKENS[index % SUMMARY_COLOR_TOKENS.length],
-  }));
+  const behaviorTotals: AnalyticsDashboardBehaviorTotal[] =
+    activeCompany.behaviorTotals?.length
+      ? activeCompany.behaviorTotals
+      : activeCompany.cultureScore.questions.map((question, index) => ({
+          behaviorId: question.questionId,
+          label: question.questionText,
+          totalSignals: question.totalFeedbacks,
+          colorToken: SUMMARY_COLOR_TOKENS[index % SUMMARY_COLOR_TOKENS.length],
+        }));
+  const companyComparison =
+    input.companyComparison?.length
+      ? input.companyComparison
+      : input.availableCompanies.map((companyLabel, index) => ({
+          companyId: normalizeCompanySlug(companyLabel),
+          label: companyLabel,
+          totalSignals: input.byCompany[companyLabel]?.totalFeedbacks || 0,
+          colorToken: SUMMARY_COLOR_TOKENS[index % SUMMARY_COLOR_TOKENS.length],
+        }));
 
   return {
     meta: {
@@ -136,29 +149,25 @@ function transformSummaryToDashboardResponse(
       selectedCompany: selectedCompanyLabel,
     },
     kpis: {
-      totalSignals: activeCompany.totalFeedbacks,
-      uniqueParticipants: 0,
-      uniqueSenders: 0,
-      uniqueReceivers: 0,
+      totalSignals: activeCompany.kpis?.totalSignals ?? activeCompany.totalFeedbacks,
+      uniqueParticipants: activeCompany.kpis?.uniqueParticipants ?? 0,
+      uniqueSenders: activeCompany.kpis?.uniqueSenders ?? 0,
+      uniqueReceivers: activeCompany.kpis?.uniqueReceivers ?? 0,
     },
-    overallTrend: {
-      granularities: buildGranularityPoints(activeCompany.hourlyRatings),
-    },
+    overallTrend:
+      activeCompany.overallTrend || {
+        granularities: buildGranularityPoints(activeCompany.hourlyRatings),
+      },
     behaviorTotals,
-    companyComparison: input.availableCompanies.map((companyLabel, index) => ({
-      companyId: normalizeCompanySlug(companyLabel),
-      label: companyLabel,
-      totalSignals: input.byCompany[companyLabel]?.totalFeedbacks || 0,
-      colorToken: SUMMARY_COLOR_TOKENS[index % SUMMARY_COLOR_TOKENS.length],
-    })),
-    topSenders: [],
+    companyComparison,
+    topSenders: activeCompany.topSenders || [],
     behaviorSummary: behaviorTotals.map((item) => ({
       behaviorId: item.behaviorId,
       label: item.label,
       totalSignals: item.totalSignals,
       colorToken: item.colorToken,
     })),
-    behaviorTrends: [],
+    behaviorTrends: activeCompany.behaviorTrends || [],
     filters: {
       availablePeriods: [],
       availableGranularities: ["daily", "weekly", "monthly"],

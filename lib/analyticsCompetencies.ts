@@ -2,6 +2,14 @@ import type {
   DashboardCultureQuestion,
   DashboardHourlyRating,
 } from "@/lib/dashboardSummary";
+import type {
+  AnalyticsDashboardBehaviorTotal,
+  AnalyticsDashboardBehaviorTrend,
+  AnalyticsDashboardCompanyTotal,
+  AnalyticsDashboardKpis,
+  AnalyticsDashboardResponse,
+  AnalyticsDashboardTopSender,
+} from "@/lib/analyticsDashboard";
 
 export type CompanySummaryData = {
   totalFeedbacks: number;
@@ -12,6 +20,11 @@ export type CompanySummaryData = {
     maxRating: number;
     questions: DashboardCultureQuestion[];
   };
+  kpis?: AnalyticsDashboardKpis;
+  overallTrend?: AnalyticsDashboardResponse["overallTrend"];
+  behaviorTotals?: AnalyticsDashboardBehaviorTotal[];
+  topSenders?: AnalyticsDashboardTopSender[];
+  behaviorTrends?: AnalyticsDashboardBehaviorTrend[];
 };
 
 export type AnalyticsSummaryResponse = {
@@ -22,6 +35,7 @@ export type AnalyticsSummaryResponse = {
   };
   maxRating: number;
   availableCompanies: string[];
+  companyComparison?: AnalyticsDashboardCompanyTotal[];
   byCompany: Record<string, CompanySummaryData>;
 };
 

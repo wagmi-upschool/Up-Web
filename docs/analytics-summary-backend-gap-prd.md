@@ -1,281 +1,60 @@
-# Analytics Summary Backend Gap PRD
+# Analytics Summary Contract PRD
 
 ## Amaç
-`/analytics?competencyId=<uuid>` ekranı şu anda `GET /analytics/summary?competencyId=<uuid>` response'undan besleniyor. Mevcut response temel company filter senaryosunu karşılıyor ancak dashboard'un tüm section'larını eksiksiz ve doğru veriyle render etmek için yetersiz.
+`/analytics?competencyId=<uuid>` ve `/feedback/analytics?competencyId=<uuid>` ekranları artık aynı ana veri kaynağı olan `GET /analytics/summary?competencyId=<uuid>` response'unu kullanıyor. Bu dokümanın amacı backend ekibi için response contract'ını netleştirmek, zorunlu alanları tanımlamak ve frontend'in düzgün render edebilmesi için hangi garantilere ihtiyaç duyduğunu eksiksiz şekilde ortaya koymaktır.
 
-Bu doküman backend ekibine, mevcut `summary` contract'ında hangi alanların eksik olduğunu ve her eksikliğin frontend'de hangi görsel/işlevsel kayba yol açtığını net şekilde iletmek için hazırlanmıştır.
+## Güncel Durum
+Gerçek endpoint çağrısında backend şu an yalnızca company listesi değil, dashboard'un kritik section'larını da besleyen alanları döndürüyor:
 
-## Mevcut Response
-Şu anda backend aşağıdaki shape'i döndürüyor:
+- top-level:
+  - `competency`
+  - `maxRating`
+  - `availableCompanies`
+  - `companyComparison`
+  - `byCompany`
+- her `byCompany[key]` altında:
+  - `totalFeedbacks`
+  - `overallAverageRating`
+  - `hourlyRatings`
+  - `cultureScore`
+  - `kpis`
+  - `overallTrend`
+  - `behaviorTotals`
+  - `topSenders`
+  - `behaviorTrends`
 
+Bu veri seti dashboard parity için büyük ölçüde yeterlidir. Sorun artık "veri yokluğu" değil, contract'ın resmi ve garanti edilmiş olmamasıdır. Frontend'in kırılmaması için aşağıdaki alanlar dokümante edilmeli ve zorunlu hale getirilmelidir.
+
+## Endpoint
+`GET /analytics/summary?competencyId=<uuid>`
+
+### Request
+- query param: `competencyId`
+- format: UUID
+- zorunlu
+
+### Başarılı Response
 ```ts
-type CompanySummaryData = {
+type AnalyticsSummaryResponse = {
+  competency: {
+    competencyId: string;
+    displayName: string;
+    periodLabel: string;
+  };
+  maxRating: number;
+  availableCompanies: string[];
+  companyComparison: CompanyComparisonItem[];
+  byCompany: Record<string, CompanyDashboardSlice>;
+};
+
+type CompanyDashboardSlice = {
   totalFeedbacks: number;
   overallAverageRating: number;
-  hourlyRatings: Array<{
-    hour: string;
-    averageRating: number;
-    totalFeedbacks: number;
-  }>;
+  hourlyRatings: HourlyRatingPoint[];
   cultureScore: {
     overallAverageRating: number;
     maxRating: number;
-    questions: Array<{
-      questionId: string;
-      questionText: string;
-      order: number;
-      averageRating: number;
-      totalFeedbacks: number;
-    }>;
-  };
-};
-
-type AnalyticsSummaryResponse = {
-  competency: {
-    competencyId: string;
-    displayName: string;
-    periodLabel: string;
-  };
-  maxRating: number;
-  availableCompanies: string[];
-  byCompany: Record<string, CompanySummaryData>;
-};
-```
-
-## Frontend'de Bu Response ile Şu An Neler Çalışıyor
-- Company filter tab bar render edilebiliyor.
-- `all` ve company bazlı toplam feedback sayısı gösterilebiliyor.
-- Genel trend grafiği `hourlyRatings` üzerinden render edilebiliyor.
-- "Davranış başına toplam sinyal" listesi `cultureScore.questions[].totalFeedbacks` üzerinden render edilebiliyor.
-
-## Eksik Veri Sebebiyle Şu An Kayıp Olan Section'lar
-
-### 1. En Çok Sinyal Verenler
-Mevcut response'ta `topSenders` yok.
-
-Bu yüzden frontend aşağıdaki section'ı backend verisiyle dolduramıyor:
-- `SİNYAL GÖNDERENLER`
-- `EN ÇOK SİNYAL VERENLER`
-
-Eksik alanlar:
-
-```ts
-topSenders: Array<{
-  personId: string;
-  fullName: string;
-  initials: string;
-  totalSignals: number;
-  dominantColorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-  rank: number;
-}>;
-```
-
-### 2. Davranış Trendleri
-Mevcut response'ta davranış bazlı time-series yok.
-
-Şu an elimizde sadece:
-- davranış bazlı toplam adet (`cultureScore.questions[].totalFeedbacks`)
-- overall zaman serisi (`hourlyRatings`)
-
-Ama aşağıdaki grafikleri doğru üretmek için her davranış için ayrı zaman serisi gerekiyor:
-- `Amaç ve hedefi ekibi için netleştirdi.` trendi
-- `Katma değeri düşük işleri eledi...` trendi
-- `Sözleri ve duruşuyla umut ve cesaret verdi.` trendi
-- `İleri bildirim vererek işi ve kişiyi geliştirdi.` trendi
-- diğer davranış kartları
-
-Eksik alanlar:
-
-```ts
-behaviorTrends: Array<{
-  behaviorId: string;
-  label: string;
-  colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-  granularities: {
-    daily: { points: Array<{ label: string; value: number }> };
-    weekly: { points: Array<{ label: string; value: number }> };
-    monthly: { points: Array<{ label: string; value: number }> };
-  };
-}>;
-```
-
-Alternatif olarak backend isterse daha düşük seviyeli ham veri de dönebilir:
-
-```ts
-behaviorHourlyRatings: Array<{
-  behaviorId: string;
-  hour: string;
-  totalFeedbacks: number;
-  averageRating: number;
-}>;
-```
-
-Ancak frontend'in ek aggregation yapmasına gerek kalmaması için `behaviorTrends.granularities` formatı tercih edilir.
-
-### 3. KPI Kartlarındaki Benzersiz Sayılar
-Mevcut response'ta sadece `totalFeedbacks` var. Aşağıdaki KPI kartları için gerekli sayılar yok:
-- `BENZERSİZ KİŞİ`
-- `SİNYAL VEREN`
-- `SİNYAL ALAN`
-
-Eksik alanlar:
-
-```ts
-kpis: {
-  totalSignals: number;
-  uniqueParticipants: number;
-  uniqueSenders: number;
-  uniqueReceivers: number;
-};
-```
-
-Tanımlar:
-- `totalSignals`: toplam sinyal / toplam feedback
-- `uniqueParticipants`: sender + receiver union benzersiz kişi sayısı
-- `uniqueSenders`: benzersiz sinyal veren kişi sayısı
-- `uniqueReceivers`: benzersiz sinyal alan kişi sayısı
-
-### 4. Şirket Karşılaştırması
-Mevcut response'tan `byCompany[company].totalFeedbacks` ile kaba bir şirket karşılaştırması türetilebiliyor. Ancak backend tarafında explicit `companyComparison` dönülmesi tercih edilir.
-
-Sebep:
-- sıralama backend'de sabitlenir
-- label/id/slug tek kaynaktan gelir
-- ileride farklı metriklerle şirket karşılaştırması gerekirse contract genişler
-
-Önerilen alan:
-
-```ts
-companyComparison: Array<{
-  companyId: string;
-  label: string;
-  totalSignals: number;
-  colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-}>;
-```
-
-### 5. Meta Bilgilerinin Dashboard'a Uygun Formatı
-Mevcut response'ta `availableCompanies` sadece string array.
-
-Bu kullanılabiliyor, ancak frontend ideal olarak aşağıdaki formatı tercih eder:
-
-```ts
-meta: {
-  competencyId: string;
-  competencyName: string;
-  dashboardTitle: string;
-  periodLabel: string;
-  totalSignalsBadge: string;
-  availableCompanies: Array<{
-    id: string;
-    slug: string;
-    label: string;
-  }>;
-  selectedCompany: string;
-};
-```
-
-Bu sayede frontend'in string -> slug dönüşümü, localization normalizasyonu ve selected company türetmesi backend'e taşınır.
-
-### 6. Davranış Toplamları için Renk ve Kimlik Bilgisi
-Şu an `cultureScore.questions` kullanılarak behavior totals türetilebiliyor, ancak aşağıdaki bilgiler backend'de explicit gelirse UI daha stabil olur:
-
-```ts
-behaviorTotals: Array<{
-  behaviorId: string;
-  label: string;
-  totalSignals: number;
-  colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-}>;
-```
-
-## Frontend'in Şu An Yaptığı Workaround'lar
-Backend'e özellikle iletilmesi gereken nokta şu: aşağıdaki veriler şu an gerçek contract değil, frontend geçici türetim yapıyor.
-
-- `overallTrend` -> `hourlyRatings.totalFeedbacks` üzerinden türetiliyor
-- `behaviorTotals` -> `cultureScore.questions[].totalFeedbacks` üzerinden türetiliyor
-- `companyComparison` -> `availableCompanies + byCompany[company].totalFeedbacks` üzerinden türetiliyor
-- `topSenders` -> hiç üretilemiyor
-- `behaviorTrends` -> hiç üretilemiyor
-- `uniqueParticipants`, `uniqueSenders`, `uniqueReceivers` -> hiç üretilemiyor
-
-Bu nedenle mevcut response ile dashboard kısmen çalışır, ancak tam parity sağlanamaz.
-
-## Backend İçin Net Gereksinim
-Backend tarafında iki seçenekten biri seçilmelidir.
-
-### Seçenek A: `summary` response'unu genişletmek
-Mevcut `AnalyticsSummaryResponse` korunur ve aşağıdaki alanlar eklenir:
-
-```ts
-type AnalyticsSummaryResponse = {
-  competency: {
-    competencyId: string;
-    displayName: string;
-    periodLabel: string;
-  };
-  maxRating: number;
-  availableCompanies: string[];
-  byCompany: Record<string, CompanySummaryData>;
-
-  kpis?: {
-    totalSignals: number;
-    uniqueParticipants: number;
-    uniqueSenders: number;
-    uniqueReceivers: number;
-  };
-  companyComparison?: Array<{
-    companyId: string;
-    label: string;
-    totalSignals: number;
-    colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-  }>;
-  topSenders?: Array<{
-    personId: string;
-    fullName: string;
-    initials: string;
-    totalSignals: number;
-    dominantColorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-    rank: number;
-  }>;
-  behaviorTotals?: Array<{
-    behaviorId: string;
-    label: string;
-    totalSignals: number;
-    colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-  }>;
-  behaviorTrends?: Array<{
-    behaviorId: string;
-    label: string;
-    colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-    granularities: {
-      daily: { points: Array<{ label: string; value: number }> };
-      weekly: { points: Array<{ label: string; value: number }> };
-      monthly: { points: Array<{ label: string; value: number }> };
-    };
-  }>;
-};
-```
-
-### Seçenek B: Dashboard için ayrı endpoint kullanmak
-`GET /analytics/dashboard?competencyId=<uuid>&period=<...>&company=<...>`
-
-Bu endpoint aşağıdaki full dashboard contract'ını döner:
-
-```ts
-type AnalyticsDashboardResponse = {
-  meta: {
-    competencyId: string;
-    competencyName: string;
-    dashboardTitle: string;
-    periodLabel: string;
-    totalSignalsBadge: string;
-    availableCompanies: Array<{
-      id: string;
-      slug: string;
-      label: string;
-    }>;
-    selectedCompany: string;
+    questions: CultureQuestion[];
   };
   kpis: {
     totalSignals: number;
@@ -284,59 +63,242 @@ type AnalyticsDashboardResponse = {
     uniqueReceivers: number;
   };
   overallTrend: {
-    granularities: {
-      daily: { points: Array<{ label: string; value: number }> };
-      weekly: { points: Array<{ label: string; value: number }> };
-      monthly: { points: Array<{ label: string; value: number }> };
-    };
+    granularities: TrendGranularities;
   };
-  behaviorTotals: Array<{
-    behaviorId: string;
-    label: string;
-    totalSignals: number;
-    colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-  }>;
-  companyComparison: Array<{
-    companyId: string;
-    label: string;
-    totalSignals: number;
-    colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-  }>;
-  topSenders: Array<{
-    personId: string;
-    fullName: string;
-    initials: string;
-    totalSignals: number;
-    dominantColorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-    rank: number;
-  }>;
-  behaviorSummary: Array<{
-    behaviorId: string;
-    label: string;
-    totalSignals: number;
-    colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-  }>;
-  behaviorTrends: Array<{
-    behaviorId: string;
-    label: string;
-    colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
-    granularities: {
-      daily: { points: Array<{ label: string; value: number }> };
-      weekly: { points: Array<{ label: string; value: number }> };
-      monthly: { points: Array<{ label: string; value: number }> };
-    };
-  }>;
-  filters: {
-    availablePeriods: string[];
-    availableGranularities: Array<"daily" | "weekly" | "monthly">;
-  };
+  behaviorTotals: BehaviorTotalItem[];
+  topSenders: TopSenderItem[];
+  behaviorTrends: BehaviorTrendItem[];
+};
+
+type HourlyRatingPoint = {
+  hour: string;
+  averageRating: number;
+  totalFeedbacks: number;
+};
+
+type CultureQuestion = {
+  questionId: string;
+  questionText: string;
+  order: number;
+  averageRating: number;
+  totalFeedbacks: number;
+};
+
+type CompanyComparisonItem = {
+  companyId: string;
+  label: string;
+  totalSignals: number;
+  colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
+};
+
+type BehaviorTotalItem = {
+  behaviorId: string;
+  label: string;
+  totalSignals: number;
+  colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
+};
+
+type TopSenderItem = {
+  personId: string;
+  fullName: string;
+  initials: string;
+  totalSignals: number;
+  dominantColorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
+  rank: number;
+};
+
+type BehaviorTrendItem = {
+  behaviorId: string;
+  label: string;
+  colorToken: "gold" | "blue" | "green" | "red" | "purple" | "orange";
+  granularities: TrendGranularities;
+};
+
+type TrendGranularities = {
+  daily: { points: Array<{ label: string; value: number }> };
+  weekly: { points: Array<{ label: string; value: number }> };
+  monthly: { points: Array<{ label: string; value: number }> };
 };
 ```
 
-## Backend'e İletilecek Kısa Özet
-- Company filter verisi geliyor ve kullanılabiliyor.
-- Ama `topSenders` backend response'unda yok.
-- Davranış trend chart'ları için behavior bazlı time-series yok.
-- KPI kartları için `uniqueParticipants`, `uniqueSenders`, `uniqueReceivers` yok.
-- Bu nedenle dashboard tam parity ile render edilemiyor.
-- Backend ya `summary` response'unu genişletmeli ya da tam `dashboard` contract'ını ayrı endpoint'te vermeli.
+## Frontend'in Bu Contract'tan Beklediği Bölümler
+
+### 1. Şirket Tabları
+Frontend `availableCompanies` listesini doğrudan tab bar için kullanır.
+
+Beklenenler:
+- `availableCompanies` sadece `all` dışındaki şirketleri içermelidir.
+- `byCompany["all"]` her zaman mevcut olmalıdır.
+- `availableCompanies` içindeki her label için `byCompany[label]` bulunmalıdır.
+- Label'lar UI'da gösterilecek nihai haliyle gelmelidir.
+
+Örnek:
+- `BANYO`
+- `ESAN`
+- `KARO`
+- `SAĞLIK`
+- `TOPLULUK`
+- `TÜKETİM ÜRÜNLERİ`
+
+### 2. KPI Kartları
+Dashboard'ın üstündeki dört KPI kartı şu alanlara bağlıdır:
+
+- `kpis.totalSignals`
+- `kpis.uniqueParticipants`
+- `kpis.uniqueSenders`
+- `kpis.uniqueReceivers`
+
+Tanımlar:
+- `totalSignals`: toplam feedback adedi
+- `uniqueParticipants`: sender + receiver union benzersiz kişi sayısı
+- `uniqueSenders`: benzersiz sinyal veren kişi sayısı
+- `uniqueReceivers`: benzersiz sinyal alan kişi sayısı
+
+Bu alanlar türetilebilir kabul edilmemelidir; backend tarafından explicit dönmelidir.
+
+### 3. Genel Trend Grafiği
+Dashboard ana trend grafiği `overallTrend.granularities` alanını kullanır.
+
+Beklenenler:
+- `daily`, `weekly`, `monthly` her zaman bulunmalıdır.
+- Veri yoksa key silinmemeli, boş `points: []` dönmelidir.
+- `points` sıralı dönmelidir.
+- `label` alanı frontend tarafından yeniden parse edilmeyecek kadar stabil olmalıdır.
+
+### 4. Davranış Başına Toplam Sinyal
+Sağ taraftaki özet section için `behaviorTotals` kullanılır.
+
+Beklenenler:
+- Her item için `behaviorId`, `label`, `totalSignals`, `colorToken` zorunlu olmalıdır.
+- `colorToken` frontend'in kabul ettiği palette içinde olmalıdır.
+- Veri yoksa alan omitted değil, boş array dönmelidir.
+
+### 5. En Çok Sinyal Verenler
+People section için `topSenders` kullanılır.
+
+Beklenenler:
+- `topSenders` her company slice içinde bulunmalıdır.
+- Liste veri yoksa boş array dönmelidir.
+- `rank` backend tarafından belirlenmelidir.
+- `initials` backend tarafından hazır verilmelidir; frontend isimden türetmek zorunda kalmamalıdır.
+- `dominantColorToken` backend tarafından dönmelidir.
+
+### 6. Davranış Trendleri
+Alt bölümdeki behavior card chart'ları `behaviorTrends` ile beslenir.
+
+Beklenenler:
+- Her behavior için ayrı item bulunmalıdır.
+- `granularities.daily`, `weekly`, `monthly` zorunlu olmalıdır.
+- Veri yoksa ilgili behavior item'ı yine dönülebilir; yalnızca `points: []` kullanılmalıdır.
+- `label` ve `behaviorId` `behaviorTotals` ile tutarlı olmalıdır.
+
+### 7. Şirket Karşılaştırması
+Şirket karşılaştırma section'ı için top-level `companyComparison` kullanılır.
+
+Beklenenler:
+- Bu liste company filter seçilse bile tüm şirketleri kapsamalıdır.
+- `companyId` kalıcı ve URL-safe olmalıdır.
+- `label`, tab bar'da kullanılan şirket adıyla tutarlı olmalıdır.
+- `totalSignals` ile ilgili `byCompany[label].kpis.totalSignals` arasında tutarlılık olmalıdır.
+
+## Zorunlu Contract Garantileri
+
+### 1. Alanlar Omit Edilmemeli
+Section render kontrolü için frontend `undefined` ile boş listeyi farklı yorumlamak zorunda kalmamalı.
+
+Bu yüzden:
+- liste alanları boşsa `[]`
+- object alanları boşsa shape korunarak dönmeli
+- required field'lar omitted olmamalı
+
+### 2. Saat Alanı İçin Tek Zaman Standardı
+`hourlyRatings[].hour` alanı ve trend noktalarının zaman üretim mantığı açık tanımlanmalıdır.
+
+Backend ekibinden net karar istenir:
+- ya tüm saatler UTC ISO formatında ve timezone suffix ile dönsün
+- ya da açıkça local timezone standardı dokümante edilsin
+
+Tercih edilen format:
+```txt
+2026-04-21T06:00:00Z
+```
+
+Sebep:
+- frontend lokal saate doğru çeviri yapabilsin
+- browser parsing sapmaları olmasın
+- bazı ortamlarda `2026-04-21T06:00` string'i local, bazılarında belirsiz yorumlanmasın
+
+### 3. Company Key / Label Tutarlılığı
+`availableCompanies`, `companyComparison[].label` ve `byCompany` key'leri birbiriyle tam uyumlu olmalıdır.
+
+Örnek garanti:
+- `availableCompanies` içinde `SAĞLIK` varsa `byCompany["SAĞLIK"]` mutlaka vardır.
+- `companyComparison` item'ında label `SAĞLIK` ise ilgili slice `byCompany["SAĞLIK"]` olarak erişilebilir.
+
+### 4. All Slice Zorunluluğu
+`byCompany["all"]` her response'ta zorunlu olmalıdır.
+
+Bu slice:
+- default selected state
+- "Tüm Şirketler" tabı
+- aggregate dashboard görünümü
+için gereklidir.
+
+## Error Contract
+Backend hata response'u da tutarlı olmalıdır.
+
+Beklenen minimum shape:
+```ts
+{
+  errorCode: string;
+  errorMessage: string;
+}
+```
+
+Örnek durumlar:
+- eksik `competencyId`
+- invalid UUID
+- competency bulunamadı
+- authorization failure
+- upstream/internal failure
+
+## Frontend Açısından Kritik Riskler
+
+### Risk 1. Alanların Bazı Ortamlarda Dönüp Bazılarında Dönmemesi
+Bir ortamda `topSenders` varken başka bir ortamda alanın tamamen kaybolması section'ların sessizce boş görünmesine neden olur.
+
+### Risk 2. Saat Formatının Belirsizliği
+Timezone suffix olmayan tarih string'leri grafikte saat kayması yaratır.
+
+### Risk 3. Company Label Standardizasyonu
+`SAGLIK`, `SAĞLIK`, `Saglik` gibi varyasyonlar company tab ile `byCompany` lookup'unu kırabilir.
+
+### Risk 4. Partial Slice Response
+`byCompany["all"]` dolu iken seçili şirket slice'ında `topSenders` veya `behaviorTrends` eksik dönerse UI section bazlı eksik görünür.
+
+## Backend İçin Net Aksiyonlar
+
+### Zorunlu
+- `AnalyticsSummaryResponse` contract'ını resmi olarak publish edin.
+- `companyComparison` alanını zorunlu hale getirin.
+- her `byCompany` slice içinde `kpis`, `overallTrend`, `behaviorTotals`, `topSenders`, `behaviorTrends` alanlarını zorunlu hale getirin.
+- tüm liste alanlarında omitted yerine boş array dönün.
+- `hour` alanını timezone suffix içeren tek bir ISO standardına sabitleyin.
+- `availableCompanies`, `companyComparison.label` ve `byCompany` key'leri için tek naming standardı belirleyin.
+
+### Güçlü Tavsiye
+- response örneğini Swagger/OpenAPI veya eşdeğer contract dokümantasyonuna ekleyin
+- test fixture olarak en az:
+  - dolu response
+  - boş şirket response
+  - tek şirket response
+  - bazı section'larda boş array bulunan response
+  yayınlayın
+
+## Kabul Kriterleri
+- `/analytics?competencyId=<uuid>` ekranında şirket tabları görünür ve tıklanabilir olmalı
+- KPI kartları gerçek backend verisi ile dolmalı
+- `En Çok Sinyal Verenler` section'ı backend `topSenders` verisi ile dolmalı
+- `Davranış Trendleri` section'ı backend `behaviorTrends` verisi ile render olmalı
+- `Tüm Şirketler` ve tekil şirketler arasında geçişte aynı contract çalışmalı
+- hiçbir section veri yok diye kaybolmamalı; verisiz section en fazla boş-state/boş liste ile deterministik görünmeli
