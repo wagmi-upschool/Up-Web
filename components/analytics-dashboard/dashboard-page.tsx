@@ -12,6 +12,7 @@ import {
 } from "@/components/analytics-dashboard/dashboard-shell";
 import {
   BehaviorTrendGridSection,
+  CompanyComparisonSection,
   KpiSection,
   OverallTrendSection,
   PeopleAndSummarySection,
@@ -65,12 +66,17 @@ export default function AnalyticsDashboardPage({
               behaviorTotals={viewModel.behaviorTotals}
               overallTrend={viewModel.overallTrend}
             />
-            {/* <CompanyComparisonSection items={viewModel.companyComparison} /> */}
-            <PeopleAndSummarySection topSenders={viewModel.topSenders} />
-            <BehaviorTrendGridSection
-              availableGranularities={viewModel.filters.availableGranularities}
-              items={viewModel.behaviorTrends}
-            />
+            {viewModel.topSenders.length > 0 ? (
+              <PeopleAndSummarySection topSenders={viewModel.topSenders} />
+            ) : viewModel.companyComparison.length > 0 ? (
+              <CompanyComparisonSection items={viewModel.companyComparison} />
+            ) : null}
+            {viewModel.behaviorTrends.length > 0 ? (
+              <BehaviorTrendGridSection
+                availableGranularities={viewModel.filters.availableGranularities}
+                items={viewModel.behaviorTrends}
+              />
+            ) : null}
           </>
         ) : (
           <AnalyticsEmptyState

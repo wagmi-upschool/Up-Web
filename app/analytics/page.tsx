@@ -8,27 +8,171 @@ import {
   useQuery,
 } from "@tanstack/react-query";
 import AnalyticsDashboardPage from "@/components/analytics-dashboard/dashboard-page";
-import type { AnalyticsDashboardResponse } from "@/lib/analyticsDashboard";
+import type {
+  AnalyticsColorToken,
+  AnalyticsDashboardResponse,
+} from "@/lib/analyticsDashboard";
+import type { AnalyticsSummaryResponse } from "@/lib/analyticsCompetencies";
+import { isValidAnalyticsCompetencyId } from "@/lib/analyticsCompetencies";
 
-async function getAnalyticsDashboard(
-  competencyId: string,
-  period: string,
-  company: string,
+const SUMMARY_COLOR_TOKENS: AnalyticsColorToken[] = [
+  "gold",
+  "green",
+  "blue",
+  "purple",
+  "red",
+  "orange",
+];
+
+function normalizeCompanySlug(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildGranularityPoints(
+  hourlyRatings: AnalyticsSummaryResponse["byCompany"]["all"]["hourlyRatings"],
 ) {
+  const dailyMap = new Map<string, number>();
+  const weeklyMap = new Map<string, number>();
+  const monthlyMap = new Map<string, number>();
+
+  for (const rating of hourlyRatings) {
+    const date = new Date(`${rating.hour}Z`);
+
+    if (Number.isNaN(date.getTime())) {
+      continue;
+    }
+
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const dailyKey = `${year}-${month}-${day}`;
+    const weekStart = new Date(date);
+    const dayOfWeek = (weekStart.getUTCDay() + 6) % 7;
+    weekStart.setUTCDate(weekStart.getUTCDate() - dayOfWeek);
+    const weeklyKey = `${weekStart.getUTCFullYear()}-${String(
+      weekStart.getUTCMonth() + 1,
+    ).padStart(2, "0")}-${String(weekStart.getUTCDate()).padStart(2, "0")}`;
+    const monthlyKey = `${year}-${month}`;
+
+    dailyMap.set(dailyKey, (dailyMap.get(dailyKey) || 0) + rating.totalFeedbacks);
+    weeklyMap.set(
+      weeklyKey,
+      (weeklyMap.get(weeklyKey) || 0) + rating.totalFeedbacks,
+    );
+    monthlyMap.set(
+      monthlyKey,
+      (monthlyMap.get(monthlyKey) || 0) + rating.totalFeedbacks,
+    );
+  }
+
+  const toPoints = (map: Map<string, number>) =>
+    Array.from(map.entries())
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .map(([label, value]) => ({ label, value }));
+
+  return {
+    daily: { points: toPoints(dailyMap) },
+    weekly: { points: toPoints(weeklyMap) },
+    monthly: { points: toPoints(monthlyMap) },
+  };
+}
+
+function transformSummaryToDashboardResponse(
+  input: AnalyticsSummaryResponse,
+  requestedCompany: string,
+): AnalyticsDashboardResponse {
+  const companyMap = new Map(
+    input.availableCompanies.map((companyLabel) => [
+      normalizeCompanySlug(companyLabel),
+      companyLabel,
+    ]),
+  );
+  const normalizedRequestedCompany = normalizeCompanySlug(requestedCompany);
+  const selectedCompanyLabel =
+    companyMap.get(normalizedRequestedCompany) ||
+    (requestedCompany && input.byCompany[requestedCompany]
+      ? requestedCompany
+      : "all");
+  const activeCompany =
+    input.byCompany[selectedCompanyLabel] || input.byCompany.all;
+
+  const availableCompanies = [
+    {
+      id: "all",
+      slug: "all",
+      label: "Tüm Şirketler",
+    },
+    ...input.availableCompanies.map((companyLabel) => ({
+      id: normalizeCompanySlug(companyLabel),
+      slug: companyLabel,
+      label: companyLabel,
+    })),
+  ];
+  const behaviorTotals = activeCompany.cultureScore.questions.map((question, index) => ({
+    behaviorId: question.questionId,
+    label: question.questionText,
+    totalSignals: question.totalFeedbacks,
+    colorToken: SUMMARY_COLOR_TOKENS[index % SUMMARY_COLOR_TOKENS.length],
+  }));
+
+  return {
+    meta: {
+      competencyId: input.competency.competencyId,
+      competencyName: input.competency.displayName,
+      dashboardTitle: `${input.competency.displayName} CEO Dashboard`,
+      periodLabel: input.competency.periodLabel,
+      totalSignalsBadge: `${activeCompany.totalFeedbacks} Sinyal`,
+      availableCompanies,
+      selectedCompany: selectedCompanyLabel,
+    },
+    kpis: {
+      totalSignals: activeCompany.totalFeedbacks,
+      uniqueParticipants: 0,
+      uniqueSenders: 0,
+      uniqueReceivers: 0,
+    },
+    overallTrend: {
+      granularities: buildGranularityPoints(activeCompany.hourlyRatings),
+    },
+    behaviorTotals,
+    companyComparison: input.availableCompanies.map((companyLabel, index) => ({
+      companyId: normalizeCompanySlug(companyLabel),
+      label: companyLabel,
+      totalSignals: input.byCompany[companyLabel]?.totalFeedbacks || 0,
+      colorToken: SUMMARY_COLOR_TOKENS[index % SUMMARY_COLOR_TOKENS.length],
+    })),
+    topSenders: [],
+    behaviorSummary: behaviorTotals.map((item) => ({
+      behaviorId: item.behaviorId,
+      label: item.label,
+      totalSignals: item.totalSignals,
+      colorToken: item.colorToken,
+    })),
+    behaviorTrends: [],
+    filters: {
+      availablePeriods: [],
+      availableGranularities: ["daily", "weekly", "monthly"],
+    },
+  };
+}
+
+async function getAnalyticsSummary(competencyId: string) {
   const query = new URLSearchParams({
     competencyId,
   });
 
-  if (period) {
-    query.set("period", period);
-  }
-
-  if (company && company !== "all") {
-    query.set("company", company);
-  }
-
   const response = await fetch(
-    `/analytics/dashboard?${query.toString()}`,
+    `/analytics/summary?${query.toString()}`,
     {
       headers: {
         "Content-Type": "application/json",
@@ -51,7 +195,7 @@ async function getAnalyticsDashboard(
     throw new Error(`${code}: ${message}`);
   }
 
-  return json as AnalyticsDashboardResponse;
+  return json as AnalyticsSummaryResponse;
 }
 
 function formatApiError(error: unknown) {
@@ -65,17 +209,19 @@ function AnalyticsPageContent() {
   const searchParams = useSearchParams();
   const rawCompetencyId = searchParams.get("competencyId") || "";
   const competencyId = rawCompetencyId.trim();
-  const period = (searchParams.get("period") || "").trim();
   const company = (searchParams.get("company") || "all").trim() || "all";
-  const hasCompetencyId = competencyId.length > 0;
+  const hasCompetencyId = isValidAnalyticsCompetencyId(competencyId);
 
   const dashboardQuery = useQuery({
-    queryKey: ["analyticsDashboard", competencyId, period, company],
-    queryFn: () => getAnalyticsDashboard(competencyId, period, company),
+    queryKey: ["analyticsSummaryForDashboard", competencyId],
+    queryFn: () => getAnalyticsSummary(competencyId),
     enabled: hasCompetencyId,
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
+  const dashboardResponse = dashboardQuery.data
+    ? transformSummaryToDashboardResponse(dashboardQuery.data, company)
+    : undefined;
 
   const handleCompanySelect = (slug: string) => {
     const query = new URLSearchParams(searchParams.toString());
@@ -100,7 +246,7 @@ function AnalyticsPageContent() {
       isLoading={dashboardQuery.isLoading}
       isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
       onCompanySelect={handleCompanySelect}
-      response={dashboardQuery.data}
+      response={dashboardResponse}
     />
   );
 }
