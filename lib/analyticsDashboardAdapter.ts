@@ -86,7 +86,6 @@ export type AnalyticsDashboardViewModel = {
     id: string;
     label: string;
     value: number;
-    subtitle: string;
     colorToken: AnalyticsColorToken;
   }>;
   overallTrend: AnalyticsDashboardResponse["overallTrend"];
@@ -179,28 +178,24 @@ export function adaptAnalyticsDashboard(
         id: "totalSignals",
         label: "TOPLAM SİNYAL",
         value: response.kpis.totalSignals,
-        subtitle: "toplam sinyal",
         colorToken: "gold",
       },
       {
         id: "uniqueParticipants",
         label: "BENZERSİZ KİŞİ",
         value: response.kpis.uniqueParticipants,
-        subtitle: "benzersiz kişi",
         colorToken: "blue",
       },
       {
         id: "uniqueSenders",
         label: "SİNYAL VEREN",
         value: response.kpis.uniqueSenders,
-        subtitle: "Benzersiz katılımcı",
         colorToken: "green",
       },
       {
         id: "uniqueReceivers",
         label: "SİNYAL ALAN",
         value: response.kpis.uniqueReceivers,
-        subtitle: "Benzersiz kişi",
         colorToken: "red",
       },
     ],

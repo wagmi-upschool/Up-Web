@@ -41,6 +41,10 @@ const TREND_POINT_COLORS = {
   low: "#A15CFF",
 } as const;
 
+function formatTrendLabel(label: string) {
+  return label.replace(/(\d{4})-W(\d{1,2})/g, "$1-H$2");
+}
+
 function getTrendPointColor(value: number, maxValue: number) {
   const ratio = maxValue > 0 ? value / maxValue : 0;
 
@@ -111,7 +115,7 @@ function AnalyticsChartTooltip({
   return (
     <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
       <p className="font-poppins text-xs uppercase tracking-[0.2em] text-white/55">
-        {point.label}
+        {formatTrendLabel(point.label)}
       </p>
       <p className="mt-2 font-righteous text-3xl leading-none" style={{ color }}>
         {formatAnalyticsNumber(point.value)}
@@ -151,6 +155,7 @@ function AnalyticsLineChartCard({
             axisLine={false}
             dataKey="label"
             minTickGap={18}
+            tickFormatter={formatTrendLabel}
             tick={{
               fill: "#171717",
               fillOpacity: 0.68,
@@ -257,7 +262,6 @@ export function KpiSection({
             <p className="mt-3 font-righteous text-5xl leading-none text-[#171717]">
               {formatAnalyticsNumber(item.value)}
             </p>
-            <p className="mt-2 font-poppins text-sm text-[#171717]/65">{item.subtitle}</p>
           </AnalyticsCard>
         );
       })}
