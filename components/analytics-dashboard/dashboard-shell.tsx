@@ -90,9 +90,13 @@ export function AnalyticsDashboardHeader({
                 </div>
                 <div>
                   <div className="flex flex-col gap-1 md:flex-row md:items-end md:gap-6">
-                    <h1 className="font-righteous text-[2.7rem] leading-[0.9] tracking-[-0.05em] text-[#171717] sm:text-[4.35rem] lg:text-[4.95rem]">
-                      Eczacıbaşı
-                    </h1>
+                    <Image
+                      src="/eczacibasi.png"
+                      alt="Eczacıbaşı"
+                      width={400}
+                      height={120}
+                      className="h-[2.7rem] w-auto sm:h-[4.35rem] lg:h-[4.95rem]"
+                    />
                     <p className="pb-1 font-righteous text-[1.22rem] leading-none tracking-[0.06em] text-[#171717] [text-shadow:0.55px_0_0_currentColor,-0.55px_0_0_currentColor] sm:text-[1.85rem] lg:pb-2 lg:text-[2.45rem]">
                       CEO Dashboard
                     </p>
