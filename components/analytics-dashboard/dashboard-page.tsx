@@ -66,10 +66,11 @@ export default function AnalyticsDashboardPage({
               behaviorTotals={viewModel.behaviorTotals}
               overallTrend={viewModel.overallTrend}
             />
+            {viewModel.companyComparison.length > 0 ? (
+              <CompanyComparisonSection items={viewModel.companyComparison} />
+            ) : null}
             {viewModel.topSenders.length > 0 ? (
               <PeopleAndSummarySection topSenders={viewModel.topSenders} />
-            ) : viewModel.companyComparison.length > 0 ? (
-              <CompanyComparisonSection items={viewModel.companyComparison} />
             ) : null}
             {viewModel.behaviorTrends.length > 0 ? (
               <BehaviorTrendGridSection
