@@ -66,7 +66,8 @@ export default function AnalyticsDashboardPage({
               behaviorTotals={viewModel.behaviorTotals}
               overallTrend={viewModel.overallTrend}
             />
-            {viewModel.companyComparison.length > 0 ? (
+            {viewModel.meta.selectedCompany === "all" &&
+            viewModel.companyComparison.length > 0 ? (
               <CompanyComparisonSection items={viewModel.companyComparison} />
             ) : null}
             {viewModel.topSenders.length > 0 ? (
