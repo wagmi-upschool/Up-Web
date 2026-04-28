@@ -15,7 +15,6 @@ import {
   CompanyComparisonSection,
   KpiSection,
   OverallTrendSection,
-  PeopleAndSummarySection,
 } from "@/components/analytics-dashboard/dashboard-sections";
 
 type AnalyticsDashboardPageProps = {
@@ -70,9 +69,7 @@ export default function AnalyticsDashboardPage({
             viewModel.companyComparison.length > 0 ? (
               <CompanyComparisonSection items={viewModel.companyComparison} />
             ) : null}
-            {viewModel.topSenders.length > 0 ? (
-              <PeopleAndSummarySection topSenders={viewModel.topSenders} />
-            ) : null}
+            {/* Top senders section is intentionally hidden for both all-company and single-company views. */}
             {viewModel.behaviorTrends.length > 0 ? (
               <BehaviorTrendGridSection
                 availableGranularities={viewModel.filters.availableGranularities}
