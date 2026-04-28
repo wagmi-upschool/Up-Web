@@ -396,7 +396,7 @@ export function PeopleAndSummarySection({
 
               return (
                 <div
-                  className="grid grid-cols-[36px_48px_minmax(0,1fr)_120px] items-center gap-4 rounded-2xl border border-[#171717]/8 bg-[#FFFFFF]/70 px-4 py-4 transition-all duration-300 hover:scale-[1.015] hover:border-white/40 hover:bg-white/35 hover:shadow-[0_18px_35px_rgba(23,23,23,0.1)] hover:backdrop-blur-xl"
+                  className="grid grid-cols-[36px_48px_minmax(0,1fr)] items-center gap-x-4 gap-y-3 rounded-2xl border border-[#171717]/8 bg-[#FFFFFF]/70 px-4 py-4 transition-all duration-300 hover:scale-[1.015] hover:border-white/40 hover:bg-white/35 hover:shadow-[0_18px_35px_rgba(23,23,23,0.1)] hover:backdrop-blur-xl sm:grid-cols-[36px_48px_minmax(0,1fr)_120px] sm:gap-y-4"
                   key={sender.personId}
                 >
                   <p className="font-righteous text-3xl text-[#FC7700]">
@@ -408,10 +408,10 @@ export function PeopleAndSummarySection({
                   >
                     {sender.initials}
                   </div>
-                  <p className="truncate font-poppins text-sm leading-6 text-[#171717]/86 sm:text-base">
+                  <p className="min-w-0 font-poppins text-sm leading-6 text-[#171717]/86 sm:truncate sm:text-base">
                     {sender.fullName}
                   </p>
-                  <div className="flex items-center gap-4">
+                  <div className="col-start-2 col-end-4 flex items-center gap-3 sm:col-start-auto sm:col-end-auto sm:gap-4">
                     <div className="flex-1">
                       <ProgressBar color={colorStyle.line} progress={sender.progress} />
                     </div>
