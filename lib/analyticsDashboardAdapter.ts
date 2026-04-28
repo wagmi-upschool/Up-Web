@@ -144,7 +144,7 @@ function adaptTotals(
 }
 
 function adaptTopSenders(items: AnalyticsDashboardTopSender[]): AdaptedTopSender[] {
-  const sortedItems = [...items].sort((left, right) => left.rank - right.rank).slice(0, 10);
+  const sortedItems = [...items].sort((left, right) => left.rank - right.rank).slice(0, 5);
   const maxValue = sortedItems[0]?.totalSignals || 0;
 
   return sortedItems.map((item) => ({
