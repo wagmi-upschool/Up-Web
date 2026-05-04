@@ -30,6 +30,7 @@ import {
   buildFeedbackSubmitAnswers,
   getQuestionScaleMax,
   getQuestionScaleMin,
+  hasAnyAnsweredFeedbackQuestion,
   MAX_FEEDBACK_FREE_TEXT,
   parsePercentageValue,
   sanitizePercentageInput,
@@ -543,7 +544,7 @@ function QuestionField({
           ) : question.type === "percentage" ? (
             <span>{PERCENTAGE_GUIDE_TEXT}</span>
           ) : (
-            `${MAX_FEEDBACK_FREE_TEXT - questionValue.length} karakter kaldı`
+            `${MAX_FEEDBACK_FREE_TEXT - questionValue.length} karakter kaldı.`
           )}
         </p>
       ) : null}
@@ -672,11 +673,20 @@ function FeedbackPageContent() {
   const activeQuestions =
     resolvedActiveTab === "survey" ? surveyQuestions : valuesQuestions;
 
+  const surveyAnswers = surveyForm.watch("answers");
   const surveyFinalComment = surveyForm.watch("finalComment");
   const valuesAnswers = valuesForm.watch("answers");
   const selectedValuesAnswer = selectedValuesQuestionId
     ? valuesAnswers?.[selectedValuesQuestionId] || ""
     : "";
+  const surveyHasAnsweredQuestion = hasAnyAnsweredFeedbackQuestion(
+    surveyQuestions,
+    surveyAnswers || {},
+  );
+  const valuesHasAnsweredQuestion = hasAnyAnsweredFeedbackQuestion(
+    selectedValuesQuestions,
+    valuesAnswers || {},
+  );
 
   const applyModuleFormValues = (
     module: FeedbackTab,
@@ -857,6 +867,10 @@ function FeedbackPageContent() {
 
   const handleSurveySubmit = (values: ModuleFormValues) => {
     if (!surveyModule.competency) return;
+    if (!hasAnyAnsweredFeedbackQuestion(surveyQuestions, values.answers)) {
+      toast.error("Lütfen ankette en az bir soru yanıtlayın.");
+      return;
+    }
 
     const validationMessage = validateSubmittedModuleAnswers(
       surveyQuestions,
@@ -929,13 +943,15 @@ function FeedbackPageContent() {
     !surveyModule.available ||
     !surveyModule.competency ||
     !surveyQuestions.length ||
-    !surveyForm.formState.isValid;
+    !surveyForm.formState.isValid ||
+    !surveyHasAnsweredQuestion;
   const valuesSubmitDisabled =
     formDisabled ||
     !valuesAvailable ||
     !valuesModule.competency ||
     !selectedValuesQuestion ||
-    !selectedValuesAnswer;
+    !selectedValuesAnswer ||
+    !valuesHasAnsweredQuestion;
 
   if (!giverId) {
     return (

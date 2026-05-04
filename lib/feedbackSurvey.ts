@@ -102,6 +102,30 @@ export function validateFeedbackAnswer(
   return true;
 }
 
+export function hasAnsweredFeedbackQuestion(
+  question: FeedbackQuestion,
+  value?: string | null,
+) {
+  if (value === undefined || value === null || value === "") {
+    return false;
+  }
+
+  if (question.type === "free_text") {
+    return value.trim().length > 0;
+  }
+
+  return true;
+}
+
+export function hasAnyAnsweredFeedbackQuestion(
+  questions: FeedbackQuestion[],
+  answers: Record<string, string>,
+) {
+  return questions.some((question) =>
+    hasAnsweredFeedbackQuestion(question, answers[question.question_id]),
+  );
+}
+
 export function serializeFeedbackAnswer(
   question: FeedbackQuestion,
   value?: string | null,

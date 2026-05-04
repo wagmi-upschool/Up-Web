@@ -5,6 +5,7 @@ import {
   buildFeedbackSubmitAnswers,
   getQuestionScaleMax,
   getQuestionScaleMin,
+  hasAnyAnsweredFeedbackQuestion,
   sanitizePercentageInput,
   validateFeedbackAnswer,
 } from "../../lib/feedbackSurvey";
@@ -142,6 +143,27 @@ test("buildFeedbackSubmitAnswers can omit unanswered values answers", () => {
   );
 
   assert.deepEqual(answers, []);
+});
+
+test("hasAnyAnsweredFeedbackQuestion requires a non-empty question answer", () => {
+  assert.equal(
+    hasAnyAnsweredFeedbackQuestion(questions, {
+      "free-text-1": "   ",
+    }),
+    false,
+  );
+  assert.equal(
+    hasAnyAnsweredFeedbackQuestion(questions, {
+      "likert-1": "4",
+    }),
+    true,
+  );
+  assert.equal(
+    hasAnyAnsweredFeedbackQuestion(questions, {
+      "values-1": "did",
+    }),
+    true,
+  );
 });
 
 test("numeric scale helpers fall back to type defaults", () => {
