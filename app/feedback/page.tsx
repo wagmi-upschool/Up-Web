@@ -1052,6 +1052,14 @@ function FeedbackPageContent() {
       : null;
   const showLoadingOverlay =
     loadingReceivers || (loadingQuestions && Boolean(receiverId));
+  const shouldShowInitialLoadingScreen =
+    canQuery &&
+    !receiversError &&
+    (!receivers ||
+      (isIsy &&
+        feedbackReceivers.length > 0 &&
+        !questionsError &&
+        (!receiverId || (loadingQuestions && !questionsResp))));
   const activeSubmitMutation =
     resolvedActiveTab === "survey" ? surveySubmitMutation : valuesSubmitMutation;
   const formDisabled =
@@ -1109,6 +1117,14 @@ function FeedbackPageContent() {
     );
   }
 
+  if (shouldShowInitialLoadingScreen) {
+    return (
+      <FeedbackPageShell>
+        <FeedbackLoadingOverlay />
+      </FeedbackPageShell>
+    );
+  }
+
   return (
     <FeedbackPageShell>
       {showLoadingOverlay ? <FeedbackLoadingOverlay /> : null}
@@ -1129,7 +1145,7 @@ function FeedbackPageContent() {
           />
           {isIsy ? (
             <div className="min-w-0">
-              <h1 className="text-[32px] font-semibold leading-none tracking-[-0.03em] text-title-black sm:text-[40px]">
+              <h1 className="font-righteous text-[32px] leading-none tracking-[-0.03em] text-title-black sm:text-[40px]">
                 Pulse
               </h1>
             </div>
