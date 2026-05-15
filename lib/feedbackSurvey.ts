@@ -1,5 +1,7 @@
 import type {
+  FeedbackChoiceOption,
   FeedbackQuestion,
+  FeedbackQuestionType,
   SubmitSurveyPayload,
 } from "@/lib/feedbackClient";
 
@@ -10,12 +12,17 @@ const DEFAULT_NUMERIC_SCALES = {
   percentage: { min: 0, max: 100 },
 } as const;
 
+type NumericQuestionType = Extract<
+  FeedbackQuestionType,
+  keyof typeof DEFAULT_NUMERIC_SCALES
+>;
+
 function getNumericBounds(question: FeedbackQuestion) {
-  if (question.type === "free_text" || question.type === "boolean") {
+  if (!isNumericQuestion(question)) {
     return { min: undefined, max: undefined };
   }
 
-  const defaults = DEFAULT_NUMERIC_SCALES[question.type];
+  const defaults = DEFAULT_NUMERIC_SCALES[question.type as NumericQuestionType];
 
   return {
     min: question.scale_min ?? defaults.min,
@@ -23,8 +30,42 @@ function getNumericBounds(question: FeedbackQuestion) {
   };
 }
 
-export function isNumericQuestion(question: FeedbackQuestion) {
+export function isNumericQuestion(
+  question: FeedbackQuestion,
+): question is FeedbackQuestion & { type: NumericQuestionType } {
   return question.type === "likert" || question.type === "percentage";
+}
+
+export function isChoiceQuestion(question: FeedbackQuestion) {
+  return question.type === "emoji_choice" || question.type === "text_choice";
+}
+
+export function getOrderedChoiceOptions(
+  question: FeedbackQuestion,
+): FeedbackChoiceOption[] {
+  if (!isChoiceQuestion(question) || !Array.isArray(question.answer_options)) {
+    return [];
+  }
+
+  const options = question.answer_options.filter(
+    (option): option is FeedbackChoiceOption =>
+      typeof option === "object" &&
+      option !== null &&
+      typeof option.option_id === "string" &&
+      typeof option.label === "string" &&
+      typeof option.order === "number",
+  );
+
+  return options.slice().sort((first, second) => first.order - second.order);
+}
+
+export function isValidChoiceAnswer(
+  question: FeedbackQuestion,
+  optionId: string,
+) {
+  return getOrderedChoiceOptions(question).some(
+    (option) => option.option_id === optionId,
+  );
 }
 
 export function sanitizePercentageInput(value: string) {
@@ -70,6 +111,14 @@ export function validateFeedbackAnswer(
 
   if (question.type === "boolean") {
     if (value !== "did" && value !== "didnt") {
+      return "Lütfen geçerli bir seçim yapın.";
+    }
+
+    return true;
+  }
+
+  if (isChoiceQuestion(question)) {
+    if (!isValidChoiceAnswer(question, value)) {
       return "Lütfen geçerli bir seçim yapın.";
     }
 
@@ -149,6 +198,8 @@ export function serializeFeedbackAnswer(
     answer_value:
       question.type === "boolean"
         ? value
+        : isChoiceQuestion(question)
+          ? value
         : question.type === "percentage"
         ? parsePercentageValue(value)
         : isNumericQuestion(question)

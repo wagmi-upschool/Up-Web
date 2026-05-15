@@ -3,6 +3,7 @@ import test from "node:test";
 import type { FeedbackQuestion } from "../../lib/feedbackClient";
 import {
   buildFeedbackSubmitAnswers,
+  getOrderedChoiceOptions,
   getQuestionScaleMax,
   getQuestionScaleMin,
   hasAnyAnsweredFeedbackQuestion,
@@ -39,6 +40,29 @@ const questions: FeedbackQuestion[] = [
     type: "boolean",
     order: 4,
   },
+  {
+    question_id: "emoji-1",
+    question_text: "Emoji choice question",
+    type: "emoji_choice",
+    order: 5,
+    answer_options: [
+      { option_id: "great", label: "Harika", emoji: "🤩", order: 4 },
+      { option_id: "bad", label: "Kotu", emoji: "😔", order: 1 },
+      { option_id: "okay", label: "Iyi", emoji: "🙂", order: 3 },
+      { option_id: "meh", label: "Eh iste", emoji: "😐", order: 2 },
+    ],
+  },
+  {
+    question_id: "text-choice-1",
+    question_text: "Text choice question",
+    type: "text_choice",
+    order: 6,
+    answer_options: [
+      { option_id: "no", label: "Hayir", order: 3 },
+      { option_id: "yes", label: "Evet", order: 1 },
+      { option_id: "partial", label: "Kismen", order: 2 },
+    ],
+  },
 ];
 
 test("validateFeedbackAnswer applies rules per question type", () => {
@@ -50,6 +74,8 @@ test("validateFeedbackAnswer applies rules per question type", () => {
   assert.equal(validateFeedbackAnswer(questions[2], undefined), true);
   assert.equal(validateFeedbackAnswer(questions[3], "did"), true);
   assert.equal(validateFeedbackAnswer(questions[3], "didnt"), true);
+  assert.equal(validateFeedbackAnswer(questions[4], "great"), true);
+  assert.equal(validateFeedbackAnswer(questions[5], "partial"), true);
 });
 
 test("validateFeedbackAnswer rejects invalid percentage values", () => {
@@ -71,12 +97,25 @@ test("validateFeedbackAnswer rejects invalid percentage values", () => {
   );
 });
 
+test("validateFeedbackAnswer rejects invalid choice option ids", () => {
+  assert.equal(
+    validateFeedbackAnswer(questions[4], "missing"),
+    "Lütfen geçerli bir seçim yapın.",
+  );
+  assert.equal(
+    validateFeedbackAnswer(questions[5], "maybe"),
+    "Lütfen geçerli bir seçim yapın.",
+  );
+});
+
 test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => {
   const answers = buildFeedbackSubmitAnswers(questions, {
     "likert-1": "4",
     "percentage-1": "73,5",
     "free-text-1": "  Strong collaborator  ",
     "values-1": "did",
+    "emoji-1": "great",
+    "text-choice-1": "partial",
   });
 
   assert.deepEqual(answers, [
@@ -99,6 +138,16 @@ test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => 
       question_id: "values-1",
       answer_type: "boolean",
       answer_value: "did",
+    },
+    {
+      question_id: "emoji-1",
+      answer_type: "emoji_choice",
+      answer_value: "great",
+    },
+    {
+      question_id: "text-choice-1",
+      answer_type: "text_choice",
+      answer_value: "partial",
     },
   ]);
 });
@@ -128,6 +177,16 @@ test("buildFeedbackSubmitAnswers serializes unanswered questions as null", () =>
     {
       question_id: "values-1",
       answer_type: "boolean",
+      answer_value: null,
+    },
+    {
+      question_id: "emoji-1",
+      answer_type: "emoji_choice",
+      answer_value: null,
+    },
+    {
+      question_id: "text-choice-1",
+      answer_type: "text_choice",
       answer_value: null,
     },
   ]);
@@ -164,6 +223,24 @@ test("hasAnyAnsweredFeedbackQuestion requires a non-empty question answer", () =
     }),
     true,
   );
+  assert.equal(
+    hasAnyAnsweredFeedbackQuestion(questions, {
+      "emoji-1": "great",
+    }),
+    true,
+  );
+});
+
+test("getOrderedChoiceOptions sorts object answer options by order", () => {
+  assert.deepEqual(
+    getOrderedChoiceOptions(questions[4]).map((option) => option.option_id),
+    ["bad", "meh", "okay", "great"],
+  );
+  assert.deepEqual(
+    getOrderedChoiceOptions(questions[5]).map((option) => option.option_id),
+    ["yes", "partial", "no"],
+  );
+  assert.deepEqual(getOrderedChoiceOptions(questions[3]), []);
 });
 
 test("numeric scale helpers fall back to type defaults", () => {

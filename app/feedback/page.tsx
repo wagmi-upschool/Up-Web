@@ -28,9 +28,11 @@ import {
 } from "@/lib/feedbackClient";
 import {
   buildFeedbackSubmitAnswers,
+  getOrderedChoiceOptions,
   getQuestionScaleMax,
   getQuestionScaleMin,
   hasAnyAnsweredFeedbackQuestion,
+  isChoiceQuestion,
   MAX_FEEDBACK_FREE_TEXT,
   parsePercentageValue,
   sanitizePercentageInput,
@@ -71,6 +73,10 @@ const VALUES_OPTION_LABELS = {
   did: "Yaptı",
   didnt: "Yapmadı",
 } as const;
+const CHOICE_SELECTED_SURFACE =
+  "border-[#F0E4DD] bg-[#F7EFEC]/90 text-[#8E8A84] shadow-[0_14px_34px_rgba(221,201,189,0.28)]";
+const CHOICE_UNSELECTED_SURFACE =
+  "border-transparent bg-transparent text-[#66707A] hover:border-[#EFE5DE]/70 hover:bg-[#FBF6F2]/65";
 
 function getReceiverEmail(receiver: FeedbackReceiver) {
   return (
@@ -322,6 +328,7 @@ function QuestionField({
         : String(questionScaleMin ?? 0);
   const currentLikertValue = Number(questionValue || 0);
   const isValuesQuestion = module === "values";
+  const choiceOptions = getOrderedChoiceOptions(question);
   const booleanOptions = isValuesQuestion
     ? (["did"] as const)
     : (["did", "didnt"] as const);
@@ -452,63 +459,63 @@ function QuestionField({
         </div>
       ) : question.type === "boolean" ? (
         <div className="mt-3 flex items-center gap-3">
-            {booleanOptions.map((value) => {
-              const active = questionValue === value;
+          {booleanOptions.map((value) => {
+            const active = questionValue === value;
 
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() =>
-                    form.setValue(
-                      `answers.${question.question_id}`,
-                      FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
-                        ? ""
-                        : value,
-                      {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      },
-                    )
-                  }
-                  className="group flex flex-col items-center gap-1"
-                  aria-pressed={active}
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() =>
+                  form.setValue(
+                    `answers.${question.question_id}`,
+                    FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
+                      ? ""
+                      : value,
+                    {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    },
+                  )
+                }
+                className="group flex flex-col items-center gap-1"
+                aria-pressed={active}
+              >
+                <span
+                  className={`flex h-[50px] w-[50px] items-center justify-center rounded-full border-[1.5px] bg-gray-50 transition-transform duration-150 group-hover:scale-105 ${
+                    active
+                      ? value === "did"
+                        ? "border-emerald-600 bg-emerald-100 text-emerald-700"
+                        : "border-gray-300 bg-gray-100 text-gray-600"
+                      : "border-gray-200 text-gray-400"
+                  }`}
                 >
-                  <span
-                    className={`flex h-[50px] w-[50px] items-center justify-center rounded-full border-[1.5px] bg-gray-50 transition-transform duration-150 group-hover:scale-105 ${
-                      active
-                        ? value === "did"
-                          ? "border-emerald-600 bg-emerald-100 text-emerald-700"
-                          : "border-gray-300 bg-gray-100 text-gray-600"
-                        : "border-gray-200 text-gray-400"
-                    }`}
-                  >
-                    <Image
-                      src={
-                        value === "did"
-                          ? "/up_face_mutlu_icon.svg"
-                          : "/up_face_uzgun_icon.svg"
-                      }
-                      alt={VALUES_OPTION_LABELS[value]}
-                      width={24}
-                      height={24}
-                      className={`${active ? "" : "grayscale opacity-50"}`}
-                    />
-                  </span>
-                  <span
-                    className={`text-[11px] font-medium ${
-                      active
-                        ? value === "did"
-                          ? "text-emerald-700"
-                          : "text-gray-600"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {VALUES_OPTION_LABELS[value]}
-                  </span>
-                </button>
-              );
-            })}
+                  <Image
+                    src={
+                      value === "did"
+                        ? "/up_face_mutlu_icon.svg"
+                        : "/up_face_uzgun_icon.svg"
+                    }
+                    alt={VALUES_OPTION_LABELS[value]}
+                    width={24}
+                    height={24}
+                    className={`${active ? "" : "grayscale opacity-50"}`}
+                  />
+                </span>
+                <span
+                  className={`text-[11px] font-medium ${
+                    active
+                      ? value === "did"
+                        ? "text-emerald-700"
+                        : "text-gray-600"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {VALUES_OPTION_LABELS[value]}
+                </span>
+              </button>
+            );
+          })}
           <input
             type="hidden"
             {...form.register(`answers.${question.question_id}`, {
@@ -519,6 +526,89 @@ function QuestionField({
 
                 return validateFeedbackAnswer(question, value);
               },
+            })}
+          />
+        </div>
+      ) : question.type === "emoji_choice" ? (
+        <div className="mt-5 flex flex-wrap items-stretch justify-center gap-x-6 gap-y-5 sm:gap-x-8 md:gap-x-10">
+          {choiceOptions.map((option) => {
+            const active = questionValue === option.option_id;
+
+            return (
+              <button
+                key={option.option_id}
+                type="button"
+                onClick={() =>
+                  form.setValue(
+                    `answers.${question.question_id}`,
+                    FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
+                      ? ""
+                      : option.option_id,
+                    {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    },
+                  )
+                }
+                className={`group flex min-w-[112px] flex-col items-center gap-3 rounded-[30px] px-5 py-4 font-poppins transition-all duration-200 focus:outline-none focus-visible:ring-0 ${
+                  active ? CHOICE_SELECTED_SURFACE : CHOICE_UNSELECTED_SURFACE
+                }`}
+                aria-pressed={active}
+              >
+                <span className="text-[36px] leading-none sm:text-[40px]">
+                  {option.emoji}
+                </span>
+                <span
+                  className={`text-center text-[15px] leading-none tracking-[-0.01em] sm:text-[17px] ${
+                    active ? "text-[#96908A]" : "text-[#67707A]"
+                  }`}
+                >
+                  {option.label}
+                </span>
+              </button>
+            );
+          })}
+          <input
+            type="hidden"
+            {...form.register(`answers.${question.question_id}`, {
+              validate: (value) => validateFeedbackAnswer(question, value),
+            })}
+          />
+        </div>
+      ) : question.type === "text_choice" ? (
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+          {choiceOptions.map((option) => {
+            const active = questionValue === option.option_id;
+
+            return (
+              <button
+                key={option.option_id}
+                type="button"
+                onClick={() =>
+                  form.setValue(
+                    `answers.${question.question_id}`,
+                    FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
+                      ? ""
+                      : option.option_id,
+                    {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    },
+                  )
+                }
+                className={`min-w-[132px] rounded-full border px-7 py-4 text-center font-poppins text-[15px] leading-none tracking-[-0.01em] transition-all duration-200 focus:outline-none focus-visible:ring-0 sm:min-w-[148px] sm:text-[17px] ${
+                  active ? CHOICE_SELECTED_SURFACE : CHOICE_UNSELECTED_SURFACE
+                }`}
+                aria-pressed={active}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+          <input
+            type="hidden"
+            {...form.register(`answers.${question.question_id}`, {
+              validate: (value) => validateFeedbackAnswer(question, value),
             })}
           />
         </div>
@@ -537,7 +627,7 @@ function QuestionField({
         />
       )}
 
-      {question.type !== "boolean" ? (
+      {question.type !== "boolean" && !isChoiceQuestion(question) ? (
         <p className="mt-2 text-[11px] text-gray-400">
           {question.type === "likert" ? (
             <span>{LIKERT_GUIDE_TEXT}</span>

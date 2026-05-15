@@ -8,7 +8,9 @@ export type FeedbackQuestionType =
   | "likert"
   | "percentage"
   | "free_text"
-  | "boolean";
+  | "boolean"
+  | "emoji_choice"
+  | "text_choice";
 
 async function api<T>(path: string, init: RequestInit = {}) {
   if (!base) {
@@ -48,11 +50,19 @@ export type FeedbackReceiver = {
   receiver_email?: string;
 };
 
+export type FeedbackChoiceOption = {
+  option_id: string;
+  label: string;
+  order: number;
+  emoji?: string;
+};
+
 export type FeedbackQuestion = {
   question_id: string;
   question_text: string;
   type: FeedbackQuestionType;
   order: number;
+  answer_options?: string[] | FeedbackChoiceOption[];
   scale_min?: number;
   scale_max?: number;
   scale_labels?: { min: string; max: string };
