@@ -50,6 +50,11 @@ export type FeedbackReceiver = {
   receiver_email?: string;
 };
 
+export type FeedbackReceiversResponse = {
+  is_isy: boolean;
+  feedback_receivers: FeedbackReceiver[];
+};
+
 export type FeedbackChoiceOption = {
   option_id: string;
   label: string;
@@ -118,7 +123,7 @@ function buildFeedbackQuery(
 }
 
 export const getReceivers = (giverId: string, surveyType?: FeedbackSurveyType) =>
-  api<{ feedback_receivers: FeedbackReceiver[] }>(
+  api<FeedbackReceiversResponse>(
     `/feedback/receivers?${buildFeedbackQuery(
       { feedbackGiverId: giverId },
       surveyType,

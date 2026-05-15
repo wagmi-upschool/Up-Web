@@ -18,6 +18,7 @@ import {
   type FeedbackModuleKey,
   type FeedbackQuestion,
   type FeedbackQuestionModule,
+  type FeedbackReceiversResponse,
   type FeedbackReceiver,
   type FeedbackSurveyType,
   type QuestionsResponse,
@@ -47,6 +48,12 @@ import {
   type SuccessOverlayState,
 } from "@/lib/feedbackFormState";
 import { FEEDBACK_FEATURE_FLAGS } from "@/lib/feedbackFeatureFlags";
+import {
+  getAutoSelectedReceiverId,
+  getGeneralCommentPayloadValue,
+  getSurveySubmitButtonLabel,
+  shouldShowGeneralCommentField,
+} from "@/lib/feedbackSurveyUi";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type FeedbackTab = FeedbackModuleKey;
@@ -178,7 +185,7 @@ function sortQuestions(questions: FeedbackQuestion[]) {
 
 function getSubmitButtonLabel(module: FeedbackTab) {
   return module === "survey"
-    ? "Anket Gönder"
+    ? getSurveySubmitButtonLabel(false)
     : "Davranış Değerlendirmesini Gönder";
 }
 
@@ -303,14 +310,24 @@ function FeedbackPageShell({ children }: { children: ReactNode }) {
   );
 }
 
+function FeedbackLoadingOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[url('/bg-df.png')] bg-cover bg-center bg-no-repeat">
+      <LottieSpinner size={180} />
+    </div>
+  );
+}
+
 function QuestionField({
   form,
   module,
   question,
+  hideFreeTextHelper = false,
 }: {
   form: UseFormReturn<ModuleFormValues>;
   module: FeedbackTab;
   question: FeedbackQuestion;
+  hideFreeTextHelper?: boolean;
 }) {
   const questionValue = form.watch(`answers.${question.question_id}`) || "";
   const answerErrors = form.formState.errors
@@ -627,7 +644,9 @@ function QuestionField({
         />
       )}
 
-      {question.type !== "boolean" && !isChoiceQuestion(question) ? (
+      {question.type !== "boolean" &&
+      !isChoiceQuestion(question) &&
+      !(hideFreeTextHelper && question.type === "free_text") ? (
         <p className="mt-2 text-[11px] text-gray-400">
           {question.type === "likert" ? (
             <span>{LIKERT_GUIDE_TEXT}</span>
@@ -691,7 +710,7 @@ function FeedbackPageContent() {
     data: receivers,
     isLoading: loadingReceivers,
     error: receiversError,
-  } = useQuery({
+  } = useQuery<FeedbackReceiversResponse>({
     queryKey: ["feedbackReceivers", giverId, surveyType],
     queryFn: () => getReceivers(giverId, selfModeParam),
     enabled: canQuery,
@@ -762,10 +781,19 @@ function FeedbackPageContent() {
     resolvedActiveTab === "survey" ? surveyModule : valuesModule;
   const activeQuestions =
     resolvedActiveTab === "survey" ? surveyQuestions : valuesQuestions;
+  const feedbackReceivers = receivers?.feedback_receivers || [];
+  const isIsy = receivers?.is_isy ?? false;
+  const showGeneralCommentField = shouldShowGeneralCommentField(isIsy);
+  const autoSelectedReceiverId = getAutoSelectedReceiverId({
+    isSelfMode,
+    isIsy,
+    receivers: feedbackReceivers,
+  });
 
   const surveyAnswers = surveyForm.watch("answers");
   const surveyFinalComment = surveyForm.watch("finalComment");
   const valuesAnswers = valuesForm.watch("answers");
+  const valuesFinalComment = valuesForm.watch("finalComment");
   const selectedValuesAnswer = selectedValuesQuestionId
     ? valuesAnswers?.[selectedValuesQuestionId] || ""
     : "";
@@ -807,21 +835,16 @@ function FeedbackPageContent() {
   }, [resetAllForms, surveyType]);
 
   useEffect(() => {
-    if (!isSelfMode) return;
-    const feedbackReceivers = receivers?.feedback_receivers || [];
-    if (feedbackReceivers.length !== 1) return;
+    if (!autoSelectedReceiverId || receiverId === autoSelectedReceiverId) return;
 
-    const selfReceiverId = feedbackReceivers[0]?.feedback_receiver_id || "";
-    if (!selfReceiverId || receiverId === selfReceiverId) return;
-
-    setReceiverId(selfReceiverId);
+    setReceiverId(autoSelectedReceiverId);
     setActiveTab("survey");
     setLastQuestionReceiver(null);
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
     setSuccessOverlay(createClosedSuccessOverlay());
     resetAllForms();
-  }, [isSelfMode, receiverId, receivers, resetAllForms]);
+  }, [autoSelectedReceiverId, receiverId, resetAllForms]);
 
   useEffect(() => {
     if (
@@ -977,10 +1000,13 @@ function FeedbackPageContent() {
       surveyModule.competency.competency_id,
       answers,
     );
-    const finalComment = values.finalComment?.trim();
+    const generalComment = getGeneralCommentPayloadValue(
+      isIsy,
+      values.finalComment,
+    );
 
-    if (finalComment) {
-      payload.free_text_general = finalComment;
+    if (generalComment) {
+      payload.free_text_general = generalComment;
     }
 
     setModuleSuccess((current) => ({ ...current, survey: false }));
@@ -1019,11 +1045,13 @@ function FeedbackPageContent() {
   const receiversEmpty =
     !loadingReceivers &&
     !receiversError &&
-    receivers?.feedback_receivers?.length === 0;
+    feedbackReceivers.length === 0;
   const selfReceiver =
-    isSelfMode && receivers?.feedback_receivers?.length === 1
-      ? receivers.feedback_receivers[0]
+    isSelfMode && feedbackReceivers.length === 1
+      ? feedbackReceivers[0]
       : null;
+  const showLoadingOverlay =
+    loadingReceivers || (loadingQuestions && Boolean(receiverId));
   const activeSubmitMutation =
     resolvedActiveTab === "survey" ? surveySubmitMutation : valuesSubmitMutation;
   const formDisabled =
@@ -1083,8 +1111,15 @@ function FeedbackPageContent() {
 
   return (
     <FeedbackPageShell>
+      {showLoadingOverlay ? <FeedbackLoadingOverlay /> : null}
       <div className="relative z-10 mx-auto max-w-6xl space-y-3 px-2 pb-28 pt-5 sm:px-4">
-        <header className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white/95 px-5 py-[18px] shadow-sm sm:flex-row sm:items-start sm:gap-4">
+        <header
+          className={`rounded-2xl border border-gray-200 bg-white/95 px-5 py-[18px] shadow-sm ${
+            isIsy
+              ? "flex items-center gap-4"
+              : "flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4"
+          }`}
+        >
           <Image
             src="/up.svg"
             alt="UP"
@@ -1092,89 +1127,111 @@ function FeedbackPageContent() {
             height={64}
             className="h-12 w-auto sm:h-16"
           />
-          <div className="flex-1 space-y-1">
-            <div className="space-y-1">
-              <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
-                {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
+          {isIsy ? (
+            <div className="min-w-0">
+              <h1 className="text-[32px] font-semibold leading-none tracking-[-0.03em] text-title-black sm:text-[40px]">
+                Pulse
               </h1>
-              <p className="text-[13px] text-text-description-gray">
-                {isSelfMode
-                  ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
-                  : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
-              </p>
             </div>
-          </div>
+          ) : (
+            <div className="flex-1 space-y-1">
+              <div className="space-y-1">
+                <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
+                  {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
+                </h1>
+                <p className="text-[13px] text-text-description-gray">
+                  {isSelfMode
+                    ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
+                    : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
+                </p>
+              </div>
+            </div>
+          )}
         </header>
 
         <div className="space-y-4">
-          <section className="space-y-3 rounded-2xl border border-gray-200 bg-white px-5 py-[18px] shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-[15px] font-semibold text-title-black">
-                {isSelfMode ? "Değerlendirilen kişi" : "Değerlendirilecek kişiyi seç"}
-              </p>
-              {loadingReceivers && (
-                <div className="h-4 w-20 animate-pulse rounded bg-primary/20" />
-              )}
-            </div>
-
-            {receiversError && (
-              <p className="text-sm text-red-600">
-                {formatApiError(receiversError)}
-              </p>
-            )}
-
-            {receiversEmpty && (
-              <p className="text-sm text-gray-500">
-                {isSelfMode
-                  ? "Öz değerlendirme için kullanıcı bilgisi bulunamadı."
-                  : "Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz."}
-              </p>
-            )}
-
-            {loadingReceivers ? (
-              <LottieSpinner size={140} className="py-6" />
-            ) : isSelfMode && selfReceiver ? (
-              <div className="rounded-[10px] border border-gray-300 bg-gray-50 px-4 py-3">
-                <p className="text-[15px] text-title-black">
-                  {formatReceiverLabel(selfReceiver)}
+          {!isIsy ? (
+            <section className="space-y-3 rounded-2xl border border-gray-200 bg-white px-5 py-[18px] shadow-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-[15px] font-semibold text-title-black">
+                  {isSelfMode
+                    ? "Değerlendirilen kişi"
+                    : "Değerlendirilecek kişiyi seç"}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Öz değerlendirme modunda alıcı otomatik seçilir.
-                </p>
+                {loadingReceivers && (
+                  <div className="h-4 w-20 animate-pulse rounded bg-primary/20" />
+                )}
               </div>
-            ) : receivers?.feedback_receivers?.length ? (
-              <select
-                value={receiverId}
-                onChange={(event) => handleReceiverChange(event.target.value)}
-                disabled={!canQuery}
-                className="w-full rounded-[10px] border border-gray-300 bg-white px-[14px] py-[13px] text-[15px] text-title-black"
-              >
-                <option value="">Seç...</option>
-                {receivers.feedback_receivers.map((receiver) => (
-                  <option
-                    key={receiver.feedback_receiver_id}
-                    value={receiver.feedback_receiver_id}
-                  >
-                    {formatReceiverLabel(receiver)}
-                  </option>
-                ))}
-              </select>
-            ) : !receiversEmpty ? (
-              <p className="text-sm text-gray-500">
-                Alıcılar burada görünecek.
-              </p>
-            ) : null}
-          </section>
+
+              {receiversError && (
+                <p className="text-sm text-red-600">
+                  {formatApiError(receiversError)}
+                </p>
+              )}
+
+              {receiversEmpty && (
+                <p className="text-sm text-gray-500">
+                  {isSelfMode
+                    ? "Öz değerlendirme için kullanıcı bilgisi bulunamadı."
+                    : "Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz."}
+                </p>
+              )}
+
+              {isSelfMode && selfReceiver ? (
+                <div className="rounded-[10px] border border-gray-300 bg-gray-50 px-4 py-3">
+                  <p className="text-[15px] text-title-black">
+                    {formatReceiverLabel(selfReceiver)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Öz değerlendirme modunda alıcı otomatik seçilir.
+                  </p>
+                </div>
+              ) : feedbackReceivers.length ? (
+                <select
+                  value={receiverId}
+                  onChange={(event) => handleReceiverChange(event.target.value)}
+                  disabled={!canQuery}
+                  className="w-full rounded-[10px] border border-gray-300 bg-white px-[14px] py-[13px] text-[15px] text-title-black"
+                >
+                  <option value="">Seç...</option>
+                  {feedbackReceivers.map((receiver) => (
+                    <option
+                      key={receiver.feedback_receiver_id}
+                      value={receiver.feedback_receiver_id}
+                    >
+                      {formatReceiverLabel(receiver)}
+                    </option>
+                  ))}
+                </select>
+              ) : !receiversEmpty ? (
+                <p className="text-sm text-gray-500">
+                  Alıcılar burada görünecek.
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="space-y-3">
-            {loadingQuestions && receiverId ? (
-              <LottieSpinner size={160} className="py-8" />
+            {isIsy && receiversError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
+                <p className="text-sm text-red-700">
+                  {formatApiError(receiversError)}
+                </p>
+              </div>
+            ) : null}
+
+            {isIsy && receiversEmpty ? (
+              <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
+                Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz.
+              </div>
             ) : null}
 
             {!receiverId && (
               <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
                 {isSelfMode
                   ? "Sorular hazırlanıyor. Öz değerlendirme alıcısı otomatik seçilecek."
+                  : isIsy
+                    ? "Sorular hazırlanıyor. Değerlendirme alıcısı otomatik seçilecek."
                   : "Yetkinlik ve soruları görmek için bir alıcı seç."}
               </div>
             )}
@@ -1244,35 +1301,38 @@ function FeedbackPageContent() {
                         form={surveyForm}
                         module="survey"
                         question={question}
+                        hideFreeTextHelper={isIsy}
                       />
                     ))}
 
-                    <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
-                      <label className="block text-[12px] font-medium text-gray-500">
-                        Eklemek istediğin not var mı?
-                      </label>
-                      <textarea
-                        rows={4}
-                        maxLength={MAX_FEEDBACK_FREE_TEXT}
-                        className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
-                        placeholder="İsteğe bağlı..."
-                        {...surveyForm.register("finalComment", {
-                          maxLength: {
-                            value: MAX_FEEDBACK_FREE_TEXT,
-                            message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
-                          },
-                        })}
-                      />
-                      <p className="mt-2 text-[11px] text-gray-400">
-                        {MAX_FEEDBACK_FREE_TEXT - surveyFinalComment.length} karakter
-                        kaldı.
-                      </p>
-                      {surveyForm.formState.errors.finalComment?.message ? (
-                        <p className="mt-2 text-xs text-red-600">
-                          {surveyForm.formState.errors.finalComment.message}
+                    {showGeneralCommentField ? (
+                      <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
+                        <label className="block text-[12px] font-medium text-gray-500">
+                          Eklemek istediğin not var mı?
+                        </label>
+                        <textarea
+                          rows={4}
+                          maxLength={MAX_FEEDBACK_FREE_TEXT}
+                          className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
+                          placeholder="İsteğe bağlı..."
+                          {...surveyForm.register("finalComment", {
+                            maxLength: {
+                              value: MAX_FEEDBACK_FREE_TEXT,
+                              message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
+                            },
+                          })}
+                        />
+                        <p className="mt-2 text-[11px] text-gray-400">
+                          {MAX_FEEDBACK_FREE_TEXT - surveyFinalComment.length} karakter
+                          kaldı.
                         </p>
-                      ) : null}
-                    </div>
+                        {surveyForm.formState.errors.finalComment?.message ? (
+                          <p className="mt-2 text-xs text-red-600">
+                            {surveyForm.formState.errors.finalComment.message}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     <button
                       type="submit"
@@ -1285,7 +1345,7 @@ function FeedbackPageContent() {
                     >
                       {surveySubmitMutation.isPending
                         ? "Gönderiliyor..."
-                        : getSubmitButtonLabel("survey")}
+                        : getSurveySubmitButtonLabel(isIsy)}
                     </button>
                   </form>
                 ) : (
@@ -1328,6 +1388,7 @@ function FeedbackPageContent() {
                         form={valuesForm}
                         module="values"
                         question={selectedValuesQuestion}
+                        hideFreeTextHelper={isIsy}
                       />
                     ) : (
                       <div className="rounded-[14px] border border-dashed border-gray-200 bg-white px-5 py-4 text-[14px] text-gray-500">
@@ -1335,33 +1396,34 @@ function FeedbackPageContent() {
                       </div>
                     )}
 
-                    <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
-                      <label className="block text-[12px] font-medium text-gray-500">
-                        Eklemek istediğin not var mı?
-                      </label>
-                      <textarea
-                        rows={4}
-                        maxLength={MAX_FEEDBACK_FREE_TEXT}
-                        className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
-                        placeholder="İsteğe bağlı..."
-                        {...valuesForm.register("finalComment", {
-                          maxLength: {
-                            value: MAX_FEEDBACK_FREE_TEXT,
-                            message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
-                          },
-                        })}
-                      />
-                      <p className="mt-2 text-[11px] text-gray-400">
-                        {MAX_FEEDBACK_FREE_TEXT -
-                          (valuesForm.watch("finalComment")?.length || 0)} karakter
-                        kaldı.
-                      </p>
-                      {valuesForm.formState.errors.finalComment?.message ? (
-                        <p className="mt-2 text-xs text-red-600">
-                          {valuesForm.formState.errors.finalComment.message}
+                    {showGeneralCommentField ? (
+                      <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
+                        <label className="block text-[12px] font-medium text-gray-500">
+                          Eklemek istediğin not var mı?
+                        </label>
+                        <textarea
+                          rows={4}
+                          maxLength={MAX_FEEDBACK_FREE_TEXT}
+                          className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
+                          placeholder="İsteğe bağlı..."
+                          {...valuesForm.register("finalComment", {
+                            maxLength: {
+                              value: MAX_FEEDBACK_FREE_TEXT,
+                              message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
+                            },
+                          })}
+                        />
+                        <p className="mt-2 text-[11px] text-gray-400">
+                          {MAX_FEEDBACK_FREE_TEXT - valuesFinalComment.length} karakter
+                          kaldı.
                         </p>
-                      ) : null}
-                    </div>
+                        {valuesForm.formState.errors.finalComment?.message ? (
+                          <p className="mt-2 text-xs text-red-600">
+                            {valuesForm.formState.errors.finalComment.message}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     <button
                       type="submit"
