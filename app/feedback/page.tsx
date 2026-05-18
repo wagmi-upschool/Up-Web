@@ -1132,36 +1132,57 @@ function FeedbackPageContent() {
         <header
           className={`rounded-2xl border border-gray-200 bg-white/95 px-5 py-[18px] shadow-sm ${
             isIsy
-              ? "flex items-center gap-4"
+              ? "flex items-start justify-between gap-4"
               : "flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4"
           }`}
         >
-          <Image
-            src="/up.svg"
-            alt="UP"
-            width={64}
-            height={64}
-            className="h-12 w-auto sm:h-16"
-          />
           {isIsy ? (
-            <div className="min-w-0">
-              <h1 className="font-righteous text-[32px] leading-none tracking-[-0.03em] text-title-black sm:text-[40px]">
-                Pulse
-              </h1>
-            </div>
-          ) : (
-            <div className="flex-1 space-y-1">
-              <div className="space-y-1">
-                <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
-                  {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
-                </h1>
-                <p className="text-[13px] text-text-description-gray">
-                  {isSelfMode
-                    ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
-                    : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
-                </p>
+            <>
+              <div className="flex min-w-0 items-center gap-4">
+                <Image
+                  src="/up.svg"
+                  alt="UP"
+                  width={64}
+                  height={64}
+                  className="h-12 w-auto sm:h-16"
+                />
+                <div className="min-w-0">
+                  <h1 className="font-righteous text-[32px] leading-none tracking-[-0.03em] text-title-black sm:text-[40px]">
+                    Pulse
+                  </h1>
+                </div>
               </div>
-            </div>
+              <Image
+                src="/is-yatirim-logo.png"
+                alt="İş Yatırım"
+                width={222}
+                height={58}
+                className="mr-1 h-10 w-auto shrink-0 self-center object-contain sm:h-12"
+                priority
+              />
+            </>
+          ) : (
+            <>
+              <Image
+                src="/up.svg"
+                alt="UP"
+                width={64}
+                height={64}
+                className="h-12 w-auto sm:h-16"
+              />
+              <div className="flex-1 space-y-1">
+                <div className="space-y-1">
+                  <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
+                    {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
+                  </h1>
+                  <p className="text-[13px] text-text-description-gray">
+                    {isSelfMode
+                      ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
+                      : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
+                  </p>
+                </div>
+              </div>
+            </>
           )}
         </header>
 
