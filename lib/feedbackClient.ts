@@ -1,7 +1,5 @@
 "use client";
 
-const base = process.env.NEXT_PUBLIC_REMOTE_URL;
-
 export type FeedbackSurveyType = "peer" | "self";
 export type FeedbackModuleKey = "survey" | "values";
 export type FeedbackQuestionType =
@@ -12,7 +10,72 @@ export type FeedbackQuestionType =
   | "emoji_choice"
   | "text_choice";
 
+type FeedbackApiErrorPayload = {
+  errorCode?: string | number;
+  errorMessage?: string;
+};
+
+export class FeedbackApiError extends Error {
+  code: string;
+  status: number;
+
+  constructor({
+    code,
+    message,
+    status,
+  }: {
+    code: string;
+    message: string;
+    status: number;
+  }) {
+    super(message);
+    this.name = "FeedbackApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export function parseFeedbackApiErrorPayload(
+  json: unknown,
+  status: number,
+  statusText: string,
+) {
+  const payload =
+    json && typeof json === "object" ? (json as Record<string, unknown>) : {};
+  const body =
+    payload.body && typeof payload.body === "object"
+      ? (payload.body as FeedbackApiErrorPayload)
+      : undefined;
+  const code = body?.errorCode ?? payload.errorCode ?? status;
+  const message =
+    body?.errorMessage ||
+    (typeof payload.errorMessage === "string" ? payload.errorMessage : "") ||
+    statusText;
+
+  return {
+    code: `${code}`,
+    message,
+  };
+}
+
+export function getFeedbackApiErrorCode(error: unknown) {
+  if (error instanceof FeedbackApiError) return error.code;
+
+  const raw = error instanceof Error ? error.message : `${error}`;
+  return raw.split(":")[0]?.trim();
+}
+
+export function getFeedbackApiErrorMessage(error: unknown) {
+  if (error instanceof FeedbackApiError) return error.message;
+
+  const raw = error instanceof Error ? error.message : `${error}`;
+  const [, ...messageParts] = raw.split(":");
+  const message = messageParts.join(":").trim();
+  return message || raw;
+}
+
 async function api<T>(path: string, init: RequestInit = {}) {
+  const base = process.env.NEXT_PUBLIC_REMOTE_URL;
   if (!base) {
     throw new Error("NEXT_PUBLIC_REMOTE_URL is not configured.");
   }
@@ -34,9 +97,16 @@ async function api<T>(path: string, init: RequestInit = {}) {
   }
 
   if (!response.ok) {
-    const message = json?.body?.errorMessage || response.statusText;
-    const code = json?.body?.errorCode;
-    throw new Error(`${code || response.status}: ${message}`);
+    const { code, message } = parseFeedbackApiErrorPayload(
+      json,
+      response.status,
+      response.statusText,
+    );
+    throw new FeedbackApiError({
+      code,
+      message,
+      status: response.status,
+    });
   }
 
   return (json?.body ?? json) as T;
@@ -109,20 +179,28 @@ export type SubmitSurveyPayload = {
   survey_type?: FeedbackSurveyType;
   channel?: "push" | "in_app" | "email";
   completion_time_seconds?: number;
+  token?: string;
 };
 
 function buildFeedbackQuery(
   params: Record<string, string>,
   surveyType?: FeedbackSurveyType,
+  token?: string,
 ) {
   const query = new URLSearchParams(params);
   if (surveyType) {
     query.set("feedbackSurveyType", surveyType);
   }
+  if (token) {
+    query.set("token", token);
+  }
   return query.toString();
 }
 
-export const getReceivers = (giverId: string, surveyType?: FeedbackSurveyType) =>
+export const getReceivers = (
+  giverId: string,
+  surveyType?: FeedbackSurveyType,
+) =>
   api<FeedbackReceiversResponse>(
     `/feedback/receivers?${buildFeedbackQuery(
       { feedbackGiverId: giverId },
@@ -134,6 +212,7 @@ export const getQuestions = (
   giverId: string,
   receiverId: string,
   surveyType?: FeedbackSurveyType,
+  token?: string,
 ) =>
   api<QuestionsResponse>(
     `/feedback/questions?${buildFeedbackQuery(
@@ -142,6 +221,7 @@ export const getQuestions = (
         feedbackReceiverId: receiverId,
       },
       surveyType,
+      token,
     )}`,
   );
 
@@ -151,7 +231,4 @@ export const submitSurvey = (payload: SubmitSurveyPayload) =>
     submitted_at: string;
     overall_score?: number;
     survey_type?: FeedbackSurveyType;
-  }>(
-    `/feedback/submit`,
-    { method: "POST", body: JSON.stringify(payload) },
-  );
+  }>(`/feedback/submit`, { method: "POST", body: JSON.stringify(payload) });

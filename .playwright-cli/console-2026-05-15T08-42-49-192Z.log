@@ -107,3 +107,4 @@ See more info here: https://nextjs.org/docs/messages/react-hydration-error
 [  514358ms] [LOG] AuthProvider render - User: null Loading: false @ webpack-internal:///(app-pages-browser)/./components/global/auth-provider/index.tsx:124
 [  563645ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
 [  563821ms] [LOG] [Fast Refresh] done in 176ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[355112311ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://dj56p3u1qe.execute-api.us-east-1.amazonaws.com/upwagmitec/feedback/receivers?feedbackGiverId=05c0a637-572c-446d-9a37-b8288d1ea349:0

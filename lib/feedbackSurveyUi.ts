@@ -1,10 +1,70 @@
 import type { FeedbackReceiver } from "./feedbackClient";
 
+export type FeedbackLinkTokenErrorCode =
+  | "LINK_TOKEN_REQUIRED"
+  | "LINK_TOKEN_INVALID"
+  | "LINK_EXPIRED"
+  | "LINK_USED";
+
+export type FeedbackLinkTokenErrorCopy = {
+  title: string;
+  description: string;
+};
+
 type AutoSelectReceiverInput = {
   isSelfMode: boolean;
   isIsy: boolean;
   receivers: FeedbackReceiver[];
 };
+
+const FEEDBACK_LINK_TOKEN_ERROR_COPY: Record<
+  FeedbackLinkTokenErrorCode,
+  FeedbackLinkTokenErrorCopy
+> = {
+  LINK_TOKEN_REQUIRED: {
+    title: "Geri bildirim linki eksik veya tamamlanmamış görünüyor.",
+    description:
+      "Bağlantının tamamını yeniden açmayı deneyin. Sorun sürerse yeni bir link isteyin.",
+  },
+  LINK_TOKEN_INVALID: {
+    title: "Bu geri bildirim linki doğrulanamadı.",
+    description:
+      "Link bozulmuş olabilir ya da size ait olmayabilir. Yeni bir link isteyip tekrar deneyin.",
+  },
+  LINK_EXPIRED: {
+    title: "Önceki anketin süresi doldu, yenisi için biraz erken!",
+    description:
+      "Her gün saat 16:30-23:59 arası açığız, bekliyoruz.",
+  },
+  LINK_USED: {
+    title: "Bugünkü değerlendirmeni aldık, teşekkürler!",
+    description:
+      "Her gün yalnızca bir kez katılabilirsin, yarın seni tekrar bekliyoruz.",
+  },
+};
+
+export function isFeedbackLinkTokenErrorCode(
+  code: string | undefined,
+): code is FeedbackLinkTokenErrorCode {
+  return (
+    code === "LINK_TOKEN_REQUIRED" ||
+    code === "LINK_TOKEN_INVALID" ||
+    code === "LINK_EXPIRED" ||
+    code === "LINK_USED"
+  );
+}
+
+export function getFeedbackLinkTokenErrorCopy(
+  code: FeedbackLinkTokenErrorCode,
+) {
+  return FEEDBACK_LINK_TOKEN_ERROR_COPY[code];
+}
+
+export function getFeedbackLinkTokenErrorMessage(
+  code: FeedbackLinkTokenErrorCode,
+) {
+  return getFeedbackLinkTokenErrorCopy(code).description;
+}
 
 export function getAutoSelectedReceiverId({
   isSelfMode,

@@ -1,6 +1,12 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type UseFormReturn, useForm } from "react-hook-form";
@@ -23,6 +29,8 @@ import {
   type FeedbackSurveyType,
   type QuestionsResponse,
   type SubmitSurveyPayload,
+  getFeedbackApiErrorCode,
+  getFeedbackApiErrorMessage,
   getQuestions,
   getReceivers,
   submitSurvey,
@@ -50,9 +58,12 @@ import {
 import { FEEDBACK_FEATURE_FLAGS } from "@/lib/feedbackFeatureFlags";
 import {
   getAutoSelectedReceiverId,
+  getFeedbackLinkTokenErrorCopy,
   getGeneralCommentPayloadValue,
   getSurveySubmitButtonLabel,
+  isFeedbackLinkTokenErrorCode,
   shouldShowGeneralCommentField,
+  type FeedbackLinkTokenErrorCode,
 } from "@/lib/feedbackSurveyUi";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
@@ -104,9 +115,8 @@ function formatReceiverLabel(receiver: FeedbackReceiver) {
 
 function formatApiError(error: unknown) {
   const raw = error instanceof Error ? error.message : `${error}`;
-  const [codePart, ...rest] = raw.split(":");
-  const code = codePart?.trim();
-  const message = rest.join(":").trim();
+  const code = getFeedbackApiErrorCode(error);
+  const message = getFeedbackApiErrorMessage(error);
 
   if (code === "403" || code === "AUTH_001" || code === "AUTH_002") {
     return "Geri bildirimi şu anda yükleyemedik. Lütfen tekrar deneyin.";
@@ -122,10 +132,19 @@ function formatApiError(error: unknown) {
   }
 
   if (code?.startsWith("VAL_")) {
-    return message || "Bazı yanıtlar geçersiz. Lütfen kontrol edip tekrar deneyin.";
+    return (
+      message || "Bazı yanıtlar geçersiz. Lütfen kontrol edip tekrar deneyin."
+    );
   }
 
   return message || raw || "Bir şeyler ters gitti. Lütfen tekrar deneyin.";
+}
+
+function getFeedbackLinkTokenErrorCode(
+  error: unknown,
+): FeedbackLinkTokenErrorCode | null {
+  const code = getFeedbackApiErrorCode(error);
+  return isFeedbackLinkTokenErrorCode(code) ? code : null;
 }
 
 function createEmptyModule(): NormalizedFeedbackModule {
@@ -318,6 +337,101 @@ function FeedbackLoadingOverlay() {
   );
 }
 
+function FeedbackPageHeader({
+  isIsy,
+  isSelfMode,
+}: {
+  isIsy: boolean;
+  isSelfMode: boolean;
+}) {
+  return (
+    <header
+      className={`rounded-2xl border border-gray-200 bg-white/95 px-5 py-[18px] shadow-sm ${
+        isIsy
+          ? "flex items-start justify-between gap-4"
+          : "flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4"
+      }`}
+    >
+      {isIsy ? (
+        <>
+          <div className="flex min-w-0 items-center gap-4">
+            <Image
+              src="/up.svg"
+              alt="UP"
+              width={64}
+              height={64}
+              className="h-12 w-auto sm:h-16"
+            />
+            <div className="min-w-0">
+              <h1 className="font-righteous text-[32px] leading-none tracking-[-0.03em] text-title-black sm:text-[40px]">
+                Pulse
+              </h1>
+            </div>
+          </div>
+          <Image
+            src="/is-yatirim-logo.png"
+            alt="İş Yatırım"
+            width={222}
+            height={58}
+            className="mr-1 h-10 w-auto shrink-0 self-center object-contain sm:h-12"
+            priority
+          />
+        </>
+      ) : (
+        <>
+          <Image
+            src="/up.svg"
+            alt="UP"
+            width={64}
+            height={64}
+            className="h-12 w-auto sm:h-16"
+          />
+          <div className="flex-1 space-y-1">
+            <div className="space-y-1">
+              <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
+                {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
+              </h1>
+              <p className="text-[13px] text-text-description-gray">
+                {isSelfMode
+                  ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
+                  : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+    </header>
+  );
+}
+
+function FeedbackLinkTokenErrorScreen({
+  code,
+  isIsy,
+  isSelfMode,
+}: {
+  code: FeedbackLinkTokenErrorCode;
+  isIsy: boolean;
+  isSelfMode: boolean;
+}) {
+  const copy = getFeedbackLinkTokenErrorCopy(code);
+
+  return (
+    <FeedbackPageShell>
+      <div className="relative z-10 mx-auto max-w-6xl space-y-4 px-2 pb-28 pt-5 sm:px-4">
+        <FeedbackPageHeader isIsy={isIsy} isSelfMode={isSelfMode} />
+        <div className="rounded-2xl border border-[#F3B4AF] bg-[#FFF4F3] px-6 py-5 shadow-sm">
+          <p className="text-[18px] font-semibold text-[#D44C42]">
+            {copy.title}
+          </p>
+          <p className="mt-2 text-[15px] text-[#8A4A45]">
+            {copy.description}
+          </p>
+        </div>
+      </div>
+    </FeedbackPageShell>
+  );
+}
+
 function QuestionField({
   form,
   module,
@@ -330,8 +444,9 @@ function QuestionField({
   hideFreeTextHelper?: boolean;
 }) {
   const questionValue = form.watch(`answers.${question.question_id}`) || "";
-  const answerErrors = form.formState.errors
-    .answers as Record<string, { message?: string }> | undefined;
+  const answerErrors = form.formState.errors.answers as
+    | Record<string, { message?: string }>
+    | undefined;
   const errorMessage = answerErrors?.[question.question_id]?.message;
 
   const questionScaleMin = getQuestionScaleMin(question);
@@ -670,15 +785,17 @@ function FeedbackPageContent() {
   const searchParams = useSearchParams();
   const giverId = searchParams?.get("feedbackGiverId") || "";
   const rawSurveyType = searchParams?.get("feedbackSurveyType");
-  const surveyType: FeedbackSurveyType = rawSurveyType === "self" ? "self" : "peer";
+  const feedbackToken = searchParams?.get("token")?.trim() || "";
+  const surveyType: FeedbackSurveyType =
+    rawSurveyType === "self" ? "self" : "peer";
   const isSelfMode = surveyType === "self";
 
   const [receiverId, setReceiverId] = useState("");
   const [activeTab, setActiveTab] = useState<FeedbackTab>("survey");
   const [selectedValuesQuestionId, setSelectedValuesQuestionId] = useState("");
-  const [lastQuestionReceiver, setLastQuestionReceiver] = useState<string | null>(
-    null,
-  );
+  const [lastQuestionReceiver, setLastQuestionReceiver] = useState<
+    string | null
+  >(null);
   const [moduleStartTimes, setModuleStartTimes] = useState<ModuleStartTimes>({
     survey: null,
     values: null,
@@ -690,6 +807,8 @@ function FeedbackPageContent() {
   const [successOverlay, setSuccessOverlay] = useState<SuccessOverlayState>(
     createClosedSuccessOverlay,
   );
+  const [linkTokenErrorCode, setLinkTokenErrorCode] =
+    useState<FeedbackLinkTokenErrorCode | null>(null);
 
   const queryClient = useQueryClient();
   const surveyForm = useForm<ModuleFormValues>({
@@ -722,8 +841,15 @@ function FeedbackPageContent() {
     isLoading: loadingQuestions,
     error: questionsError,
   } = useQuery<QuestionsResponse>({
-    queryKey: ["feedbackQuestions", giverId, receiverId, surveyType],
-    queryFn: () => getQuestions(giverId, receiverId, selfModeParam),
+    queryKey: [
+      "feedbackQuestions",
+      giverId,
+      receiverId,
+      surveyType,
+      feedbackToken,
+    ],
+    queryFn: () =>
+      getQuestions(giverId, receiverId, selfModeParam, feedbackToken),
     enabled: canQueryQuestions,
     refetchOnWindowFocus: false,
   });
@@ -831,11 +957,13 @@ function FeedbackPageContent() {
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
     setSuccessOverlay(createClosedSuccessOverlay());
+    setLinkTokenErrorCode(null);
     resetAllForms();
-  }, [resetAllForms, surveyType]);
+  }, [feedbackToken, resetAllForms, surveyType]);
 
   useEffect(() => {
-    if (!autoSelectedReceiverId || receiverId === autoSelectedReceiverId) return;
+    if (!autoSelectedReceiverId || receiverId === autoSelectedReceiverId)
+      return;
 
     setReceiverId(autoSelectedReceiverId);
     setActiveTab("survey");
@@ -886,7 +1014,13 @@ function FeedbackPageContent() {
       ...current,
       [activeTab]: Date.now(),
     }));
-  }, [activeModule.available, activeTab, moduleStartTimes, questionsResp, receiverId]);
+  }, [
+    activeModule.available,
+    activeTab,
+    moduleStartTimes,
+    questionsResp,
+    receiverId,
+  ]);
 
   const handleModuleSubmitSuccess = (module: FeedbackTab) => {
     setModuleSuccess((current) => ({ ...current, [module]: true }));
@@ -896,25 +1030,29 @@ function FeedbackPageContent() {
       module,
     });
     queryClient.invalidateQueries({
-      queryKey: ["feedbackQuestions", giverId, receiverId, surveyType],
+      queryKey: [
+        "feedbackQuestions",
+        giverId,
+        receiverId,
+        surveyType,
+        feedbackToken,
+      ],
     });
   };
 
   const handleSuccessOverlayClose = () => {
-    const nextState = getStateAfterSuccessOverlayClose(
-      {
-        receiverId,
-        activeTab,
-        lastQuestionReceiver,
-        selectedValuesQuestionId,
-        moduleStartTimes,
-        successOverlay,
-        forms: {
-          survey: surveyForm.getValues(),
-          values: valuesForm.getValues(),
-        },
+    const nextState = getStateAfterSuccessOverlayClose({
+      receiverId,
+      activeTab,
+      lastQuestionReceiver,
+      selectedValuesQuestionId,
+      moduleStartTimes,
+      successOverlay,
+      forms: {
+        survey: surveyForm.getValues(),
+        values: valuesForm.getValues(),
       },
-    );
+    });
 
     setReceiverId(nextState.receiverId);
     setActiveTab(nextState.activeTab);
@@ -930,6 +1068,12 @@ function FeedbackPageContent() {
     mutationFn: submitSurvey,
     onSuccess: () => handleModuleSubmitSuccess("survey"),
     onError: (error) => {
+      const tokenErrorCode = getFeedbackLinkTokenErrorCode(error);
+      if (tokenErrorCode) {
+        setLinkTokenErrorCode(tokenErrorCode);
+        return;
+      }
+
       toast.error(formatApiError(error));
     },
   });
@@ -938,6 +1082,12 @@ function FeedbackPageContent() {
     mutationFn: submitSurvey,
     onSuccess: () => handleModuleSubmitSuccess("values"),
     onError: (error) => {
+      const tokenErrorCode = getFeedbackLinkTokenErrorCode(error);
+      if (tokenErrorCode) {
+        setLinkTokenErrorCode(tokenErrorCode);
+        return;
+      }
+
       toast.error(formatApiError(error));
     },
   });
@@ -953,8 +1103,15 @@ function FeedbackPageContent() {
 
     if (giverId && canQuery) {
       queryClient.prefetchQuery({
-        queryKey: ["feedbackQuestions", giverId, value, surveyType],
-        queryFn: () => getQuestions(giverId, value, selfModeParam),
+        queryKey: [
+          "feedbackQuestions",
+          giverId,
+          value,
+          surveyType,
+          feedbackToken,
+        ],
+        queryFn: () =>
+          getQuestions(giverId, value, selfModeParam, feedbackToken),
       });
     }
   };
@@ -966,7 +1123,7 @@ function FeedbackPageContent() {
   ): SubmitSurveyPayload => {
     const submitReceiverId = isSelfMode ? giverId : receiverId;
 
-    return {
+    const payload: SubmitSurveyPayload = {
       feedback_giver_id: giverId,
       feedback_receiver_id: submitReceiverId,
       competency_id: competencyId,
@@ -974,8 +1131,16 @@ function FeedbackPageContent() {
       answers,
       survey_type: surveyType,
       channel: "in_app",
-      completion_time_seconds: getCompletionTimeSeconds(moduleStartTimes[module]),
+      completion_time_seconds: getCompletionTimeSeconds(
+        moduleStartTimes[module],
+      ),
     };
+
+    if (feedbackToken) {
+      payload.token = feedbackToken;
+    }
+
+    return payload;
   };
 
   const handleSurveySubmit = (values: ModuleFormValues) => {
@@ -1043,13 +1208,9 @@ function FeedbackPageContent() {
   };
 
   const receiversEmpty =
-    !loadingReceivers &&
-    !receiversError &&
-    feedbackReceivers.length === 0;
+    !loadingReceivers && !receiversError && feedbackReceivers.length === 0;
   const selfReceiver =
-    isSelfMode && feedbackReceivers.length === 1
-      ? feedbackReceivers[0]
-      : null;
+    isSelfMode && feedbackReceivers.length === 1 ? feedbackReceivers[0] : null;
   const showLoadingOverlay =
     loadingReceivers || (loadingQuestions && Boolean(receiverId));
   const shouldShowInitialLoadingScreen =
@@ -1061,9 +1222,14 @@ function FeedbackPageContent() {
         !questionsError &&
         (!receiverId || (loadingQuestions && !questionsResp))));
   const activeSubmitMutation =
-    resolvedActiveTab === "survey" ? surveySubmitMutation : valuesSubmitMutation;
+    resolvedActiveTab === "survey"
+      ? surveySubmitMutation
+      : valuesSubmitMutation;
   const formDisabled =
-    activeSubmitMutation.isPending || loadingQuestions || !receiverId || !questionsResp;
+    activeSubmitMutation.isPending ||
+    loadingQuestions ||
+    !receiverId ||
+    !questionsResp;
   const surveySubmitDisabled =
     formDisabled ||
     !surveyModule.available ||
@@ -1078,6 +1244,10 @@ function FeedbackPageContent() {
     !selectedValuesQuestion ||
     !selectedValuesAnswer ||
     !valuesHasAnsweredQuestion;
+  const terminalLinkTokenErrorCode =
+    linkTokenErrorCode ||
+    getFeedbackLinkTokenErrorCode(questionsError) ||
+    getFeedbackLinkTokenErrorCode(receiversError);
 
   if (!giverId) {
     return (
@@ -1117,6 +1287,16 @@ function FeedbackPageContent() {
     );
   }
 
+  if (terminalLinkTokenErrorCode) {
+    return (
+      <FeedbackLinkTokenErrorScreen
+        code={terminalLinkTokenErrorCode}
+        isIsy={isIsy}
+        isSelfMode={isSelfMode}
+      />
+    );
+  }
+
   if (shouldShowInitialLoadingScreen) {
     return (
       <FeedbackPageShell>
@@ -1129,62 +1309,7 @@ function FeedbackPageContent() {
     <FeedbackPageShell>
       {showLoadingOverlay ? <FeedbackLoadingOverlay /> : null}
       <div className="relative z-10 mx-auto max-w-6xl space-y-3 px-2 pb-28 pt-5 sm:px-4">
-        <header
-          className={`rounded-2xl border border-gray-200 bg-white/95 px-5 py-[18px] shadow-sm ${
-            isIsy
-              ? "flex items-start justify-between gap-4"
-              : "flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4"
-          }`}
-        >
-          {isIsy ? (
-            <>
-              <div className="flex min-w-0 items-center gap-4">
-                <Image
-                  src="/up.svg"
-                  alt="UP"
-                  width={64}
-                  height={64}
-                  className="h-12 w-auto sm:h-16"
-                />
-                <div className="min-w-0">
-                  <h1 className="font-righteous text-[32px] leading-none tracking-[-0.03em] text-title-black sm:text-[40px]">
-                    Pulse
-                  </h1>
-                </div>
-              </div>
-              <Image
-                src="/is-yatirim-logo.png"
-                alt="İş Yatırım"
-                width={222}
-                height={58}
-                className="mr-1 h-10 w-auto shrink-0 self-center object-contain sm:h-12"
-                priority
-              />
-            </>
-          ) : (
-            <>
-              <Image
-                src="/up.svg"
-                alt="UP"
-                width={64}
-                height={64}
-                className="h-12 w-auto sm:h-16"
-              />
-              <div className="flex-1 space-y-1">
-                <div className="space-y-1">
-                  <h1 className="text-[18px] font-bold tracking-[-0.3px] text-title-black">
-                    {isSelfMode ? "Öz Değerlendirme" : "İleri Bildirim Ver"}
-                  </h1>
-                  <p className="text-[13px] text-text-description-gray">
-                    {isSelfMode
-                      ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
-                      : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-        </header>
+        <FeedbackPageHeader isIsy={isIsy} isSelfMode={isSelfMode} />
 
         <div className="space-y-4">
           {!isIsy ? (
@@ -1259,7 +1384,8 @@ function FeedbackPageContent() {
 
             {isIsy && receiversEmpty ? (
               <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
-                Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca haber vereceğiz.
+                Şu anda değerlendirebileceğin kimse yok. Bir alıcı atanınca
+                haber vereceğiz.
               </div>
             ) : null}
 
@@ -1269,7 +1395,7 @@ function FeedbackPageContent() {
                   ? "Sorular hazırlanıyor. Öz değerlendirme alıcısı otomatik seçilecek."
                   : isIsy
                     ? "Sorular hazırlanıyor. Değerlendirme alıcısı otomatik seçilecek."
-                  : "Yetkinlik ve soruları görmek için bir alıcı seç."}
+                    : "Yetkinlik ve soruları görmek için bir alıcı seç."}
               </div>
             )}
 
@@ -1312,7 +1438,8 @@ function FeedbackPageContent() {
 
                 {!surveyTabVisible && !valuesTabVisible ? (
                   <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
-                    Bu kişi için gösterilebilecek değerlendirme modülü bulunmuyor.
+                    Bu kişi için gösterilebilecek değerlendirme modülü
+                    bulunmuyor.
                   </div>
                 ) : !activeModule.available ? (
                   <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
@@ -1360,8 +1487,8 @@ function FeedbackPageContent() {
                           })}
                         />
                         <p className="mt-2 text-[11px] text-gray-400">
-                          {MAX_FEEDBACK_FREE_TEXT - surveyFinalComment.length} karakter
-                          kaldı.
+                          {MAX_FEEDBACK_FREE_TEXT - surveyFinalComment.length}{" "}
+                          karakter kaldı.
                         </p>
                         {surveyForm.formState.errors.finalComment?.message ? (
                           <p className="mt-2 text-xs text-red-600">
@@ -1429,7 +1556,8 @@ function FeedbackPageContent() {
                       />
                     ) : (
                       <div className="rounded-[14px] border border-dashed border-gray-200 bg-white px-5 py-4 text-[14px] text-gray-500">
-                        Davranış ilkesini seçtikten sonra geri bildirimini verebilirsin.
+                        Davranış ilkesini seçtikten sonra geri bildirimini
+                        verebilirsin.
                       </div>
                     )}
 
@@ -1451,8 +1579,8 @@ function FeedbackPageContent() {
                           })}
                         />
                         <p className="mt-2 text-[11px] text-gray-400">
-                          {MAX_FEEDBACK_FREE_TEXT - valuesFinalComment.length} karakter
-                          kaldı.
+                          {MAX_FEEDBACK_FREE_TEXT - valuesFinalComment.length}{" "}
+                          karakter kaldı.
                         </p>
                         {valuesForm.formState.errors.finalComment?.message ? (
                           <p className="mt-2 text-xs text-red-600">
