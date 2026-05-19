@@ -830,8 +830,8 @@ function FeedbackPageContent() {
     isLoading: loadingReceivers,
     error: receiversError,
   } = useQuery<FeedbackReceiversResponse>({
-    queryKey: ["feedbackReceivers", giverId, surveyType],
-    queryFn: () => getReceivers(giverId, selfModeParam),
+    queryKey: ["feedbackReceivers", giverId, surveyType, feedbackToken],
+    queryFn: () => getReceivers(giverId, selfModeParam, feedbackToken),
     enabled: canQuery,
     refetchOnWindowFocus: false,
   });

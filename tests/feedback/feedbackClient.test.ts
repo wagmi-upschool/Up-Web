@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getReceivers,
   getQuestions,
   parseFeedbackApiErrorPayload,
   submitSurvey,
@@ -31,6 +32,20 @@ test("getQuestions includes token when provided", async () => {
   assert.equal(
     calls[0]?.url,
     `${apiBase}/feedback/questions?feedbackGiverId=giver-1&feedbackReceiverId=receiver-1&token=v1.token`,
+  );
+});
+
+test("getReceivers includes token when provided", async () => {
+  process.env.NEXT_PUBLIC_REMOTE_URL = apiBase;
+  const calls = mockFetch({
+    body: { is_isy: false, feedback_receivers: [] },
+  });
+
+  await getReceivers("giver-1", undefined, "v1.token");
+
+  assert.equal(
+    calls[0]?.url,
+    `${apiBase}/feedback/receivers?feedbackGiverId=giver-1&token=v1.token`,
   );
 });
 

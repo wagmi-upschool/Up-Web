@@ -200,11 +200,13 @@ function buildFeedbackQuery(
 export const getReceivers = (
   giverId: string,
   surveyType?: FeedbackSurveyType,
+  token?: string,
 ) =>
   api<FeedbackReceiversResponse>(
     `/feedback/receivers?${buildFeedbackQuery(
       { feedbackGiverId: giverId },
       surveyType,
+      token,
     )}`,
   );
 
