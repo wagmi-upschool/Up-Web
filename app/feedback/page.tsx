@@ -95,6 +95,7 @@ const CHOICE_SELECTED_SURFACE =
   "border-[#F0E4DD] bg-[#F7EFEC]/90 text-[#8E8A84] shadow-[0_14px_34px_rgba(221,201,189,0.28)]";
 const CHOICE_UNSELECTED_SURFACE =
   "border-transparent bg-transparent text-[#66707A] hover:border-[#EFE5DE]/70 hover:bg-[#FBF6F2]/65";
+const ISY_SUCCESS_REDIRECT_DELAY_MS = 8000;
 
 function getReceiverEmail(receiver: FeedbackReceiver) {
   return (
@@ -1040,7 +1041,17 @@ function FeedbackPageContent() {
     });
   };
 
+  const handleIsySuccessCompletion = useCallback(() => {
+    setSuccessOverlay(createClosedSuccessOverlay());
+    setLinkTokenErrorCode("LINK_USED");
+  }, []);
+
   const handleSuccessOverlayClose = () => {
+    if (isIsy) {
+      handleIsySuccessCompletion();
+      return;
+    }
+
     const nextState = getStateAfterSuccessOverlayClose({
       receiverId,
       activeTab,
@@ -1063,6 +1074,16 @@ function FeedbackPageContent() {
     applyModuleFormValues("survey", nextState.forms.survey);
     applyModuleFormValues("values", nextState.forms.values);
   };
+
+  useEffect(() => {
+    if (!isIsy || !successOverlay.open) return;
+
+    const timeoutId = window.setTimeout(() => {
+      handleIsySuccessCompletion();
+    }, ISY_SUCCESS_REDIRECT_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [handleIsySuccessCompletion, isIsy, successOverlay.open]);
 
   const surveySubmitMutation = useMutation({
     mutationFn: submitSurvey,
