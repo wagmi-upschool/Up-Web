@@ -114,10 +114,40 @@ function formatReceiverLabel(receiver: FeedbackReceiver) {
   return `ID: ${receiver.feedback_receiver_id}`;
 }
 
-function formatApiError(error: unknown) {
+function isRequiredSurveyQuestion(question: FeedbackQuestion) {
+  return question.type !== "free_text";
+}
+
+function getRequiredSurveyQuestionMessage(question: FeedbackQuestion) {
+  return `${question.order}. soru boş bırakılamaz.`;
+}
+
+function getQuestionSpecificApiError(
+  error: unknown,
+  questions: FeedbackQuestion[],
+): string | null {
+  const message = getFeedbackApiErrorMessage(error);
+  const missingOptionIdMatch = message.match(
+    /^answer_value for (.+?) must be a non-empty option_id$/i,
+  );
+  const missingQuestionId = missingOptionIdMatch?.[1];
+  if (!missingQuestionId) return null;
+
+  const question = questions.find(
+    (item) => item.question_id === missingQuestionId,
+  );
+  return question ? getRequiredSurveyQuestionMessage(question) : null;
+}
+
+function formatApiError(error: unknown, questions: FeedbackQuestion[] = []) {
   const raw = error instanceof Error ? error.message : `${error}`;
   const code = getFeedbackApiErrorCode(error);
   const message = getFeedbackApiErrorMessage(error);
+  const questionSpecificMessage = getQuestionSpecificApiError(error, questions);
+
+  if (questionSpecificMessage) {
+    return questionSpecificMessage;
+  }
 
   if (code === "403" || code === "AUTH_001" || code === "AUTH_002") {
     return "Geri bildirimi şu anda yükleyemedik. Lütfen tekrar deneyin.";
@@ -231,11 +261,14 @@ function validateSubmittedModuleAnswers(
   for (const question of questions) {
     const rawValue = answers[question.question_id];
     if (rawValue === undefined || rawValue === null || rawValue === "") {
-      if (FEEDBACK_FEATURE_FLAGS.allowBlankSurveyAnswers) {
+      if (
+        FEEDBACK_FEATURE_FLAGS.allowBlankSurveyAnswers &&
+        !isRequiredSurveyQuestion(question)
+      ) {
         continue;
       }
 
-      return "Lütfen tüm soruları yanıtlayın.";
+      return getRequiredSurveyQuestionMessage(question);
     }
 
     const verdict = validateFeedbackAnswer(question, rawValue);
@@ -1095,7 +1128,7 @@ function FeedbackPageContent() {
         return;
       }
 
-      toast.error(formatApiError(error));
+      toast.error(formatApiError(error, surveyQuestions));
     },
   });
 
@@ -1109,7 +1142,7 @@ function FeedbackPageContent() {
         return;
       }
 
-      toast.error(formatApiError(error));
+      toast.error(formatApiError(error, selectedValuesQuestions));
     },
   });
 
