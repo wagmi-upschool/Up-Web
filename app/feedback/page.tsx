@@ -858,6 +858,12 @@ function FeedbackPageContent() {
   const selfModeParam = isSelfMode ? surveyType : undefined;
   const canQueryQuestions =
     canQuery && !!receiverId && (!isSelfMode || receiverId === giverId);
+  const feedbackQueryOptions = {
+    refetchOnWindowFocus: false,
+    // Link/token failures are terminal for the current URL, so repeating the
+    // same request only creates noisy duplicate network calls.
+    retry: false,
+  } as const;
 
   const {
     data: receivers,
@@ -867,7 +873,7 @@ function FeedbackPageContent() {
     queryKey: ["feedbackReceivers", giverId, surveyType, feedbackToken],
     queryFn: () => getReceivers(giverId, selfModeParam, feedbackToken),
     enabled: canQuery,
-    refetchOnWindowFocus: false,
+    ...feedbackQueryOptions,
   });
 
   const {
@@ -885,7 +891,7 @@ function FeedbackPageContent() {
     queryFn: () =>
       getQuestions(giverId, receiverId, selfModeParam, feedbackToken),
     enabled: canQueryQuestions,
-    refetchOnWindowFocus: false,
+    ...feedbackQueryOptions,
   });
 
   const modules = useMemo(
@@ -1166,6 +1172,7 @@ function FeedbackPageContent() {
         ],
         queryFn: () =>
           getQuestions(giverId, value, selfModeParam, feedbackToken),
+        ...feedbackQueryOptions,
       });
     }
   };
