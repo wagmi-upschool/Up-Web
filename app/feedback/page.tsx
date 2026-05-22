@@ -17,7 +17,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Star } from "lucide-react";
+import { Check, Star } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   type FeedbackCompetency,
@@ -30,6 +30,7 @@ import {
   type QuestionsResponse,
   type SubmitSurveyPayload,
   getFeedbackApiErrorCode,
+  getFeedbackApiErrorLinkType,
   getFeedbackApiErrorMessage,
   getQuestions,
   getReceivers,
@@ -41,6 +42,7 @@ import {
   getQuestionScaleMax,
   getQuestionScaleMin,
   hasAnyAnsweredFeedbackQuestion,
+  isEmptyFeedbackAnswerValue,
   isChoiceQuestion,
   MAX_FEEDBACK_FREE_TEXT,
   parsePercentageValue,
@@ -58,7 +60,7 @@ import {
 import { FEEDBACK_FEATURE_FLAGS } from "@/lib/feedbackFeatureFlags";
 import {
   getAutoSelectedReceiverId,
-  getFeedbackLinkTokenErrorCopy,
+  getFeedbackLinkTokenErrorDisplayCopy,
   getGeneralCommentPayloadValue,
   getSurveySubmitButtonLabel,
   isFeedbackLinkTokenErrorCode,
@@ -69,6 +71,11 @@ import LottieSpinner from "@/components/global/loader/lottie-spinner";
 
 type FeedbackTab = FeedbackModuleKey;
 type ModuleSuccessState = Record<FeedbackTab, boolean>;
+type FeedbackLinkTokenErrorState = {
+  code: FeedbackLinkTokenErrorCode;
+  message?: string;
+  feedbackLinkType?: string;
+};
 
 type NormalizedFeedbackModule = {
   available: boolean;
@@ -171,11 +178,17 @@ function formatApiError(error: unknown, questions: FeedbackQuestion[] = []) {
   return message || raw || "Bir şeyler ters gitti. Lütfen tekrar deneyin.";
 }
 
-function getFeedbackLinkTokenErrorCode(
+function getFeedbackLinkTokenError(
   error: unknown,
-): FeedbackLinkTokenErrorCode | null {
+): FeedbackLinkTokenErrorState | null {
   const code = getFeedbackApiErrorCode(error);
-  return isFeedbackLinkTokenErrorCode(code) ? code : null;
+  if (!isFeedbackLinkTokenErrorCode(code)) return null;
+
+  return {
+    code,
+    message: getFeedbackApiErrorMessage(error),
+    feedbackLinkType: getFeedbackApiErrorLinkType(error),
+  };
 }
 
 function createEmptyModule(): NormalizedFeedbackModule {
@@ -256,11 +269,11 @@ function getPreferredActiveTab(
 
 function validateSubmittedModuleAnswers(
   questions: FeedbackQuestion[],
-  answers: Record<string, string>,
+  answers: ModuleFormValues["answers"],
 ) {
   for (const question of questions) {
     const rawValue = answers[question.question_id];
-    if (rawValue === undefined || rawValue === null || rawValue === "") {
+    if (isEmptyFeedbackAnswerValue(rawValue)) {
       if (
         FEEDBACK_FEATURE_FLAGS.allowBlankSurveyAnswers &&
         !isRequiredSurveyQuestion(question)
@@ -282,13 +295,13 @@ function validateSubmittedModuleAnswers(
 
 function validateOptionalModuleAnswers(
   questions: FeedbackQuestion[],
-  answers: Record<string, string>,
+  answers: ModuleFormValues["answers"],
 ) {
   let answeredQuestionCount = 0;
 
   for (const question of questions) {
     const rawValue = answers[question.question_id];
-    if (rawValue === undefined || rawValue === null || rawValue === "") {
+    if (isEmptyFeedbackAnswerValue(rawValue)) {
       continue;
     }
 
@@ -439,15 +452,15 @@ function FeedbackPageHeader({
 }
 
 function FeedbackLinkTokenErrorScreen({
-  code,
+  error,
   isIsy,
   isSelfMode,
 }: {
-  code: FeedbackLinkTokenErrorCode;
+  error: FeedbackLinkTokenErrorState;
   isIsy: boolean;
   isSelfMode: boolean;
 }) {
-  const copy = getFeedbackLinkTokenErrorCopy(code);
+  const copy = getFeedbackLinkTokenErrorDisplayCopy(error);
 
   return (
     <FeedbackPageShell>
@@ -457,9 +470,11 @@ function FeedbackLinkTokenErrorScreen({
           <p className="text-[18px] font-semibold text-[#D44C42]">
             {copy.title}
           </p>
-          <p className="mt-2 text-[15px] text-[#8A4A45]">
-            {copy.description}
-          </p>
+          {copy.description ? (
+            <p className="mt-2 text-[15px] text-[#8A4A45]">
+              {copy.description}
+            </p>
+          ) : null}
         </div>
       </div>
     </FeedbackPageShell>
@@ -477,7 +492,12 @@ function QuestionField({
   question: FeedbackQuestion;
   hideFreeTextHelper?: boolean;
 }) {
-  const questionValue = form.watch(`answers.${question.question_id}`) || "";
+  const rawQuestionValue = form.watch(`answers.${question.question_id}`);
+  const questionValue =
+    typeof rawQuestionValue === "string" ? rawQuestionValue : "";
+  const multiSelectValues = Array.isArray(rawQuestionValue)
+    ? rawQuestionValue
+    : [];
   const answerErrors = form.formState.errors.answers as
     | Record<string, { message?: string }>
     | undefined;
@@ -510,6 +530,30 @@ function QuestionField({
   const labelClass = isValuesQuestion
     ? "block text-[13px] font-medium leading-6 text-title-black"
     : "block text-[13px] font-medium leading-6 text-title-black";
+  const answerFieldName = `answers.${question.question_id}` as const;
+
+  const setAnswerValue = (value: string | string[]) => {
+    form.setValue(answerFieldName, value, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
+
+  const toggleMultiSelectOption = (optionId: string) => {
+    const nextValues = multiSelectValues.includes(optionId)
+      ? multiSelectValues.filter((value) => value !== optionId)
+      : [...multiSelectValues, optionId];
+
+    setAnswerValue(nextValues);
+  };
+
+  useEffect(() => {
+    if (question.type !== "multi_select") return;
+
+    form.register(answerFieldName, {
+      validate: (value) => validateFeedbackAnswer(question, value),
+    });
+  }, [answerFieldName, form, question]);
 
   return (
     <div className={containerClass}>
@@ -531,16 +575,11 @@ function QuestionField({
                   key={value}
                   type="button"
                   onClick={() =>
-                    form.setValue(
-                      `answers.${question.question_id}`,
+                    setAnswerValue(
                       FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo &&
                         currentLikertValue === value
                         ? ""
                         : String(value),
-                      {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      },
                     )
                   }
                   className="inline-flex rounded transition-transform duration-150 hover:scale-110 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
@@ -578,14 +617,7 @@ function QuestionField({
                 inputMode="decimal"
                 value={questionValue}
                 onChange={(event) =>
-                  form.setValue(
-                    `answers.${question.question_id}`,
-                    sanitizePercentageInput(event.target.value),
-                    {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    },
-                  )
+                  setAnswerValue(sanitizePercentageInput(event.target.value))
                 }
                 placeholder="0"
                 className="w-28 rounded-xl border border-sky-200 bg-white px-3 py-2 text-center text-lg text-title-black font-poppins shadow-sm outline-none transition focus:border-sky-400 sm:text-xl"
@@ -600,14 +632,7 @@ function QuestionField({
                 value={percentageSliderValue}
                 style={{ accentColor: PERCENTAGE_SLIDER_COLOR }}
                 onChange={(event) =>
-                  form.setValue(
-                    `answers.${question.question_id}`,
-                    event.target.value.replace(".", ","),
-                    {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    },
-                  )
+                  setAnswerValue(event.target.value.replace(".", ","))
                 }
                 className="percentage-slider h-3 w-full cursor-pointer rounded-full"
               />
@@ -633,15 +658,10 @@ function QuestionField({
                 key={value}
                 type="button"
                 onClick={() =>
-                  form.setValue(
-                    `answers.${question.question_id}`,
+                  setAnswerValue(
                     FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
                       ? ""
                       : value,
-                    {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    },
                   )
                 }
                 className="group flex flex-col items-center gap-1"
@@ -705,15 +725,10 @@ function QuestionField({
                 key={option.option_id}
                 type="button"
                 onClick={() =>
-                  form.setValue(
-                    `answers.${question.question_id}`,
+                  setAnswerValue(
                     FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
                       ? ""
                       : option.option_id,
-                    {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    },
                   )
                 }
                 className={`group flex min-w-[112px] flex-col items-center gap-3 rounded-[30px] px-5 py-4 font-poppins transition-all duration-200 focus:outline-none focus-visible:ring-0 ${
@@ -751,15 +766,10 @@ function QuestionField({
                 key={option.option_id}
                 type="button"
                 onClick={() =>
-                  form.setValue(
-                    `answers.${question.question_id}`,
+                  setAnswerValue(
                     FEEDBACK_FEATURE_FLAGS.allowRepeatSelectionUndo && active
                       ? ""
                       : option.option_id,
-                    {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    },
                   )
                 }
                 className={`min-w-[132px] rounded-full border px-7 py-4 text-center font-poppins text-[15px] leading-none tracking-[-0.01em] transition-all duration-200 focus:outline-none focus-visible:ring-0 sm:min-w-[148px] sm:text-[17px] ${
@@ -777,6 +787,29 @@ function QuestionField({
               validate: (value) => validateFeedbackAnswer(question, value),
             })}
           />
+        </div>
+      ) : question.type === "multi_select" ? (
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+          {choiceOptions.map((option) => {
+            const active = multiSelectValues.includes(option.option_id);
+
+            return (
+              <button
+                key={option.option_id}
+                type="button"
+                onClick={() => toggleMultiSelectOption(option.option_id)}
+                className={`inline-flex min-w-[132px] items-center justify-center gap-2 rounded-full border px-6 py-4 text-center font-poppins text-[15px] leading-none tracking-[-0.01em] transition-all duration-200 focus:outline-none focus-visible:ring-0 sm:min-w-[148px] sm:text-[17px] ${
+                  active ? CHOICE_SELECTED_SURFACE : CHOICE_UNSELECTED_SURFACE
+                }`}
+                aria-pressed={active}
+              >
+                {active ? (
+                  <Check className="h-4 w-4" strokeWidth={2.4} />
+                ) : null}
+                <span>{option.label}</span>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <textarea
@@ -841,8 +874,8 @@ function FeedbackPageContent() {
   const [successOverlay, setSuccessOverlay] = useState<SuccessOverlayState>(
     createClosedSuccessOverlay,
   );
-  const [linkTokenErrorCode, setLinkTokenErrorCode] =
-    useState<FeedbackLinkTokenErrorCode | null>(null);
+  const [linkTokenError, setLinkTokenError] =
+    useState<FeedbackLinkTokenErrorState | null>(null);
 
   const queryClient = useQueryClient();
   const surveyForm = useForm<ModuleFormValues>({
@@ -997,7 +1030,7 @@ function FeedbackPageContent() {
     setModuleStartTimes({ survey: null, values: null });
     setModuleSuccess({ survey: false, values: false });
     setSuccessOverlay(createClosedSuccessOverlay());
-    setLinkTokenErrorCode(null);
+    setLinkTokenError(null);
     resetAllForms();
   }, [feedbackToken, resetAllForms, surveyType]);
 
@@ -1082,7 +1115,7 @@ function FeedbackPageContent() {
 
   const handleIsySuccessCompletion = useCallback(() => {
     setSuccessOverlay(createClosedSuccessOverlay());
-    setLinkTokenErrorCode("LINK_USED");
+    setLinkTokenError({ code: "LINK_USED" });
   }, []);
 
   const handleSuccessOverlayClose = () => {
@@ -1128,9 +1161,9 @@ function FeedbackPageContent() {
     mutationFn: submitSurvey,
     onSuccess: () => handleModuleSubmitSuccess("survey"),
     onError: (error) => {
-      const tokenErrorCode = getFeedbackLinkTokenErrorCode(error);
-      if (tokenErrorCode) {
-        setLinkTokenErrorCode(tokenErrorCode);
+      const tokenError = getFeedbackLinkTokenError(error);
+      if (tokenError) {
+        setLinkTokenError(tokenError);
         return;
       }
 
@@ -1142,9 +1175,9 @@ function FeedbackPageContent() {
     mutationFn: submitSurvey,
     onSuccess: () => handleModuleSubmitSuccess("values"),
     onError: (error) => {
-      const tokenErrorCode = getFeedbackLinkTokenErrorCode(error);
-      if (tokenErrorCode) {
-        setLinkTokenErrorCode(tokenErrorCode);
+      const tokenError = getFeedbackLinkTokenError(error);
+      if (tokenError) {
+        setLinkTokenError(tokenError);
         return;
       }
 
@@ -1303,12 +1336,12 @@ function FeedbackPageContent() {
     !valuesAvailable ||
     !valuesModule.competency ||
     !selectedValuesQuestion ||
-    !selectedValuesAnswer ||
+    isEmptyFeedbackAnswerValue(selectedValuesAnswer) ||
     !valuesHasAnsweredQuestion;
-  const terminalLinkTokenErrorCode =
-    linkTokenErrorCode ||
-    getFeedbackLinkTokenErrorCode(questionsError) ||
-    getFeedbackLinkTokenErrorCode(receiversError);
+  const terminalLinkTokenError =
+    linkTokenError ||
+    getFeedbackLinkTokenError(questionsError) ||
+    getFeedbackLinkTokenError(receiversError);
 
   if (!giverId) {
     return (
@@ -1348,10 +1381,10 @@ function FeedbackPageContent() {
     );
   }
 
-  if (terminalLinkTokenErrorCode) {
+  if (terminalLinkTokenError) {
     return (
       <FeedbackLinkTokenErrorScreen
-        code={terminalLinkTokenErrorCode}
+        error={terminalLinkTokenError}
         isIsy={isIsy}
         isSelfMode={isSelfMode}
       />

@@ -1,4 +1,5 @@
 import type {
+  FeedbackAnswerFormValue,
   FeedbackChoiceOption,
   FeedbackQuestion,
   FeedbackQuestionType,
@@ -37,7 +38,15 @@ export function isNumericQuestion(
 }
 
 export function isChoiceQuestion(question: FeedbackQuestion) {
-  return question.type === "emoji_choice" || question.type === "text_choice";
+  return (
+    question.type === "emoji_choice" ||
+    question.type === "text_choice" ||
+    question.type === "multi_select"
+  );
+}
+
+export function isMultiSelectQuestion(question: FeedbackQuestion) {
+  return question.type === "multi_select";
 }
 
 export function getOrderedChoiceOptions(
@@ -68,6 +77,27 @@ export function isValidChoiceAnswer(
   );
 }
 
+export function normalizeMultiSelectAnswer(
+  question: FeedbackQuestion,
+  optionIds: string[],
+) {
+  const selectedOptionIds = new Set(optionIds);
+  return getOrderedChoiceOptions(question)
+    .filter((option) => selectedOptionIds.has(option.option_id))
+    .map((option) => option.option_id);
+}
+
+export function isEmptyFeedbackAnswerValue(
+  value?: FeedbackAnswerFormValue | null,
+) {
+  return (
+    value === undefined ||
+    value === null ||
+    value === "" ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
 export function sanitizePercentageInput(value: string) {
   let nextValue = "";
   let hasSeparator = false;
@@ -95,10 +125,38 @@ export function parsePercentageValue(value: string) {
 
 export function validateFeedbackAnswer(
   question: FeedbackQuestion,
-  value?: string | null,
+  value?: FeedbackAnswerFormValue | null,
 ) {
-  if (value === undefined || value === null || value === "") {
+  if (isEmptyFeedbackAnswerValue(value)) {
     return true;
+  }
+
+  if (question.type === "multi_select") {
+    if (!Array.isArray(value)) {
+      return "Lütfen geçerli bir seçim yapın.";
+    }
+
+    if (value.some((optionId) => typeof optionId !== "string")) {
+      return "Lütfen geçerli bir seçim yapın.";
+    }
+
+    if (new Set(value).size !== value.length) {
+      return "Aynı seçenek birden fazla gönderilemez.";
+    }
+
+    if (value.some((optionId) => !isValidChoiceAnswer(question, optionId))) {
+      return "Lütfen geçerli bir seçim yapın.";
+    }
+
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return "Lütfen geçerli bir seçim yapın.";
+  }
+
+  if (typeof value !== "string") {
+    return "Lütfen geçerli bir seçim yapın.";
   }
 
   if (question.type === "free_text") {
@@ -153,9 +211,17 @@ export function validateFeedbackAnswer(
 
 export function hasAnsweredFeedbackQuestion(
   question: FeedbackQuestion,
-  value?: string | null,
+  value?: FeedbackAnswerFormValue | null,
 ) {
-  if (value === undefined || value === null || value === "") {
+  if (isEmptyFeedbackAnswerValue(value)) {
+    return false;
+  }
+
+  if (Array.isArray(value)) {
+    return question.type === "multi_select" && value.length > 0;
+  }
+
+  if (typeof value !== "string") {
     return false;
   }
 
@@ -168,7 +234,7 @@ export function hasAnsweredFeedbackQuestion(
 
 export function hasAnyAnsweredFeedbackQuestion(
   questions: FeedbackQuestion[],
-  answers: Record<string, string>,
+  answers: Record<string, FeedbackAnswerFormValue>,
 ) {
   return questions.some((question) =>
     hasAnsweredFeedbackQuestion(question, answers[question.question_id]),
@@ -177,14 +243,40 @@ export function hasAnyAnsweredFeedbackQuestion(
 
 export function serializeFeedbackAnswer(
   question: FeedbackQuestion,
-  value?: string | null,
+  value?: FeedbackAnswerFormValue | null,
 ): SubmitSurveyPayload["answers"][number] {
   if (
-    value === undefined ||
-    value === null ||
-    value === "" ||
-    (question.type === "free_text" && value.trim() === "")
+    isEmptyFeedbackAnswerValue(value) ||
+    (question.type === "free_text" &&
+      typeof value === "string" &&
+      value.trim() === "")
   ) {
+    return {
+      question_id: question.question_id,
+      answer_type: question.type,
+      answer_value: null,
+    };
+  }
+
+  if (question.type === "multi_select") {
+    return {
+      question_id: question.question_id,
+      answer_type: question.type,
+      answer_value: Array.isArray(value)
+        ? normalizeMultiSelectAnswer(question, value)
+        : null,
+    };
+  }
+
+  if (Array.isArray(value)) {
+    return {
+      question_id: question.question_id,
+      answer_type: question.type,
+      answer_value: null,
+    };
+  }
+
+  if (typeof value !== "string") {
     return {
       question_id: question.question_id,
       answer_type: question.type,
@@ -210,12 +302,12 @@ export function serializeFeedbackAnswer(
 
 export function buildFeedbackSubmitAnswers(
   questions: FeedbackQuestion[],
-  answers: Record<string, string>,
+  answers: Record<string, FeedbackAnswerFormValue>,
   options?: { omitEmpty?: boolean },
 ): SubmitSurveyPayload["answers"] {
   return questions.flatMap((question) => {
-    const value = answers[question.question_id] || "";
-    if (options?.omitEmpty && value === "") {
+    const value = answers[question.question_id] ?? "";
+    if (options?.omitEmpty && isEmptyFeedbackAnswerValue(value)) {
       return [];
     }
 

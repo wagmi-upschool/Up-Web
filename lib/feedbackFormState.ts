@@ -1,9 +1,12 @@
-import type { FeedbackModuleKey } from "./feedbackClient";
+import type {
+  FeedbackAnswerFormValue,
+  FeedbackModuleKey,
+} from "./feedbackClient";
 
 export type FeedbackTab = FeedbackModuleKey;
 
 export type ModuleFormValues = {
-  answers: Record<string, string>;
+  answers: Record<string, FeedbackAnswerFormValue>;
   finalComment: string;
 };
 

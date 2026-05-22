@@ -8,30 +8,36 @@ export type FeedbackQuestionType =
   | "free_text"
   | "boolean"
   | "emoji_choice"
-  | "text_choice";
+  | "text_choice"
+  | "multi_select";
 
 type FeedbackApiErrorPayload = {
   errorCode?: string | number;
   errorMessage?: string;
+  feedback_link_type?: string;
 };
 
 export class FeedbackApiError extends Error {
   code: string;
   status: number;
+  feedbackLinkType?: string;
 
   constructor({
     code,
     message,
     status,
+    feedbackLinkType,
   }: {
     code: string;
     message: string;
     status: number;
+    feedbackLinkType?: string;
   }) {
     super(message);
     this.name = "FeedbackApiError";
     this.code = code;
     this.status = status;
+    this.feedbackLinkType = feedbackLinkType;
   }
 }
 
@@ -51,10 +57,16 @@ export function parseFeedbackApiErrorPayload(
     body?.errorMessage ||
     (typeof payload.errorMessage === "string" ? payload.errorMessage : "") ||
     statusText;
+  const feedbackLinkType =
+    body?.feedback_link_type ||
+    (typeof payload.feedback_link_type === "string"
+      ? payload.feedback_link_type
+      : undefined);
 
   return {
     code: `${code}`,
     message,
+    ...(feedbackLinkType ? { feedbackLinkType } : {}),
   };
 }
 
@@ -72,6 +84,11 @@ export function getFeedbackApiErrorMessage(error: unknown) {
   const [, ...messageParts] = raw.split(":");
   const message = messageParts.join(":").trim();
   return message || raw;
+}
+
+export function getFeedbackApiErrorLinkType(error: unknown) {
+  if (error instanceof FeedbackApiError) return error.feedbackLinkType;
+  return undefined;
 }
 
 async function api<T>(path: string, init: RequestInit = {}) {
@@ -97,7 +114,7 @@ async function api<T>(path: string, init: RequestInit = {}) {
   }
 
   if (!response.ok) {
-    const { code, message } = parseFeedbackApiErrorPayload(
+    const { code, message, feedbackLinkType } = parseFeedbackApiErrorPayload(
       json,
       response.status,
       response.statusText,
@@ -106,6 +123,7 @@ async function api<T>(path: string, init: RequestInit = {}) {
       code,
       message,
       status: response.status,
+      feedbackLinkType,
     });
   }
 
@@ -131,6 +149,8 @@ export type FeedbackChoiceOption = {
   order: number;
   emoji?: string;
 };
+
+export type FeedbackAnswerFormValue = string | string[];
 
 export type FeedbackQuestion = {
   question_id: string;
@@ -172,7 +192,7 @@ export type SubmitSurveyPayload = {
   feedback_module?: FeedbackModuleKey;
   answers: {
     question_id: string;
-    answer_value: string | number | null;
+    answer_value: string | number | string[] | null;
     answer_type: FeedbackQuestionType;
   }[];
   free_text_general?: string;

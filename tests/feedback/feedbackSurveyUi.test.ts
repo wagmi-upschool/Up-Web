@@ -3,6 +3,7 @@ import test from "node:test";
 import type { FeedbackReceiver } from "../../lib/feedbackClient";
 import {
   getAutoSelectedReceiverId,
+  getFeedbackLinkTokenErrorDisplayCopy,
   getFeedbackLinkTokenErrorCopy,
   getFeedbackLinkTokenErrorMessage,
   getGeneralCommentPayloadValue,
@@ -125,5 +126,31 @@ test("link token errors map to terminal screen copy", () => {
   assert.equal(
     getFeedbackLinkTokenErrorMessage("LINK_USED"),
     "Her gün yalnızca bir kez katılabilirsin, yarın seni tekrar bekliyoruz.",
+  );
+});
+
+test("weekly link token errors use the backend-provided display message", () => {
+  const weeklyUsedMessage =
+    "Bugünkü değerlendirmeni aldık, teşekkürler! Her hafta yalnızca bir kez katılabilirsin, bir sonrakinde seni tekrar bekliyoruz.";
+
+  assert.deepEqual(
+    getFeedbackLinkTokenErrorDisplayCopy({
+      code: "LINK_USED",
+      message: weeklyUsedMessage,
+      feedbackLinkType: "weekly",
+    }),
+    {
+      title: weeklyUsedMessage,
+      description: "",
+    },
+  );
+
+  assert.deepEqual(
+    getFeedbackLinkTokenErrorDisplayCopy({
+      code: "LINK_USED",
+      message: weeklyUsedMessage,
+      feedbackLinkType: "daily",
+    }),
+    getFeedbackLinkTokenErrorCopy("LINK_USED"),
   );
 });

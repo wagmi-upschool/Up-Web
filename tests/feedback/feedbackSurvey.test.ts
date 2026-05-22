@@ -63,6 +63,17 @@ const questions: FeedbackQuestion[] = [
       { option_id: "partial", label: "Kismen", order: 2 },
     ],
   },
+  {
+    question_id: "multi-select-1",
+    question_text: "Multi select question",
+    type: "multi_select",
+    order: 7,
+    answer_options: [
+      { option_id: "support", label: "Destek", order: 2 },
+      { option_id: "clarity", label: "Netlik", order: 1 },
+      { option_id: "speed", label: "Hiz", order: 3 },
+    ],
+  },
 ];
 
 test("validateFeedbackAnswer applies rules per question type", () => {
@@ -76,6 +87,10 @@ test("validateFeedbackAnswer applies rules per question type", () => {
   assert.equal(validateFeedbackAnswer(questions[3], "didnt"), true);
   assert.equal(validateFeedbackAnswer(questions[4], "great"), true);
   assert.equal(validateFeedbackAnswer(questions[5], "partial"), true);
+  assert.equal(
+    validateFeedbackAnswer(questions[6], ["clarity", "support"]),
+    true,
+  );
 });
 
 test("validateFeedbackAnswer rejects invalid percentage values", () => {
@@ -106,6 +121,14 @@ test("validateFeedbackAnswer rejects invalid choice option ids", () => {
     validateFeedbackAnswer(questions[5], "maybe"),
     "Lütfen geçerli bir seçim yapın.",
   );
+  assert.equal(
+    validateFeedbackAnswer(questions[6], ["clarity", "missing"]),
+    "Lütfen geçerli bir seçim yapın.",
+  );
+  assert.equal(
+    validateFeedbackAnswer(questions[6], ["clarity", "clarity"]),
+    "Aynı seçenek birden fazla gönderilemez.",
+  );
 });
 
 test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => {
@@ -116,6 +139,7 @@ test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => 
     "values-1": "did",
     "emoji-1": "great",
     "text-choice-1": "partial",
+    "multi-select-1": ["speed", "clarity"],
   });
 
   assert.deepEqual(answers, [
@@ -148,6 +172,11 @@ test("buildFeedbackSubmitAnswers submits raw numeric percentage answers", () => 
       question_id: "text-choice-1",
       answer_type: "text_choice",
       answer_value: "partial",
+    },
+    {
+      question_id: "multi-select-1",
+      answer_type: "multi_select",
+      answer_value: ["clarity", "speed"],
     },
   ]);
 });
@@ -187,6 +216,11 @@ test("buildFeedbackSubmitAnswers serializes unanswered questions as null", () =>
     {
       question_id: "text-choice-1",
       answer_type: "text_choice",
+      answer_value: null,
+    },
+    {
+      question_id: "multi-select-1",
+      answer_type: "multi_select",
       answer_value: null,
     },
   ]);
@@ -229,6 +263,12 @@ test("hasAnyAnsweredFeedbackQuestion requires a non-empty question answer", () =
     }),
     true,
   );
+  assert.equal(
+    hasAnyAnsweredFeedbackQuestion(questions, {
+      "multi-select-1": ["clarity"],
+    }),
+    true,
+  );
 });
 
 test("getOrderedChoiceOptions sorts object answer options by order", () => {
@@ -239,6 +279,10 @@ test("getOrderedChoiceOptions sorts object answer options by order", () => {
   assert.deepEqual(
     getOrderedChoiceOptions(questions[5]).map((option) => option.option_id),
     ["yes", "partial", "no"],
+  );
+  assert.deepEqual(
+    getOrderedChoiceOptions(questions[6]).map((option) => option.option_id),
+    ["clarity", "support", "speed"],
   );
   assert.deepEqual(getOrderedChoiceOptions(questions[3]), []);
 });

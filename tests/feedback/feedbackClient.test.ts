@@ -113,6 +113,7 @@ test("parseFeedbackApiErrorPayload supports top-level and wrapped backend errors
       {
         errorCode: "LINK_EXPIRED",
         errorMessage: "Feedback link has expired",
+        feedback_link_type: "weekly",
       },
       410,
       "Gone",
@@ -120,6 +121,7 @@ test("parseFeedbackApiErrorPayload supports top-level and wrapped backend errors
     {
       code: "LINK_EXPIRED",
       message: "Feedback link has expired",
+      feedbackLinkType: "weekly",
     },
   );
 
@@ -129,6 +131,7 @@ test("parseFeedbackApiErrorPayload supports top-level and wrapped backend errors
         body: {
           errorCode: "LINK_USED",
           errorMessage: "Feedback link was already used",
+          feedback_link_type: "weekly",
         },
       },
       409,
@@ -137,6 +140,7 @@ test("parseFeedbackApiErrorPayload supports top-level and wrapped backend errors
     {
       code: "LINK_USED",
       message: "Feedback link was already used",
+      feedbackLinkType: "weekly",
     },
   );
 });

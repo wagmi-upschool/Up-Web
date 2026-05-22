@@ -11,6 +11,12 @@ export type FeedbackLinkTokenErrorCopy = {
   description: string;
 };
 
+export type FeedbackLinkTokenErrorDisplayInput = {
+  code: FeedbackLinkTokenErrorCode;
+  message?: string;
+  feedbackLinkType?: string;
+};
+
 type AutoSelectReceiverInput = {
   isSelfMode: boolean;
   isIsy: boolean;
@@ -58,6 +64,27 @@ export function getFeedbackLinkTokenErrorCopy(
   code: FeedbackLinkTokenErrorCode,
 ) {
   return FEEDBACK_LINK_TOKEN_ERROR_COPY[code];
+}
+
+export function getFeedbackLinkTokenErrorDisplayCopy({
+  code,
+  message,
+  feedbackLinkType,
+}: FeedbackLinkTokenErrorDisplayInput) {
+  const trimmedMessage = message?.trim();
+
+  if (
+    feedbackLinkType === "weekly" &&
+    (code === "LINK_USED" || code === "LINK_EXPIRED") &&
+    trimmedMessage
+  ) {
+    return {
+      title: trimmedMessage,
+      description: "",
+    };
+  }
+
+  return getFeedbackLinkTokenErrorCopy(code);
 }
 
 export function getFeedbackLinkTokenErrorMessage(
