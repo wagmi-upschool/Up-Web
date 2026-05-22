@@ -153,4 +153,17 @@ test("weekly link token errors use the backend-provided display message", () => 
     }),
     getFeedbackLinkTokenErrorCopy("LINK_USED"),
   );
+
+  assert.deepEqual(
+    getFeedbackLinkTokenErrorDisplayCopy({
+      code: "LINK_EXPIRED",
+      message:
+        "Önceki anketin süresi doldu, yenisi için biraz erken! Her hafta Cuma 18:00 ve Pazartesi 18:00 arası açığız, bekliyoruz.",
+    }),
+    {
+      title:
+        "Önceki anketin süresi doldu, yenisi için biraz erken! Her hafta Cuma 18:00 ve Pazartesi 18:00 arası açığız, bekliyoruz.",
+      description: "",
+    },
+  );
 });

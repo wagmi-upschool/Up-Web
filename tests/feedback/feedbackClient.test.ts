@@ -144,3 +144,22 @@ test("parseFeedbackApiErrorPayload supports top-level and wrapped backend errors
     },
   );
 });
+
+test("parseFeedbackApiErrorPayload normalizes camelCase weekly link type", () => {
+  assert.deepEqual(
+    parseFeedbackApiErrorPayload(
+      {
+        errorCode: "LINK_USED",
+        errorMessage: "Weekly link already used",
+        feedbackLinkType: " Weekly ",
+      },
+      409,
+      "Conflict",
+    ),
+    {
+      code: "LINK_USED",
+      message: "Weekly link already used",
+      feedbackLinkType: "weekly",
+    },
+  );
+});

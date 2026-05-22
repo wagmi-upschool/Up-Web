@@ -15,6 +15,7 @@ type FeedbackApiErrorPayload = {
   errorCode?: string | number;
   errorMessage?: string;
   feedback_link_type?: string;
+  feedbackLinkType?: string;
 };
 
 export class FeedbackApiError extends Error {
@@ -57,11 +58,18 @@ export function parseFeedbackApiErrorPayload(
     body?.errorMessage ||
     (typeof payload.errorMessage === "string" ? payload.errorMessage : "") ||
     statusText;
-  const feedbackLinkType =
+  const rawFeedbackLinkType =
     body?.feedback_link_type ||
+    body?.feedbackLinkType ||
     (typeof payload.feedback_link_type === "string"
       ? payload.feedback_link_type
-      : undefined);
+      : typeof payload.feedbackLinkType === "string"
+        ? payload.feedbackLinkType
+        : undefined);
+  const feedbackLinkType =
+    typeof rawFeedbackLinkType === "string"
+      ? rawFeedbackLinkType.trim().toLowerCase()
+      : undefined;
 
   return {
     code: `${code}`,

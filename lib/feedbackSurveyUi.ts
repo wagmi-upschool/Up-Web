@@ -72,9 +72,11 @@ export function getFeedbackLinkTokenErrorDisplayCopy({
   feedbackLinkType,
 }: FeedbackLinkTokenErrorDisplayInput) {
   const trimmedMessage = message?.trim();
+  const normalizedFeedbackLinkType = feedbackLinkType?.trim().toLowerCase();
 
   if (
-    feedbackLinkType === "weekly" &&
+    (normalizedFeedbackLinkType === "weekly" ||
+      (!normalizedFeedbackLinkType && trimmedMessage?.includes("Her hafta"))) &&
     (code === "LINK_USED" || code === "LINK_EXPIRED") &&
     trimmedMessage
   ) {

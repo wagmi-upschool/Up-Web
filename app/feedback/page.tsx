@@ -1339,9 +1339,9 @@ function FeedbackPageContent() {
     isEmptyFeedbackAnswerValue(selectedValuesAnswer) ||
     !valuesHasAnsweredQuestion;
   const terminalLinkTokenError =
-    linkTokenError ||
     getFeedbackLinkTokenError(questionsError) ||
-    getFeedbackLinkTokenError(receiversError);
+    getFeedbackLinkTokenError(receiversError) ||
+    linkTokenError;
 
   if (!giverId) {
     return (
