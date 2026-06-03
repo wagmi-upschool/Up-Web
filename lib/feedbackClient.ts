@@ -156,6 +156,7 @@ export type FeedbackChoiceOption = {
   label: string;
   order: number;
   emoji?: string;
+  description?: string;
 };
 
 export type FeedbackAnswerFormValue = string | string[];

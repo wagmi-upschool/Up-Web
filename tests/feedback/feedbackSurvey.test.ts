@@ -47,7 +47,13 @@ const questions: FeedbackQuestion[] = [
     order: 5,
     answer_options: [
       { option_id: "great", label: "Harika", emoji: "🤩", order: 4 },
-      { option_id: "bad", label: "Kotu", emoji: "😔", order: 1 },
+      {
+        option_id: "bad",
+        label: "Kotu",
+        description: "Bekledigim destegi alamadim.",
+        emoji: "😔",
+        order: 1,
+      },
       { option_id: "okay", label: "Iyi", emoji: "🙂", order: 3 },
       { option_id: "meh", label: "Eh iste", emoji: "😐", order: 2 },
     ],
@@ -275,6 +281,10 @@ test("getOrderedChoiceOptions sorts object answer options by order", () => {
   assert.deepEqual(
     getOrderedChoiceOptions(questions[4]).map((option) => option.option_id),
     ["bad", "meh", "okay", "great"],
+  );
+  assert.equal(
+    getOrderedChoiceOptions(questions[4])[0]?.description,
+    "Bekledigim destegi alamadim.",
   );
   assert.deepEqual(
     getOrderedChoiceOptions(questions[5]).map((option) => option.option_id),

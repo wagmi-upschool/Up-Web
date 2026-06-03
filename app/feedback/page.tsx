@@ -719,6 +719,7 @@ function QuestionField({
         <div className="mt-5 flex flex-wrap items-stretch justify-center gap-x-6 gap-y-5 sm:gap-x-8 md:gap-x-10">
           {choiceOptions.map((option) => {
             const active = questionValue === option.option_id;
+            const description = option.description?.trim();
 
             return (
               <button
@@ -739,12 +740,19 @@ function QuestionField({
                 <span className="text-[36px] leading-none sm:text-[40px]">
                   {option.emoji}
                 </span>
-                <span
-                  className={`text-center text-[15px] leading-none tracking-[-0.01em] sm:text-[17px] ${
-                    active ? "text-[#96908A]" : "text-[#67707A]"
-                  }`}
-                >
-                  {option.label}
+                <span className="flex max-w-[220px] flex-col items-center gap-1 text-center">
+                  <span
+                    className={`text-[15px] leading-tight tracking-[-0.01em] sm:text-[17px] ${
+                      active ? "text-[#96908A]" : "text-[#67707A]"
+                    }`}
+                  >
+                    {option.label}
+                  </span>
+                  {description ? (
+                    <span className="text-[12px] leading-snug tracking-normal text-[#8A949E] sm:text-[13px]">
+                      {description}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             );
@@ -760,6 +768,7 @@ function QuestionField({
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           {choiceOptions.map((option) => {
             const active = questionValue === option.option_id;
+            const description = option.description?.trim();
 
             return (
               <button
@@ -772,12 +781,19 @@ function QuestionField({
                       : option.option_id,
                   )
                 }
-                className={`min-w-[132px] rounded-full border px-7 py-4 text-center font-poppins text-[15px] leading-none tracking-[-0.01em] transition-all duration-200 focus:outline-none focus-visible:ring-0 sm:min-w-[148px] sm:text-[17px] ${
+                className={`inline-flex min-w-[132px] max-w-full flex-col items-center justify-center gap-1 rounded-full border px-7 py-4 text-center font-poppins transition-all duration-200 focus:outline-none focus-visible:ring-0 sm:min-w-[148px] ${
                   active ? CHOICE_SELECTED_SURFACE : CHOICE_UNSELECTED_SURFACE
                 }`}
                 aria-pressed={active}
               >
-                {option.label}
+                <span className="text-[15px] leading-tight tracking-[-0.01em] sm:text-[17px]">
+                  {option.label}
+                </span>
+                {description ? (
+                  <span className="max-w-[260px] text-[12px] leading-snug tracking-normal text-[#8A949E] sm:text-[13px]">
+                    {description}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -792,21 +808,31 @@ function QuestionField({
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           {choiceOptions.map((option) => {
             const active = multiSelectValues.includes(option.option_id);
+            const description = option.description?.trim();
 
             return (
               <button
                 key={option.option_id}
                 type="button"
                 onClick={() => toggleMultiSelectOption(option.option_id)}
-                className={`inline-flex min-w-[132px] items-center justify-center gap-2 rounded-full border px-6 py-4 text-center font-poppins text-[15px] leading-none tracking-[-0.01em] transition-all duration-200 focus:outline-none focus-visible:ring-0 sm:min-w-[148px] sm:text-[17px] ${
+                className={`inline-flex min-w-[132px] max-w-full items-center justify-center gap-2 rounded-full border px-6 py-4 text-center font-poppins transition-all duration-200 focus:outline-none focus-visible:ring-0 sm:min-w-[148px] ${
                   active ? CHOICE_SELECTED_SURFACE : CHOICE_UNSELECTED_SURFACE
                 }`}
                 aria-pressed={active}
               >
                 {active ? (
-                  <Check className="h-4 w-4" strokeWidth={2.4} />
+                  <Check className="h-4 w-4 shrink-0" strokeWidth={2.4} />
                 ) : null}
-                <span>{option.label}</span>
+                <span className="flex max-w-[260px] flex-col items-center gap-1">
+                  <span className="text-[15px] leading-tight tracking-[-0.01em] sm:text-[17px]">
+                    {option.label}
+                  </span>
+                  {description ? (
+                    <span className="text-[12px] leading-snug tracking-normal text-[#8A949E] sm:text-[13px]">
+                      {description}
+                    </span>
+                  ) : null}
+                </span>
               </button>
             );
           })}
