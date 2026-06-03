@@ -156,6 +156,18 @@ function formatApiError(error: unknown, questions: FeedbackQuestion[] = []) {
     return questionSpecificMessage;
   }
 
+  if (raw === "Failed to fetch" || message === "Failed to fetch") {
+    return "Bağlantı kurulamadı. Sayfayı yenileyip tekrar deneyin.";
+  }
+
+  if (code === "REQUEST_TIMEOUT") {
+    return "İstek zaman aşımına uğradı. Lütfen tekrar deneyin.";
+  }
+
+  if (code === "NETWORK_ERROR") {
+    return "Bağlantı kurulamadı. Sayfayı yenileyip tekrar deneyin.";
+  }
+
   if (code === "403" || code === "AUTH_001" || code === "AUTH_002") {
     return "Geri bildirimi şu anda yükleyemedik. Lütfen tekrar deneyin.";
   }

@@ -18,6 +18,8 @@ type FeedbackApiErrorPayload = {
   feedbackLinkType?: string;
 };
 
+const FEEDBACK_REQUEST_TIMEOUT_MS = 20_000;
+
 export class FeedbackApiError extends Error {
   code: string;
   status: number;
@@ -105,14 +107,40 @@ async function api<T>(path: string, init: RequestInit = {}) {
     throw new Error("NEXT_PUBLIC_REMOTE_URL is not configured.");
   }
 
-  const response = await fetch(`${base}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers || {}),
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, FEEDBACK_REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${base}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init.headers || {}),
+      },
+      cache: "no-store",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new FeedbackApiError({
+        code: "REQUEST_TIMEOUT",
+        message: "İstek zaman aşımına uğradı. Lütfen tekrar deneyin.",
+        status: 0,
+      });
+    }
+
+    throw new FeedbackApiError({
+      code: "NETWORK_ERROR",
+      message: "Bağlantı kurulamadı. Sayfayı yenileyip tekrar deneyin.",
+      status: 0,
+    });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 
   let json: any = null;
   try {
