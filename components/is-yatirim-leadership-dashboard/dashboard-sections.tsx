@@ -1270,7 +1270,7 @@ function WordCloudCard({
 
             return (
               <span
-                className="inline-flex max-w-full items-baseline gap-1.5 rounded-full border px-3 py-1.5 font-poppins font-semibold leading-snug"
+                className="inline-flex max-w-full items-baseline gap-1.5 rounded-full border px-3 py-1.5 font-poppins font-medium leading-snug"
                 key={`${word.text}-${word.count}`}
                 style={{
                   backgroundColor: pillTone.background,
@@ -1282,7 +1282,7 @@ function WordCloudCard({
                 <span className="min-w-0 whitespace-normal break-words">
                   {word.text}
                 </span>
-                <span className="shrink-0 text-[0.62em] font-bold leading-none opacity-75">
+                <span className="shrink-0 text-[0.62em] font-medium leading-none opacity-75">
                   {formatCount(word.count)}
                 </span>
               </span>
