@@ -127,6 +127,70 @@ function formatMetricValue(value: number, metric: TrendMetric) {
   return formatPercent(value);
 }
 
+const TURKISH_UPPERCASE_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bANKETI\b/g, "ANKETİ"],
+  [/\bBAGLANTI\b/g, "BAĞLANTI"],
+  [/\bDEGISIM\b/g, "DEĞİŞİM"],
+  [/\bDEVECIOĞLU\b/g, "DEVECİOĞLU"],
+  [/\bFATIH\b/g, "FATİH"],
+  [/\bGUNCEL\b/g, "GÜNCEL"],
+  [/\bGUNLUK\b/g, "GÜNLÜK"],
+  [/\bHARIKA\b/g, "HARİKA"],
+  [/\bHAZIRAN\b/g, "HAZİRAN"],
+  [/\bISTE\b/g, "İŞTE"],
+  [/\bIYI\b/g, "İYİ"],
+  [/İYI/g, "İYİ"],
+  [/\bKELIME\b/g, "KELİME"],
+  [/\bOLCUM\b/g, "ÖLÇÜM"],
+  [/\bONCEKI\b/g, "ÖNCEKİ"],
+  [/\bSISTEMLER\b/g, "SİSTEMLER"],
+  [/ŞIRKET/g, "ŞİRKET"],
+  [/\bTARIH\b/g, "TARİH"],
+  [/\bVELI\b/g, "VELİ"],
+  [/\bVERISI\b/g, "VERİSİ"],
+  [/\bYÖNETIM\b/g, "YÖNETİM"],
+];
+
+function withTurkishUppercaseCharacters(value: string) {
+  return TURKISH_UPPERCASE_REPLACEMENTS.reduce(
+    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    value,
+  );
+}
+
+function displayTurkishText(value: string) {
+  return withTurkishUppercaseCharacters(value);
+}
+
+function toTurkishUpperCase(value: string) {
+  return withTurkishUppercaseCharacters(value.toLocaleUpperCase("tr-TR"));
+}
+
+function abbreviatePersonName(value: string) {
+  const normalized = displayTurkishText(value).trim();
+  const parts = normalized.split(/\s+/).filter(Boolean);
+
+  if (parts.length < 2) {
+    return normalized;
+  }
+
+  const surname = parts.at(-1) || "";
+  const initials = parts
+    .slice(0, -1)
+    .map((part) => `${part.charAt(0).toLocaleUpperCase("tr-TR")}.`)
+    .join("");
+
+  return `${initials} ${surname}`;
+}
+
+function formatSegmentTabLabel(segment: SegmentOption) {
+  if (segment.type !== "gmy") {
+    return displayTurkishText(segment.label);
+  }
+
+  return abbreviatePersonName(segment.label);
+}
+
 function MiniProgressBar({
   value,
   color,
@@ -150,8 +214,8 @@ function MiniProgressBar({
 
 function EmptyInlineState({ children }: { children: string }) {
   return (
-    <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-[#171717]/14 bg-[#FFFFFF]/62 p-6 text-center font-poppins text-sm font-semibold uppercase tracking-[0.18em] text-[#171717]/42">
-      {children}
+    <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-[#171717]/14 bg-[#FFFFFF]/62 p-6 text-center font-poppins text-sm font-semibold tracking-[0.18em] text-[#171717]/42">
+      {toTurkishUpperCase(children)}
     </div>
   );
 }
@@ -222,15 +286,18 @@ export function IsYatirimHeader({
           </div>
         </div>
         <div className="px-5 py-8 text-left sm:px-7 sm:py-10 lg:py-11">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#0057FF]/20 bg-[#0057FF]/8 px-3 py-1 font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#0057FF]">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#0057FF]/20 bg-[#0057FF]/8 px-3 py-1 font-poppins text-xs font-semibold tracking-[0.24em] text-[#0057FF]">
             <Sparkles className="h-3.5 w-3.5" />
-            {response?.meta.surveyName || "Günlük Duygu Durumu Anketi"}
+            {toTurkishUpperCase(
+              response?.meta.surveyName || "Günlük Duygu Durumu Anketi",
+            )}
           </div>
           <h1 className="mt-5 max-w-5xl font-righteous text-[2.15rem] leading-none text-[#171717] sm:text-[2.65rem] lg:text-[3.1rem]">
-            {title}
+            {displayTurkishText(title)}
           </h1>
           <p className="mt-3 font-poppins text-base font-medium text-[#171717]/52 sm:text-lg">
-            {latestLabel} · Günlük ölçüm · {trendWindow}
+            {displayTurkishText(latestLabel)} · Günlük ölçüm ·{" "}
+            {displayTurkishText(trendWindow)}
           </p>
         </div>
       </div>
@@ -252,23 +319,23 @@ export function SegmentTabs({
   }
 
   return (
-    <div className="overflow-x-auto border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
-      <div className="flex min-w-max items-center gap-8 px-4 py-4 sm:px-5 lg:px-6">
+    <div className="border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
+      <div className="flex w-full flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-5 lg:px-6 xl:flex-nowrap xl:justify-between">
         {segments.map((segment) => {
           const isActive = selectedSegment === segment.id;
 
           return (
             <button
-              className={`font-poppins text-[17px] font-semibold uppercase tracking-[0.01em] transition-colors ${
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-2 font-poppins text-sm font-semibold tracking-[0.01em] transition-colors sm:text-base lg:px-4 ${
                 isActive
-                  ? "text-[#A06C00]"
+                  ? "bg-[#0057FF] text-white shadow-[0_8px_18px_rgba(0,87,255,0.24)]"
                   : "text-[#171717]/62 hover:text-[#171717]"
               }`}
               key={segment.id}
               onClick={() => onSegmentSelect(segment.id)}
               type="button"
             >
-              {segment.label}
+              {formatSegmentTabLabel(segment)}
             </button>
           );
         })}
@@ -331,8 +398,8 @@ export function KpiGrid({ response }: { response: LeadershipDashboardResponse })
           />
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
-                {item.label}
+              <p className="font-poppins text-xs font-semibold tracking-[0.24em] text-[#171717]/55">
+                {toTurkishUpperCase(item.label)}
               </p>
               <p className="mt-3 break-words font-righteous text-4xl leading-none text-[#171717] sm:text-5xl">
                 {item.value}
@@ -369,16 +436,18 @@ export function MoodDistributionCard({
       <AnalyticsSubheading dotColor="#FC7700">DUYGU DAĞILIMI</AnalyticsSubheading>
       <div className="mb-6 flex flex-col gap-4 rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] p-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-poppins text-xs font-semibold uppercase tracking-[0.2em] text-[#171717]/45">
-            {latest.surveyDateLabel || response.meta.latestSurveyDateLabel}
+          <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-[#171717]/45">
+            {toTurkishUpperCase(
+              latest.surveyDateLabel || response.meta.latestSurveyDateLabel,
+            )}
           </p>
           <p className="mt-2 font-righteous text-5xl leading-none text-[#171717]">
             {formatScore(latest.averageMoodScore)}
           </p>
         </div>
         <div className="sm:text-right">
-          <p className="font-poppins text-xs font-semibold uppercase tracking-[0.2em] text-[#171717]/45">
-            İyi + Harika
+          <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-[#171717]/45">
+            İYİ + HARİKA
           </p>
           <p className="mt-2 font-righteous text-4xl leading-none text-[#00A878]">
             {formatPercent(latest.derived.goodGreatRate)}
@@ -396,7 +465,7 @@ export function MoodDistributionCard({
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="text-2xl">{item.emoji || token.emoji}</span>
                   <p className="font-poppins text-sm font-semibold text-[#171717]/84">
-                    {item.label || token.label}
+                    {displayTurkishText(item.label || token.label)}
                   </p>
                 </div>
                 <p className="shrink-0 font-righteous text-3xl leading-none">
@@ -404,8 +473,8 @@ export function MoodDistributionCard({
                 </p>
               </div>
               <MiniProgressBar color={token.color} minVisible={6} value={item.percentage} />
-              <p className="mt-1 font-poppins text-xs font-semibold uppercase tracking-[0.16em] text-[#171717]/42">
-                {formatCount(item.respondentCount)} yanıt
+              <p className="mt-1 font-poppins text-xs font-semibold tracking-[0.16em] text-[#171717]/42">
+                {toTurkishUpperCase(`${formatCount(item.respondentCount)} yanıt`)}
               </p>
             </div>
           );
@@ -485,8 +554,8 @@ function TrendTooltip({
 
   return (
     <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
-      <p className="font-poppins text-xs uppercase tracking-[0.2em] text-white/55">
-        {point.surveyDateLabel || point.surveyDate}
+      <p className="font-poppins text-xs tracking-[0.2em] text-white/55">
+        {toTurkishUpperCase(point.surveyDateLabel || point.surveyDate)}
       </p>
       <div className="mt-3 space-y-2">
         {visiblePayload.map((entry) => {
@@ -896,7 +965,8 @@ export function GmyRankingSection({
         GMY Gruplarına Göre Ortalama Duygu Durumu
       </AnalyticsSubheading>
       <p className="-mt-3 mb-6 font-poppins text-sm font-medium text-[#171717]/45">
-        {dateLabel || "Son ölçüm"} · Yüksekten düşüğe · 4 üzerinden
+        {displayTurkishText(dateLabel || "Son ölçüm")} · Yüksekten düşüğe · 4
+        üzerinden
       </p>
       {items.length ? (
         <div className="space-y-4">
@@ -916,11 +986,13 @@ export function GmyRankingSection({
                     </p>
                     <div className="min-w-0">
                       <p className="truncate font-poppins text-sm font-semibold text-[#171717]/86">
-                        {item.label}
+                        {displayTurkishText(item.label)}
                       </p>
-                      <p className="font-poppins text-xs uppercase tracking-[0.16em] text-[#171717]/42">
-                        {formatCount(item.respondentCount)} yanıt ·{" "}
-                        {formatPercent(item.participationRate)}
+                      <p className="font-poppins text-xs tracking-[0.16em] text-[#171717]/42">
+                        {toTurkishUpperCase(
+                          `${formatCount(item.respondentCount)} yanıt`,
+                        )}{" "}
+                        · {formatPercent(item.participationRate)}
                       </p>
                     </div>
                   </div>
@@ -962,10 +1034,10 @@ export function GmyScoreChangeSection({
               >
                 <div className="min-w-0">
                   <p className="truncate font-poppins text-sm font-semibold text-[#171717]/86">
-                    {item.label}
+                    {displayTurkishText(item.label)}
                   </p>
-                  <p className="font-poppins text-xs uppercase tracking-[0.16em] text-[#171717]/42">
-                    {formatCount(item.respondentCount)} yanıt
+                  <p className="font-poppins text-xs tracking-[0.16em] text-[#171717]/42">
+                    {toTurkishUpperCase(`${formatCount(item.respondentCount)} yanıt`)}
                   </p>
                 </div>
                 <ScoreCell label={item.previousSurveyDate} value={item.previousAverageMoodScore} />
@@ -994,8 +1066,8 @@ export function GmyScoreChangeSection({
 function ScoreCell({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="font-poppins text-[10px] font-semibold uppercase tracking-[0.16em] text-[#171717]/38">
-        {label || "Tarih yok"}
+      <p className="font-poppins text-[10px] font-semibold tracking-[0.16em] text-[#171717]/38">
+        {toTurkishUpperCase(label || "Tarih yok")}
       </p>
       <p className="mt-1 font-righteous text-2xl leading-none text-[#171717]">
         {formatScore(value)}
@@ -1023,7 +1095,8 @@ export function GmyExtremeSection({
           GMY Gruplarına Göre 😞 Kötü ve 🤩 Harika Oranı
         </h3>
         <p className="mt-2 font-poppins text-sm text-[#171717]/45 sm:text-base">
-          ← Kötü (%) &nbsp;&nbsp; Harika (%) → · {dateLabel || "Son ölçüm"}
+          ← Kötü (%) &nbsp;&nbsp; Harika (%) → ·{" "}
+          {displayTurkishText(dateLabel || "Son ölçüm")}
         </p>
       </div>
       {items.length ? (
@@ -1043,7 +1116,7 @@ export function GmyExtremeSection({
                 key={item.segmentId}
               >
                 <p className="min-w-0 font-poppins text-sm font-semibold text-[#171717]/86 sm:text-base">
-                  {item.label}
+                  {displayTurkishText(item.label)}
                 </p>
                 <div className="relative grid h-8 grid-cols-2">
                   <div className="flex items-center justify-end border-r border-[#171717]/12">
@@ -1093,8 +1166,8 @@ export function EngagementByMoodGrid({
           <AnalyticsCard key={mood}>
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
-                <p className="font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#171717]/45">
-                  {token.label}
+                <p className="font-poppins text-xs font-semibold tracking-[0.22em] text-[#171717]/45">
+                  {toTurkishUpperCase(token.label)}
                 </p>
                 <p className="mt-2 font-righteous text-4xl leading-none text-[#171717]">
                   {formatPercent(item.workLinkedRate)}
@@ -1102,8 +1175,10 @@ export function EngagementByMoodGrid({
               </div>
               <span className="text-4xl">{token.emoji}</span>
             </div>
-            <p className="mb-5 font-poppins text-xs font-semibold uppercase tracking-[0.16em] text-[#171717]/42">
-              İşe bağlı · {formatCount(item.respondentCount)} yanıt
+            <p className="mb-5 font-poppins text-xs font-semibold tracking-[0.16em] text-[#171717]/42">
+              {toTurkishUpperCase(
+                `İşe bağlı · ${formatCount(item.respondentCount)} yanıt`,
+              )}
             </p>
             <div className="space-y-4">
               {(Object.keys(ENGAGEMENT_ANSWER_LABELS) as EngagementAnswer[]).map(
@@ -1149,7 +1224,9 @@ export function WordCloudSections({
           <WordCloudCard
             color={MOOD_TOKENS[mood].color}
             key={mood}
-            title={`${MOOD_TOKENS[mood].emoji} ${MOOD_TOKENS[mood].label}`}
+            title={`${MOOD_TOKENS[mood].emoji} ${toTurkishUpperCase(
+              MOOD_TOKENS[mood].label,
+            )}`}
             words={response.selectedSegment.wordClouds[mood]}
           />
         ))}
