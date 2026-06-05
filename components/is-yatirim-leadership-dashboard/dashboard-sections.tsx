@@ -38,7 +38,6 @@ import {
   formatPercent,
   formatScore,
   formatTurkishDateTime,
-  formatTrendWindowLabel,
   type EngagementAnswer,
   type GmyExtremeItem,
   type GmyRankingItem,
@@ -110,6 +109,14 @@ const TREND_METRICS = [
 
 type TrendMetric = (typeof TREND_METRICS)[number]["value"];
 type TrendSelection = "all" | TrendMetric;
+
+const WORD_PILL_PALETTE = [
+  { background: "#EEF4FF", border: "#9BB6FF", text: "#0057FF" },
+  { background: "#FFF3E8", border: "#FDBD92", text: "#F06B16" },
+  { background: "#F3ECFF", border: "#CDB6FF", text: "#8A5CF6" },
+  { background: "#ECF8F1", border: "#B8E1CE", text: "#3CA875" },
+  { background: "#EAF9F7", border: "#B7E5E1", text: "#277F83" },
+] as const;
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(value, 100));
@@ -238,12 +245,6 @@ export function IsYatirimHeader({
   const generatedAt = formatTurkishDateTime(response?.meta.generatedAt || "");
   const title = response?.meta.dashboardTitle || "İş Yatırım Duygu Durumu";
   const latestLabel = response?.meta.latestSurveyDateLabel || "Son ölçüm";
-  const trendWindow = response
-    ? formatTrendWindowLabel(
-        response.selectedSegment.trend,
-        response.meta.trendWindowLabel || "Günlük trend",
-      )
-    : "Günlük trend";
 
   return (
     <header className="relative overflow-hidden rounded-[30px] border border-[#171717]/10 bg-[#F8F2E7]/80 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm">
@@ -296,8 +297,7 @@ export function IsYatirimHeader({
             {displayTurkishText(title)}
           </h1>
           <p className="mt-3 font-poppins text-base font-medium text-[#171717]/52 sm:text-lg">
-            {displayTurkishText(latestLabel)} · Günlük ölçüm ·{" "}
-            {displayTurkishText(trendWindow)}
+            {displayTurkishText(latestLabel)} · Günlük ölçüm
           </p>
         </div>
       </div>
@@ -1263,23 +1263,26 @@ function WordCloudCard({
       <AnalyticsSubheading dotColor={color}>{title}</AnalyticsSubheading>
       {sortedWords.length ? (
         <div className="flex flex-wrap gap-2">
-          {sortedWords.map((word) => {
+          {sortedWords.map((word, index) => {
             const ratio = word.count / maxCount;
             const fontSize = 12 + Math.round(ratio * 10);
+            const pillTone = WORD_PILL_PALETTE[index % WORD_PILL_PALETTE.length];
 
             return (
               <span
-                className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-[#171717]/8 bg-[#F8F2E7] px-3 py-2 font-poppins font-semibold leading-snug text-[#171717]/78"
+                className="inline-flex max-w-full items-baseline gap-1.5 rounded-full border px-3 py-1.5 font-poppins font-semibold leading-snug"
                 key={`${word.text}-${word.count}`}
-                style={{ fontSize }}
+                style={{
+                  backgroundColor: pillTone.background,
+                  borderColor: pillTone.border,
+                  color: pillTone.text,
+                  fontSize,
+                }}
               >
                 <span className="min-w-0 whitespace-normal break-words">
                   {word.text}
                 </span>
-                <span
-                  className="shrink-0 rounded-full px-2 py-0.5 text-xs text-white"
-                  style={{ backgroundColor: color }}
-                >
+                <span className="shrink-0 text-[0.62em] font-bold leading-none opacity-75">
                   {formatCount(word.count)}
                 </span>
               </span>
