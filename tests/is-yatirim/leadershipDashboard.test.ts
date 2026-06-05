@@ -4,6 +4,7 @@ import {
   DEFAULT_IS_YATIRIM_SEGMENT,
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
+  normalizeIsYatirimDashboardToken,
   normalizeIsYatirimSegment,
   normalizeLeadershipDashboardResponse,
   formatTrendWindowLabel,
@@ -20,6 +21,12 @@ test("normalizeIsYatirimSegment defaults blank segment to all", () => {
   assert.equal(normalizeIsYatirimSegment("burak-kinalilar"), "burak-kinalilar");
 });
 
+test("normalizeIsYatirimDashboardToken trims optional URL token", () => {
+  assert.equal(normalizeIsYatirimDashboardToken(null), "");
+  assert.equal(normalizeIsYatirimDashboardToken(""), "");
+  assert.equal(normalizeIsYatirimDashboardToken("  token-123  "), "token-123");
+});
+
 test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => {
   const url = buildIsYatirimDashboardUrl({
     baseUrl: "https://example.com/base/",
@@ -31,6 +38,18 @@ test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => 
   assert.equal(url.searchParams.get("client"), IS_YATIRIM_CLIENT);
   assert.equal(url.searchParams.get("competencyId"), IS_YATIRIM_COMPETENCY_ID);
   assert.equal(url.searchParams.get("segment"), "all");
+  assert.equal(url.searchParams.get("token"), null);
+});
+
+test("buildIsYatirimDashboardUrl forwards İş Yatırım URL token when present", () => {
+  const url = buildIsYatirimDashboardUrl({
+    baseUrl: "https://example.com",
+    segment: "yonetim",
+    token: "  secure-token  ",
+  });
+
+  assert.equal(url.searchParams.get("segment"), "yonetim");
+  assert.equal(url.searchParams.get("token"), "secure-token");
 });
 
 test("getIsYatirimDashboardBaseUrl prefers İş Yatırım env names", () => {

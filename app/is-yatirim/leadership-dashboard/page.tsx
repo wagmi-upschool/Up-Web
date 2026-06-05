@@ -9,12 +9,19 @@ import {
 } from "@tanstack/react-query";
 import IsYatirimLeadershipDashboard from "@/components/is-yatirim-leadership-dashboard/dashboard-page";
 import type { LeadershipDashboardResponse } from "@/lib/isYatirimLeadershipDashboard";
-import { normalizeIsYatirimSegment } from "@/lib/isYatirimLeadershipDashboard";
+import {
+  normalizeIsYatirimDashboardToken,
+  normalizeIsYatirimSegment,
+} from "@/lib/isYatirimLeadershipDashboard";
 
-async function getLeadershipDashboard(segment: string) {
+async function getLeadershipDashboard(segment: string, token: string) {
   const query = new URLSearchParams({
     segment,
   });
+
+  if (token) {
+    query.set("token", token);
+  }
 
   const response = await fetch(
     `/api/is-yatirim/leadership-dashboard?${query.toString()}`,
@@ -55,10 +62,11 @@ function IsYatirimLeadershipDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
+  const token = normalizeIsYatirimDashboardToken(searchParams.get("token"));
 
   const dashboardQuery = useQuery({
-    queryKey: ["isYatirimLeadershipDashboard", segment],
-    queryFn: () => getLeadershipDashboard(segment),
+    queryKey: ["isYatirimLeadershipDashboard", segment, token],
+    queryFn: () => getLeadershipDashboard(segment, token),
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });

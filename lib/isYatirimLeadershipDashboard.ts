@@ -217,6 +217,12 @@ export function normalizeIsYatirimSegment(value: string | null | undefined) {
   return segment || DEFAULT_IS_YATIRIM_SEGMENT;
 }
 
+export function normalizeIsYatirimDashboardToken(
+  value: string | null | undefined,
+) {
+  return value?.trim() || "";
+}
+
 function normalizeWord(value: unknown): WordItem {
   const input = asObject(value);
   const category = asString(input.category) as MoodCategory;

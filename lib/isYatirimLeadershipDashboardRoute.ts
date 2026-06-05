@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
+  normalizeIsYatirimDashboardToken,
   normalizeIsYatirimSegment,
   normalizeLeadershipDashboardResponse,
 } from "@/lib/isYatirimLeadershipDashboard";
@@ -21,16 +22,22 @@ export function getIsYatirimDashboardBaseUrl(env: DashboardEnv = process.env) {
 export function buildIsYatirimDashboardUrl({
   baseUrl,
   segment,
+  token,
 }: {
   baseUrl: string;
   segment?: string | null;
+  token?: string | null;
 }) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
   const url = new URL(`${normalizedBase}/analytics/dashboard`);
+  const normalizedToken = normalizeIsYatirimDashboardToken(token);
 
   url.searchParams.set("client", IS_YATIRIM_CLIENT);
   url.searchParams.set("competencyId", IS_YATIRIM_COMPETENCY_ID);
   url.searchParams.set("segment", normalizeIsYatirimSegment(segment));
+  if (normalizedToken) {
+    url.searchParams.set("token", normalizedToken);
+  }
 
   return url;
 }
@@ -58,7 +65,10 @@ export async function handleIsYatirimLeadershipDashboardRequest(
   const segment = normalizeIsYatirimSegment(
     request.nextUrl.searchParams.get("segment"),
   );
-  const upstreamUrl = buildIsYatirimDashboardUrl({ baseUrl, segment });
+  const token = normalizeIsYatirimDashboardToken(
+    request.nextUrl.searchParams.get("token"),
+  );
+  const upstreamUrl = buildIsYatirimDashboardUrl({ baseUrl, segment, token });
 
   let response: Response;
   try {
