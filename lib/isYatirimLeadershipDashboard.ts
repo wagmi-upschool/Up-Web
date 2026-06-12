@@ -2,6 +2,15 @@ export const IS_YATIRIM_CLIENT = "is-yatirim";
 export const IS_YATIRIM_COMPETENCY_ID =
   "9bb629ad-afd3-4cae-9744-a3faf5729174";
 export const DEFAULT_IS_YATIRIM_SEGMENT = "all";
+export const DEFAULT_IS_YATIRIM_FALLBACK_DATE = "1970-01-01";
+
+export type IsYatirimDateFilterMode = "single" | "range";
+export type IsYatirimDateFilter = {
+  mode: IsYatirimDateFilterMode;
+  startDate: string;
+  endDate: string;
+  dayCount: number;
+};
 
 export type MoodCategory = "bad" | "meh" | "good" | "great";
 export type EngagementAnswer = "yes" | "partial" | "no";
@@ -59,6 +68,10 @@ export type EngagementByMood = {
 export type SurveyMetricSnapshot = {
   surveyDate: string;
   surveyDateLabel: string;
+  startDate: string;
+  endDate: string;
+  dateMode: IsYatirimDateFilterMode;
+  dayCount: number;
   respondentCount: number;
   targetEmployeeCount: number;
   participationRate: number;
@@ -95,9 +108,14 @@ export type GmyScoreChangeItem = {
   segmentId: string;
   label: string;
   previousSurveyDate: string;
+  previousStartDate: string;
+  previousEndDate: string;
   previousAverageMoodScore: number;
   currentSurveyDate: string;
+  currentStartDate: string;
+  currentEndDate: string;
   currentAverageMoodScore: number;
+  mode: IsYatirimDateFilterMode;
   delta: number;
   respondentCount: number;
 };
@@ -128,6 +146,7 @@ export type LeadershipDashboardResponse = {
     latestSurveyDateLabel: string;
     generatedAt: string;
     trendWindowLabel: string;
+    dateFilter: IsYatirimDateFilter;
     maxMoodScore: 4;
     selectedSegmentId: string;
     segments: SegmentOption[];
@@ -196,6 +215,8 @@ const EMPTY_WORD_CLOUDS = MOOD_ORDER.reduce(
   {} as Record<MoodCategory, WordItem[]>,
 );
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 function asObject(value: unknown): Record<string, any> {
   return value && typeof value === "object" ? (value as Record<string, any>) : {};
 }
@@ -212,6 +233,67 @@ function asArray<T>(value: unknown, mapper: (item: unknown) => T): T[] {
   return Array.isArray(value) ? value.map(mapper) : [];
 }
 
+function createUtcDate(year: number, monthIndex: number, day: number) {
+  return new Date(Date.UTC(year, monthIndex, day));
+}
+
+function parseIsoDate(value: string) {
+  if (!ISO_DATE_PATTERN.test(value)) {
+    return null;
+  }
+
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+
+  const date = createUtcDate(year, month - 1, day);
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+function formatIsoDate(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getUTCDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getInclusiveDayCount(startDate: string, endDate: string) {
+  const start = parseIsoDate(startDate);
+  const end = parseIsoDate(endDate);
+
+  if (!start || !end) {
+    return 1;
+  }
+
+  return Math.max(
+    1,
+    Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1,
+  );
+}
+
 export function normalizeIsYatirimSegment(value: string | null | undefined) {
   const segment = value?.trim();
   return segment || DEFAULT_IS_YATIRIM_SEGMENT;
@@ -221,6 +303,141 @@ export function normalizeIsYatirimDashboardToken(
   value: string | null | undefined,
 ) {
   return value?.trim() || "";
+}
+
+export function getTodayDateString(now = new Date()) {
+  return formatIsoDate(
+    createUtcDate(now.getFullYear(), now.getMonth(), now.getDate()),
+  );
+}
+
+export function normalizeIsYatirimDateFilter(
+  {
+    dateMode,
+    startDate,
+    endDate,
+  }: {
+    dateMode?: string | null | undefined;
+    startDate?: string | null | undefined;
+    endDate?: string | null | undefined;
+  },
+  {
+    todayDate = DEFAULT_IS_YATIRIM_FALLBACK_DATE,
+  }: {
+    todayDate?: string;
+  } = {},
+): IsYatirimDateFilter {
+  const fallbackDate = parseIsoDate(todayDate)
+    ? todayDate
+    : DEFAULT_IS_YATIRIM_FALLBACK_DATE;
+  const normalizedMode = dateMode?.trim();
+  const normalizedStartDate = startDate?.trim() || "";
+  const normalizedEndDate = endDate?.trim() || "";
+  const parsedStartDate = parseIsoDate(normalizedStartDate);
+  const parsedEndDate = parseIsoDate(normalizedEndDate);
+
+  const fallbackFilter: IsYatirimDateFilter = {
+    mode: "single",
+    startDate: fallbackDate,
+    endDate: fallbackDate,
+    dayCount: 1,
+  };
+
+  if (normalizedMode === "single") {
+    if (
+      parsedStartDate &&
+      parsedEndDate &&
+      normalizedStartDate === normalizedEndDate
+    ) {
+      return {
+        mode: "single",
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
+        dayCount: 1,
+      };
+    }
+
+    return fallbackFilter;
+  }
+
+  if (normalizedMode === "range") {
+    if (
+      parsedStartDate &&
+      parsedEndDate &&
+      parsedStartDate.getTime() <= parsedEndDate.getTime()
+    ) {
+      return {
+        mode: "range",
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
+        dayCount: getInclusiveDayCount(normalizedStartDate, normalizedEndDate),
+      };
+    }
+
+    return fallbackFilter;
+  }
+
+  return fallbackFilter;
+}
+
+export function isSameIsYatirimDateFilter(
+  left: IsYatirimDateFilter,
+  right: IsYatirimDateFilter,
+) {
+  return (
+    left.mode === right.mode &&
+    left.startDate === right.startDate &&
+    left.endDate === right.endDate &&
+    left.dayCount === right.dayCount
+  );
+}
+
+export function applyIsYatirimDateFilterToSearchParams(
+  searchParams: URLSearchParams,
+  dateFilter: IsYatirimDateFilter,
+) {
+  searchParams.set("dateMode", dateFilter.mode);
+  searchParams.set("startDate", dateFilter.startDate);
+  searchParams.set("endDate", dateFilter.endDate);
+}
+
+function hasDateFilterFields(value: Record<string, any>) {
+  return Boolean(
+    value.mode ||
+      value.dateMode ||
+      value.startDate ||
+      value.endDate ||
+      value.dayCount,
+  );
+}
+
+function normalizeDateFilterLike(
+  value: unknown,
+  fallbackDateFilter: IsYatirimDateFilter,
+): IsYatirimDateFilter {
+  const input = asObject(value);
+
+  if (!hasDateFilterFields(input)) {
+    return fallbackDateFilter;
+  }
+
+  return normalizeIsYatirimDateFilter(
+    {
+      dateMode: asString(input.mode || input.dateMode),
+      startDate: asString(input.startDate),
+      endDate: asString(input.endDate),
+    },
+    {
+      todayDate: fallbackDateFilter.startDate,
+    },
+  );
+}
+
+function asDateFilterMode(
+  value: unknown,
+  fallback: IsYatirimDateFilterMode,
+): IsYatirimDateFilterMode {
+  return value === "single" || value === "range" ? value : fallback;
 }
 
 function normalizeWord(value: unknown): WordItem {
@@ -341,13 +558,29 @@ function normalizeWordClouds(value: unknown): Record<MoodCategory, WordItem[]> {
   );
 }
 
-function normalizeLatest(value: unknown): SurveyMetricSnapshot {
+function normalizeLatest(
+  value: unknown,
+  fallbackDateFilter: IsYatirimDateFilter,
+): SurveyMetricSnapshot {
   const input = asObject(value);
   const derived = asObject(input.derived);
+  const dateFilter = normalizeDateFilterLike(
+    {
+      dateMode: input.dateMode,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      dayCount: input.dayCount,
+    },
+    fallbackDateFilter,
+  );
 
   return {
     surveyDate: asString(input.surveyDate),
     surveyDateLabel: asString(input.surveyDateLabel),
+    startDate: dateFilter.startDate,
+    endDate: dateFilter.endDate,
+    dateMode: dateFilter.mode,
+    dayCount: dateFilter.dayCount,
     respondentCount: asNumber(input.respondentCount),
     targetEmployeeCount: asNumber(input.targetEmployeeCount),
     participationRate: asNumber(input.participationRate),
@@ -364,13 +597,16 @@ function normalizeLatest(value: unknown): SurveyMetricSnapshot {
   };
 }
 
-function normalizeSelectedSegment(value: unknown): SegmentDashboardData {
+function normalizeSelectedSegment(
+  value: unknown,
+  fallbackDateFilter: IsYatirimDateFilter,
+): SegmentDashboardData {
   const input = asObject(value);
 
   return {
     segmentId: asString(input.segmentId, DEFAULT_IS_YATIRIM_SEGMENT),
     segmentLabel: asString(input.segmentLabel, "Tüm Şirket"),
-    latest: normalizeLatest(input.latest),
+    latest: normalizeLatest(input.latest, fallbackDateFilter),
     trend: asArray(input.trend, normalizeTrendPoint),
     engagementByMood: normalizeEngagementByMood(input.engagementByMood),
     wordClouds: normalizeWordClouds(input.wordClouds),
@@ -391,16 +627,24 @@ function normalizeRankingItem(value: unknown): GmyRankingItem {
   };
 }
 
-function normalizeScoreChangeItem(value: unknown): GmyScoreChangeItem {
+function normalizeScoreChangeItem(
+  value: unknown,
+  fallbackMode: IsYatirimDateFilterMode,
+): GmyScoreChangeItem {
   const input = asObject(value);
 
   return {
     segmentId: asString(input.segmentId),
     label: asString(input.label),
     previousSurveyDate: asString(input.previousSurveyDate),
+    previousStartDate: asString(input.previousStartDate),
+    previousEndDate: asString(input.previousEndDate),
     previousAverageMoodScore: asNumber(input.previousAverageMoodScore),
     currentSurveyDate: asString(input.currentSurveyDate),
+    currentStartDate: asString(input.currentStartDate),
+    currentEndDate: asString(input.currentEndDate),
     currentAverageMoodScore: asNumber(input.currentAverageMoodScore),
+    mode: asDateFilterMode(input.mode, fallbackMode),
     delta: asNumber(input.delta),
     respondentCount: asNumber(input.respondentCount),
   };
@@ -420,10 +664,45 @@ function normalizeExtremeItem(value: unknown): GmyExtremeItem {
 
 export function normalizeLeadershipDashboardResponse(
   value: unknown,
+  {
+    fallbackDateFilter,
+  }: {
+    fallbackDateFilter?: IsYatirimDateFilter;
+  } = {},
 ): LeadershipDashboardResponse {
   const input = asObject(value);
   const meta = asObject(input.meta);
   const comparisons = asObject(input.comparisons);
+  const selectedSegment = asObject(input.selectedSegment);
+  const selectedSegmentLatest = asObject(selectedSegment.latest);
+  const resolvedFallbackDateFilter =
+    fallbackDateFilter ||
+    normalizeIsYatirimDateFilter(
+      {
+        dateMode: asString(meta.dateMode || selectedSegmentLatest.dateMode, "single"),
+        startDate:
+          asString(meta.latestSurveyDate) ||
+          asString(selectedSegmentLatest.startDate) ||
+          asString(selectedSegmentLatest.surveyDate) ||
+          DEFAULT_IS_YATIRIM_FALLBACK_DATE,
+        endDate:
+          asString(meta.latestSurveyDate) ||
+          asString(selectedSegmentLatest.endDate) ||
+          asString(selectedSegmentLatest.surveyDate) ||
+          DEFAULT_IS_YATIRIM_FALLBACK_DATE,
+      },
+      {
+        todayDate:
+          asString(meta.latestSurveyDate) ||
+          asString(selectedSegmentLatest.startDate) ||
+          asString(selectedSegmentLatest.surveyDate) ||
+          DEFAULT_IS_YATIRIM_FALLBACK_DATE,
+      },
+    );
+  const normalizedMetaDateFilter = normalizeDateFilterLike(
+    meta.dateFilter,
+    resolvedFallbackDateFilter,
+  );
 
   return {
     meta: {
@@ -439,6 +718,7 @@ export function normalizeLeadershipDashboardResponse(
       latestSurveyDateLabel: asString(meta.latestSurveyDateLabel),
       generatedAt: asString(meta.generatedAt),
       trendWindowLabel: asString(meta.trendWindowLabel),
+      dateFilter: normalizedMetaDateFilter,
       maxMoodScore: 4,
       selectedSegmentId: asString(
         meta.selectedSegmentId,
@@ -446,7 +726,10 @@ export function normalizeLeadershipDashboardResponse(
       ),
       segments: asArray(meta.segments, normalizeSegmentOption),
     },
-    selectedSegment: normalizeSelectedSegment(input.selectedSegment),
+    selectedSegment: normalizeSelectedSegment(
+      input.selectedSegment,
+      normalizedMetaDateFilter,
+    ),
     comparisons: {
       gmyRanking: asArray(comparisons.gmyRanking, normalizeRankingItem).sort(
         (left, right) => {
@@ -467,13 +750,10 @@ export function normalizeLeadershipDashboardResponse(
       ),
       gmyScoreChanges: asArray(
         comparisons.gmyScoreChanges,
-        normalizeScoreChangeItem,
+        (item) => normalizeScoreChangeItem(item, normalizedMetaDateFilter.mode),
       ),
       gmyExtremes: asArray(comparisons.gmyExtremes, normalizeExtremeItem),
-      dateComparison: asArray(
-        comparisons.dateComparison,
-        normalizeTrendPoint,
-      ).slice(0, 4),
+      dateComparison: asArray(comparisons.dateComparison, normalizeTrendPoint),
     },
   };
 }
@@ -509,6 +789,87 @@ export function formatTurkishDateTime(value: string) {
     year: "numeric",
     weekday: "long",
   }).format(date);
+}
+
+export function formatTurkishDate(value: string, withWeekday = false) {
+  const date = parseIsoDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    ...(withWeekday ? { weekday: "long" as const } : {}),
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function formatTurkishShortDate(value: string) {
+  const date = parseIsoDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+export function formatIsYatirimDateFilterLabel(
+  dateFilter: IsYatirimDateFilter,
+  {
+    includeDayCount = true,
+    singleWithWeekday = true,
+  }: {
+    includeDayCount?: boolean;
+    singleWithWeekday?: boolean;
+  } = {},
+) {
+  if (dateFilter.mode === "single") {
+    return formatTurkishDate(dateFilter.startDate, singleWithWeekday);
+  }
+
+  const start = parseIsoDate(dateFilter.startDate);
+  const end = parseIsoDate(dateFilter.endDate);
+
+  if (!start || !end) {
+    return `${dateFilter.startDate} – ${dateFilter.endDate}`;
+  }
+
+  const startDay = start.getUTCDate();
+  const endDay = end.getUTCDate();
+  const startMonthLabel = new Intl.DateTimeFormat("tr-TR", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(start);
+  const endMonthLabel = new Intl.DateTimeFormat("tr-TR", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(end);
+  const startYear = start.getUTCFullYear();
+  const endYear = end.getUTCFullYear();
+
+  let label = "";
+
+  if (startYear === endYear && start.getUTCMonth() === end.getUTCMonth()) {
+    label = `${startDay}–${endDay} ${endMonthLabel} ${endYear}`;
+  } else if (startYear === endYear) {
+    label = `${formatTurkishShortDate(dateFilter.startDate)} – ${endDay} ${endMonthLabel} ${endYear}`;
+  } else {
+    label = `${startDay} ${startMonthLabel} ${startYear} – ${endDay} ${endMonthLabel} ${endYear}`;
+  }
+
+  if (!includeDayCount) {
+    return label;
+  }
+
+  return `${label} · ${formatCount(dateFilter.dayCount)} gün`;
 }
 
 export function formatTrendWindowLabel(

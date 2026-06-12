@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
+  normalizeIsYatirimDateFilter,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimSegment,
   normalizeLeadershipDashboardResponse,
@@ -23,10 +24,16 @@ export function buildIsYatirimDashboardUrl({
   baseUrl,
   segment,
   token,
+  dateFilter,
 }: {
   baseUrl: string;
   segment?: string | null;
   token?: string | null;
+  dateFilter: {
+    mode: "single" | "range";
+    startDate: string;
+    endDate: string;
+  };
 }) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
   const url = new URL(`${normalizedBase}/analytics/dashboard`);
@@ -35,6 +42,9 @@ export function buildIsYatirimDashboardUrl({
   url.searchParams.set("client", IS_YATIRIM_CLIENT);
   url.searchParams.set("competencyId", IS_YATIRIM_COMPETENCY_ID);
   url.searchParams.set("segment", normalizeIsYatirimSegment(segment));
+  url.searchParams.set("dateMode", dateFilter.mode);
+  url.searchParams.set("startDate", dateFilter.startDate);
+  url.searchParams.set("endDate", dateFilter.endDate);
   if (normalizedToken) {
     url.searchParams.set("token", normalizedToken);
   }
@@ -68,7 +78,22 @@ export async function handleIsYatirimLeadershipDashboardRequest(
   const token = normalizeIsYatirimDashboardToken(
     request.nextUrl.searchParams.get("token"),
   );
-  const upstreamUrl = buildIsYatirimDashboardUrl({ baseUrl, segment, token });
+  const dateFilter = normalizeIsYatirimDateFilter(
+    {
+      dateMode: request.nextUrl.searchParams.get("dateMode"),
+      startDate: request.nextUrl.searchParams.get("startDate"),
+      endDate: request.nextUrl.searchParams.get("endDate"),
+    },
+    {
+      todayDate: request.nextUrl.searchParams.get("startDate") || undefined,
+    },
+  );
+  const upstreamUrl = buildIsYatirimDashboardUrl({
+    baseUrl,
+    segment,
+    token,
+    dateFilter,
+  });
 
   let response: Response;
   try {
@@ -111,7 +136,9 @@ export async function handleIsYatirimLeadershipDashboardRequest(
   }
 
   return NextResponse.json(
-    normalizeLeadershipDashboardResponse(json?.body ?? json),
+    normalizeLeadershipDashboardResponse(json?.body ?? json, {
+      fallbackDateFilter: dateFilter,
+    }),
     {
       headers: {
         "Cache-Control": "no-store",

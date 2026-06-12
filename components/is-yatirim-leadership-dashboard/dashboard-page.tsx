@@ -6,7 +6,10 @@ import {
   AnalyticsLoadingState,
   AnalyticsSectionHeading,
 } from "@/components/analytics-dashboard/dashboard-shell";
-import type { LeadershipDashboardResponse } from "@/lib/isYatirimLeadershipDashboard";
+import type {
+  IsYatirimDateFilter,
+  LeadershipDashboardResponse,
+} from "@/lib/isYatirimLeadershipDashboard";
 import {
   DashboardEmptyContent,
   EngagementByMoodGrid,
@@ -22,25 +25,34 @@ import {
 } from "./dashboard-sections";
 
 type IsYatirimLeadershipDashboardProps = {
+  dateFilter: IsYatirimDateFilter;
   response?: LeadershipDashboardResponse;
   selectedSegment: string;
   isLoading: boolean;
   isUpdating: boolean;
   errorMessage?: string | null;
+  onDateFilterChange: (dateFilter: IsYatirimDateFilter) => void;
   onSegmentSelect: (segment: string) => void;
 };
 
 export default function IsYatirimLeadershipDashboard({
+  dateFilter,
   response,
   selectedSegment,
   isLoading,
   isUpdating,
   errorMessage,
+  onDateFilterChange,
   onSegmentSelect,
 }: IsYatirimLeadershipDashboardProps) {
   return (
     <IsYatirimPageShell>
-      <IsYatirimHeader isUpdating={isUpdating} response={response} />
+      <IsYatirimHeader
+        dateFilter={dateFilter}
+        isUpdating={isUpdating}
+        onDateFilterChange={onDateFilterChange}
+        response={response}
+      />
 
       {response?.meta.segments.length ? (
         <SegmentTabs
@@ -50,7 +62,7 @@ export default function IsYatirimLeadershipDashboard({
         />
       ) : null}
 
-      {isLoading ? (
+      {isLoading || isUpdating ? (
         <AnalyticsLoadingState />
       ) : errorMessage ? (
         <AnalyticsErrorState message={errorMessage} />
@@ -64,11 +76,11 @@ export default function IsYatirimLeadershipDashboard({
 
           <AnalyticsSectionHeading>GMY KARŞILAŞTIRMASI</AnalyticsSectionHeading>
           <GmyRankingSection
-            dateLabel={response.meta.latestSurveyDateLabel}
+            dateFilter={response.meta.dateFilter}
             items={response.comparisons.gmyRanking}
           />
           <GmyExtremeSection
-            dateLabel={response.meta.latestSurveyDateLabel}
+            dateFilter={response.meta.dateFilter}
             items={response.comparisons.gmyExtremes}
           />
 

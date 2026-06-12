@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_IS_YATIRIM_SEGMENT,
+  formatIsYatirimDateFilterLabel,
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
+  normalizeIsYatirimDateFilter,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimSegment,
   normalizeLeadershipDashboardResponse,
@@ -31,6 +33,11 @@ test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => 
   const url = buildIsYatirimDashboardUrl({
     baseUrl: "https://example.com/base/",
     segment: "",
+    dateFilter: {
+      mode: "single",
+      startDate: "2026-06-11",
+      endDate: "2026-06-11",
+    },
   });
 
   assert.equal(url.origin, "https://example.com");
@@ -38,6 +45,9 @@ test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => 
   assert.equal(url.searchParams.get("client"), IS_YATIRIM_CLIENT);
   assert.equal(url.searchParams.get("competencyId"), IS_YATIRIM_COMPETENCY_ID);
   assert.equal(url.searchParams.get("segment"), "all");
+  assert.equal(url.searchParams.get("dateMode"), "single");
+  assert.equal(url.searchParams.get("startDate"), "2026-06-11");
+  assert.equal(url.searchParams.get("endDate"), "2026-06-11");
   assert.equal(url.searchParams.get("token"), null);
 });
 
@@ -46,10 +56,72 @@ test("buildIsYatirimDashboardUrl forwards İş Yatırım URL token when present"
     baseUrl: "https://example.com",
     segment: "yonetim",
     token: "  secure-token  ",
+    dateFilter: {
+      mode: "range",
+      startDate: "2026-06-01",
+      endDate: "2026-06-07",
+    },
   });
 
   assert.equal(url.searchParams.get("segment"), "yonetim");
+  assert.equal(url.searchParams.get("dateMode"), "range");
+  assert.equal(url.searchParams.get("startDate"), "2026-06-01");
+  assert.equal(url.searchParams.get("endDate"), "2026-06-07");
   assert.equal(url.searchParams.get("token"), "secure-token");
+});
+
+test("normalizeIsYatirimDateFilter sanitizes invalid combinations to single today", () => {
+  assert.deepEqual(
+    normalizeIsYatirimDateFilter(
+      {
+        dateMode: "range",
+        startDate: "2026-06-10",
+        endDate: "2026-06-01",
+      },
+      { todayDate: "2026-06-11" },
+    ),
+    {
+      mode: "single",
+      startDate: "2026-06-11",
+      endDate: "2026-06-11",
+      dayCount: 1,
+    },
+  );
+  assert.deepEqual(
+    normalizeIsYatirimDateFilter(
+      {
+        dateMode: "single",
+        startDate: "2026-06-10",
+        endDate: "2026-06-09",
+      },
+      { todayDate: "2026-06-11" },
+    ),
+    {
+      mode: "single",
+      startDate: "2026-06-11",
+      endDate: "2026-06-11",
+      dayCount: 1,
+    },
+  );
+});
+
+test("normalizeIsYatirimDateFilter keeps valid range metadata", () => {
+  assert.deepEqual(
+    normalizeIsYatirimDateFilter(
+      {
+        dateMode: "range",
+        startDate: "2026-06-01",
+        endDate: "2026-06-07",
+      },
+      { todayDate: "2026-06-11" },
+    ),
+    {
+      mode: "range",
+      startDate: "2026-06-01",
+      endDate: "2026-06-07",
+      dayCount: 7,
+    },
+  );
 });
 
 test("getIsYatirimDashboardBaseUrl prefers İş Yatırım env names", () => {
@@ -85,6 +157,7 @@ test("normalizeLeadershipDashboardResponse fills empty arrays and numeric fallba
 
   assert.equal(response.meta.organizationId, IS_YATIRIM_CLIENT);
   assert.equal(response.meta.segments.length, 1);
+  assert.equal(response.meta.dateFilter.mode, "single");
   assert.equal(response.selectedSegment.latest.respondentCount, 0);
   assert.equal(response.selectedSegment.latest.participationRate, 0);
   assert.equal(response.selectedSegment.latest.mostFrequentWord, null);
@@ -128,7 +201,7 @@ test("normalizeLeadershipDashboardResponse sorts GMY ranking by rank then score"
   );
 });
 
-test("normalizeLeadershipDashboardResponse keeps latest four date comparison rows", () => {
+test("normalizeLeadershipDashboardResponse keeps full range date comparison rows", () => {
   const response = normalizeLeadershipDashboardResponse({
     selectedSegment: {},
     comparisons: {
@@ -142,8 +215,91 @@ test("normalizeLeadershipDashboardResponse keeps latest four date comparison row
     },
   });
 
-  assert.equal(response.comparisons.dateComparison.length, 4);
-  assert.equal(response.comparisons.dateComparison.at(-1)?.surveyDate, "2026-06-01");
+  assert.equal(response.comparisons.dateComparison.length, 5);
+  assert.equal(response.comparisons.dateComparison.at(-1)?.surveyDate, "2026-05-31");
+});
+
+test("normalizeLeadershipDashboardResponse maps date filter metadata into response", () => {
+  const response = normalizeLeadershipDashboardResponse(
+    {
+      meta: {
+        dateFilter: {
+          mode: "range",
+          startDate: "2026-06-01",
+          endDate: "2026-06-07",
+          dayCount: 7,
+        },
+      },
+      selectedSegment: {
+        latest: {
+          startDate: "2026-06-01",
+          endDate: "2026-06-07",
+          dateMode: "range",
+          dayCount: 7,
+        },
+      },
+      comparisons: {
+        gmyScoreChanges: [
+          {
+            mode: "range",
+            previousStartDate: "2026-05-25",
+            previousEndDate: "2026-05-31",
+            currentStartDate: "2026-06-01",
+            currentEndDate: "2026-06-07",
+          },
+        ],
+      },
+    },
+    {
+      fallbackDateFilter: {
+        mode: "single",
+        startDate: "2026-06-11",
+        endDate: "2026-06-11",
+        dayCount: 1,
+      },
+    },
+  );
+
+  assert.deepEqual(response.meta.dateFilter, {
+    mode: "range",
+    startDate: "2026-06-01",
+    endDate: "2026-06-07",
+    dayCount: 7,
+  });
+  assert.equal(response.selectedSegment.latest.dateMode, "range");
+  assert.equal(response.selectedSegment.latest.startDate, "2026-06-01");
+  assert.equal(response.selectedSegment.latest.endDate, "2026-06-07");
+  assert.equal(response.selectedSegment.latest.dayCount, 7);
+  assert.equal(response.comparisons.gmyScoreChanges[0]?.mode, "range");
+  assert.equal(
+    response.comparisons.gmyScoreChanges[0]?.previousStartDate,
+    "2026-05-25",
+  );
+  assert.equal(
+    response.comparisons.gmyScoreChanges[0]?.currentEndDate,
+    "2026-06-07",
+  );
+});
+
+test("formatIsYatirimDateFilterLabel renders single and range labels", () => {
+  assert.equal(
+    formatIsYatirimDateFilterLabel({
+      mode: "single",
+      startDate: "2026-06-04",
+      endDate: "2026-06-04",
+      dayCount: 1,
+    }),
+    "4 Haziran 2026 Perşembe",
+  );
+  assert.equal(
+    formatIsYatirimDateFilterLabel({
+      mode: "range",
+      startDate: "2026-06-04",
+      endDate: "2026-06-10",
+      dayCount: 7,
+    }),
+    "4–10 Haz 2026 · 7 gün",
+  );
 });
 
 test("formatTrendWindowLabel derives day count and date range from trend data", () => {

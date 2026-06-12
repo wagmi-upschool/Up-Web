@@ -35,18 +35,23 @@ import {
   MOOD_ORDER,
   MOOD_TOKENS,
   formatCount,
+  formatIsYatirimDateFilterLabel,
   formatPercent,
   formatScore,
+  formatTurkishDate,
   formatTurkishDateTime,
   type EngagementAnswer,
   type GmyExtremeItem,
   type GmyRankingItem,
   type GmyScoreChangeItem,
+  type IsYatirimDateFilter,
+  type IsYatirimDateFilterMode,
   type LeadershipDashboardResponse,
   type MoodCategory,
   type SurveyTrendPoint,
   type WordItem,
 } from "@/lib/isYatirimLeadershipDashboard";
+import IsYatirimDateFilterPicker from "./date-filter-picker";
 
 type SegmentOption = LeadershipDashboardResponse["meta"]["segments"][number];
 
@@ -132,6 +137,24 @@ function formatMetricValue(value: number, metric: TrendMetric) {
   }
 
   return formatPercent(value);
+}
+
+function formatDashboardDateLabel(
+  dateFilter: IsYatirimDateFilter,
+  {
+    includeDayCount = true,
+    singleWithWeekday = false,
+  }: {
+    includeDayCount?: boolean;
+    singleWithWeekday?: boolean;
+  } = {},
+) {
+  return displayTurkishText(
+    formatIsYatirimDateFilterLabel(dateFilter, {
+      includeDayCount,
+      singleWithWeekday,
+    }),
+  );
 }
 
 const TURKISH_UPPERCASE_REPLACEMENTS: Array<[RegExp, string]> = [
@@ -236,19 +259,28 @@ export function IsYatirimPageShell({ children }: { children: ReactNode }) {
 }
 
 export function IsYatirimHeader({
+  dateFilter,
+  onDateFilterChange,
   response,
   isUpdating,
 }: {
+  dateFilter: IsYatirimDateFilter;
+  onDateFilterChange: (dateFilter: IsYatirimDateFilter) => void;
   response?: LeadershipDashboardResponse;
   isUpdating: boolean;
 }) {
   const generatedAt = formatTurkishDateTime(response?.meta.generatedAt || "");
   const title = response?.meta.dashboardTitle || "İş Yatırım Duygu Durumu";
   const latestLabel = response?.meta.latestSurveyDateLabel || "Son ölçüm";
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const filterContextLabel =
+    dateFilter.mode === "single"
+      ? "Tek gün görünümü"
+      : `${formatCount(dateFilter.dayCount)} günlük aralık`;
 
   return (
-    <header className="relative overflow-hidden rounded-[30px] border border-[#171717]/10 bg-[#F8F2E7]/80 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_18%,rgba(255,255,255,0.72),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.55),rgba(255,255,255,0.18))]" />
+    <header className="relative z-30 overflow-visible rounded-[30px] border border-[#171717]/10 bg-[#F8F2E7]/80 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm">
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_85%_18%,rgba(255,255,255,0.72),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.55),rgba(255,255,255,0.18))]" />
       <div className="relative z-10">
         <div className="flex flex-col gap-4 border-b border-[#171717]/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div className="flex flex-wrap items-center gap-4">
@@ -279,6 +311,12 @@ export function IsYatirimHeader({
                 Güncelleniyor
               </div>
             ) : null}
+            <IsYatirimDateFilterPicker
+              dateFilter={dateFilter}
+              isUpdating={isUpdating}
+              onApply={onDateFilterChange}
+              onOpenChange={setIsDatePickerOpen}
+            />
             {generatedAt ? (
               <div className="rounded-full bg-[#EFE7D8] px-4 py-2 font-poppins text-sm font-semibold text-[#171717]/60">
                 {generatedAt}
@@ -286,7 +324,11 @@ export function IsYatirimHeader({
             ) : null}
           </div>
         </div>
-        <div className="px-5 py-8 text-left sm:px-7 sm:py-10 lg:py-11">
+        <div
+          className={`px-5 py-8 text-left sm:px-7 sm:py-10 lg:py-11 ${
+            isDatePickerOpen ? "lg:pr-[29rem]" : ""
+          }`}
+        >
           <div className="inline-flex items-center gap-2 rounded-full border border-[#0057FF]/20 bg-[#0057FF]/8 px-3 py-1 font-poppins text-xs font-semibold tracking-[0.24em] text-[#0057FF]">
             <Sparkles className="h-3.5 w-3.5" />
             {toTurkishUpperCase(
@@ -297,7 +339,7 @@ export function IsYatirimHeader({
             {displayTurkishText(title)}
           </h1>
           <p className="mt-3 font-poppins text-base font-medium text-[#171717]/52 sm:text-lg">
-            {displayTurkishText(latestLabel)} · Günlük ölçüm
+            {displayTurkishText(latestLabel)} · {filterContextLabel}
           </p>
         </div>
       </div>
@@ -319,7 +361,7 @@ export function SegmentTabs({
   }
 
   return (
-    <div className="border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
+    <div className="relative z-0 border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
       <div className="flex w-full flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-5 lg:px-6 xl:flex-nowrap xl:justify-between">
         {segments.map((segment) => {
           const isActive = selectedSegment === segment.id;
@@ -347,14 +389,18 @@ export function SegmentTabs({
 export function KpiGrid({ response }: { response: LeadershipDashboardResponse }) {
   const latest = response.selectedSegment.latest;
   const topWord = latest.mostFrequentWord;
+  const participationDetail =
+    latest.dateMode === "range"
+      ? `Toplam ${formatCount(latest.respondentCount)} yanıt`
+      : `${formatCount(latest.respondentCount)} / ${formatCount(
+          latest.targetEmployeeCount,
+        )} kişi`;
   const kpis = [
     {
       id: "participation",
       label: "Katılım",
       value: formatPercent(latest.participationRate),
-      detail: `${formatCount(latest.respondentCount)} / ${formatCount(
-        latest.targetEmployeeCount,
-      )} kişi`,
+      detail: participationDetail,
       color: "#FC7700",
       icon: <Users className="h-6 w-6" />,
     },
@@ -430,6 +476,17 @@ export function MoodDistributionCard({
   response: LeadershipDashboardResponse;
 }) {
   const latest = response.selectedSegment.latest;
+  const snapshotDateLabel = formatDashboardDateLabel(
+    {
+      mode: latest.dateMode,
+      startDate: latest.startDate,
+      endDate: latest.endDate,
+      dayCount: latest.dayCount,
+    },
+    {
+      includeDayCount: latest.dateMode === "range",
+    },
+  );
 
   return (
     <AnalyticsCard>
@@ -437,9 +494,7 @@ export function MoodDistributionCard({
       <div className="mb-6 flex flex-col gap-4 rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] p-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-[#171717]/45">
-            {toTurkishUpperCase(
-              latest.surveyDateLabel || response.meta.latestSurveyDateLabel,
-            )}
+            {toTurkishUpperCase(snapshotDateLabel)}
           </p>
           <p className="mt-2 font-righteous text-5xl leading-none text-[#171717]">
             {formatScore(latest.averageMoodScore)}
@@ -952,12 +1007,13 @@ function TrendStatCard({
 
 export function GmyRankingSection({
   items,
-  dateLabel,
+  dateFilter,
 }: {
   items: GmyRankingItem[];
-  dateLabel: string;
+  dateFilter: IsYatirimDateFilter;
 }) {
   const maxScore = Math.max(4, ...items.map((item) => item.averageMoodScore));
+  const comparisonDateLabel = formatDashboardDateLabel(dateFilter);
 
   return (
     <AnalyticsCard>
@@ -965,8 +1021,7 @@ export function GmyRankingSection({
         GMY Gruplarına Göre Ortalama Duygu Durumu
       </AnalyticsSubheading>
       <p className="-mt-3 mb-6 font-poppins text-sm font-medium text-[#171717]/45">
-        {displayTurkishText(dateLabel || "Son ölçüm")} · Yüksekten düşüğe · 4
-        üzerinden
+        {comparisonDateLabel} · Yüksekten düşüğe · 4 üzerinden
       </p>
       {items.length ? (
         <div className="space-y-4">
@@ -1040,8 +1095,22 @@ export function GmyScoreChangeSection({
                     {toTurkishUpperCase(`${formatCount(item.respondentCount)} yanıt`)}
                   </p>
                 </div>
-                <ScoreCell label={item.previousSurveyDate} value={item.previousAverageMoodScore} />
-                <ScoreCell label={item.currentSurveyDate} value={item.currentAverageMoodScore} />
+                <ScoreCell
+                  label={formatScoreCellLabel(
+                    item.mode,
+                    item.previousStartDate || item.previousSurveyDate,
+                    item.previousEndDate || item.previousSurveyDate,
+                  )}
+                  value={item.previousAverageMoodScore}
+                />
+                <ScoreCell
+                  label={formatScoreCellLabel(
+                    item.mode,
+                    item.currentStartDate || item.currentSurveyDate,
+                    item.currentEndDate || item.currentSurveyDate,
+                  )}
+                  value={item.currentAverageMoodScore}
+                />
                 <div className="flex items-center justify-start gap-2 md:justify-end">
                   <DeltaIcon className="h-4 w-4" style={{ color: deltaColor }} />
                   <p
@@ -1063,6 +1132,28 @@ export function GmyScoreChangeSection({
   );
 }
 
+function formatScoreCellLabel(
+  mode: IsYatirimDateFilterMode,
+  startDate: string,
+  endDate: string,
+) {
+  if (mode === "range" && startDate && endDate) {
+    return formatDashboardDateLabel(
+      {
+        mode,
+        startDate,
+        endDate,
+        dayCount: 1,
+      },
+      {
+        includeDayCount: false,
+      },
+    );
+  }
+
+  return formatTurkishDate(startDate || endDate);
+}
+
 function ScoreCell({ label, value }: { label: string; value: number }) {
   return (
     <div>
@@ -1078,15 +1169,16 @@ function ScoreCell({ label, value }: { label: string; value: number }) {
 
 export function GmyExtremeSection({
   items,
-  dateLabel,
+  dateFilter,
 }: {
   items: GmyExtremeItem[];
-  dateLabel: string;
+  dateFilter: IsYatirimDateFilter;
 }) {
   const maxRate = Math.max(
     1,
     ...items.flatMap((item) => [item.badRate, item.greatRate]),
   );
+  const comparisonDateLabel = formatDashboardDateLabel(dateFilter);
 
   return (
     <AnalyticsCard>
@@ -1096,7 +1188,7 @@ export function GmyExtremeSection({
         </h3>
         <p className="mt-2 font-poppins text-sm text-[#171717]/45 sm:text-base">
           ← Kötü (%) &nbsp;&nbsp; Harika (%) → ·{" "}
-          {displayTurkishText(dateLabel || "Son ölçüm")}
+          {comparisonDateLabel}
         </p>
       </div>
       {items.length ? (
