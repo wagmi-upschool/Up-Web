@@ -40,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="tr">
       <body className={`${poppins.variable} ${righteous.variable} font-sans`}>
         <DashboardWrapper>{children}</DashboardWrapper>
         <Toaster />

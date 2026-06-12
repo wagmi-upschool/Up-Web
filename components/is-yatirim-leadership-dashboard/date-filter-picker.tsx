@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Calendar as CalendarIcon,
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import type { IsYatirimDateFilter } from "@/lib/isYatirimLeadershipDashboard";
 import {
   formatIsYatirimDateFilterLabel,
@@ -22,6 +28,87 @@ function getQuickRangeDateFilter(dayCount: number, todayDate: string) {
     startDate: shiftIsoDate(todayDate, -(dayCount - 1)),
     endDate: todayDate,
   };
+}
+
+const TURKISH_WEEKDAYS = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"] as const;
+
+function parseIsoDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getMonthStart(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+function addMonths(date: Date, amount: number) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + amount, 1),
+  );
+}
+
+function isSameUtcDay(left: Date, right: Date) {
+  return (
+    left.getUTCFullYear() === right.getUTCFullYear() &&
+    left.getUTCMonth() === right.getUTCMonth() &&
+    left.getUTCDate() === right.getUTCDate()
+  );
+}
+
+function isSameUtcMonth(left: Date, right: Date) {
+  return (
+    left.getUTCFullYear() === right.getUTCFullYear() &&
+    left.getUTCMonth() === right.getUTCMonth()
+  );
+}
+
+function formatCalendarFieldValue(value: string) {
+  const date = parseIsoDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function formatCalendarMonthLabel(value: Date) {
+  const label = new Intl.DateTimeFormat("tr-TR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(value);
+
+  return label.charAt(0).toLocaleUpperCase("tr-TR") + label.slice(1);
+}
+
+function getCalendarDays(viewedMonth: Date) {
+  const monthStart = getMonthStart(viewedMonth);
+  const weekdayOffset = (monthStart.getUTCDay() + 6) % 7;
+  const nextMonthStart = addMonths(monthStart, 1);
+  const daysInMonth = Math.round(
+    (nextMonthStart.getTime() - monthStart.getTime()) / 86_400_000,
+  );
+  const totalCells = Math.ceil((weekdayOffset + daysInMonth) / 7) * 7;
+  const gridStart = new Date(monthStart);
+  gridStart.setUTCDate(monthStart.getUTCDate() - weekdayOffset);
+
+  return Array.from({ length: totalCells }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setUTCDate(gridStart.getUTCDate() + index);
+    return date;
+  });
 }
 
 function isPresetDateSelection(
@@ -77,24 +164,152 @@ function QuickButton({
 
 function DateInput({
   label,
-  setValue,
+  minDate,
+  maxDate,
+  onOpenChange,
+  onSelect,
+  position,
   value,
+  isOpen,
 }: {
   label: string;
-  setValue: (value: string) => void;
+  minDate?: string;
+  maxDate: string;
+  onOpenChange: (isOpen: boolean) => void;
+  onSelect: (value: string) => void;
+  position: "left" | "right";
   value: string;
+  isOpen: boolean;
 }) {
+  const maxDateValue = useMemo(() => parseIsoDate(maxDate) || new Date(), [maxDate]);
+  const [viewedMonth, setViewedMonth] = useState(
+    () => parseIsoDate(value) || maxDateValue,
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setViewedMonth(parseIsoDate(value) || maxDateValue);
+  }, [isOpen, maxDateValue, value]);
+
+  const calendarDays = getCalendarDays(viewedMonth);
+  const selectedDate = parseIsoDate(value);
+  const isNextMonthDisabled =
+    getMonthStart(viewedMonth).getTime() >= getMonthStart(maxDateValue).getTime();
+
   return (
-    <label className="flex flex-col gap-2">
+    <label className="relative flex flex-col gap-2">
       <span className="font-poppins text-xs font-semibold uppercase tracking-[0.18em] text-[#171717]/45">
         {label}
       </span>
-      <input
-        className="rounded-2xl border border-[#171717]/10 bg-white px-4 py-3 font-poppins text-sm font-medium text-[#171717] outline-none transition-colors focus:border-[#0057FF]/40"
-        onChange={(event) => setValue(event.target.value)}
-        type="date"
-        value={value}
-      />
+      <button
+        className={`flex items-center justify-between rounded-2xl border border-[#171717]/10 bg-white px-4 py-3 font-poppins text-left text-sm font-medium text-[#171717] outline-none transition-colors ${
+          isOpen ? "border-[#0057FF]/40" : "hover:border-[#0057FF]/25"
+        }`}
+        onClick={() => onOpenChange(!isOpen)}
+        type="button"
+      >
+        <span>{formatCalendarFieldValue(value)}</span>
+        <CalendarIcon className="h-4 w-4 shrink-0" />
+      </button>
+
+      {isOpen ? (
+        <div
+          className={`absolute top-[calc(100%+12px)] z-[80] w-[320px] rounded-[24px] border border-[#171717]/10 bg-[#FFFDF8] p-4 shadow-[0_24px_60px_rgba(23,23,23,0.16)] ${
+            position === "left" ? "left-0" : "right-0"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <button
+              className="rounded-full border border-[#171717]/10 p-2 text-[#171717]/62 transition-colors hover:border-[#0057FF]/25 hover:text-[#0057FF]"
+              onClick={() => setViewedMonth((current) => addMonths(current, -1))}
+              type="button"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <p className="font-poppins text-base font-semibold text-[#171717]">
+              {formatCalendarMonthLabel(viewedMonth)}
+            </p>
+            <button
+              className={`rounded-full border border-[#171717]/10 p-2 transition-colors ${
+                isNextMonthDisabled
+                  ? "cursor-not-allowed text-[#171717]/25"
+                  : "text-[#171717]/62 hover:border-[#0057FF]/25 hover:text-[#0057FF]"
+              }`}
+              disabled={isNextMonthDisabled}
+              onClick={() => setViewedMonth((current) => addMonths(current, 1))}
+              type="button"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7 gap-1">
+            {TURKISH_WEEKDAYS.map((weekday) => (
+              <div
+                className="pb-2 text-center font-poppins text-xs font-semibold uppercase tracking-[0.18em] text-[#171717]/42"
+                key={weekday}
+              >
+                {weekday}
+              </div>
+            ))}
+
+            {calendarDays.map((date) => {
+              const isoDate = date.toISOString().slice(0, 10);
+              const isBeforeMinDate = Boolean(minDate && isoDate < minDate);
+              const isAfterMaxDate = isoDate > maxDate;
+              const isDisabled = isBeforeMinDate || isAfterMaxDate;
+              const isSelected = selectedDate ? isSameUtcDay(date, selectedDate) : false;
+              const isCurrentMonth = isSameUtcMonth(date, viewedMonth);
+
+              if (!isCurrentMonth) {
+                return <div className="h-10" key={isoDate} />;
+              }
+
+              return (
+                <button
+                  className={`h-10 rounded-xl font-poppins text-sm font-medium transition-colors ${
+                    isSelected
+                      ? "bg-[#0057FF] text-white"
+                      : isDisabled
+                        ? "cursor-not-allowed bg-[#171717]/[0.04] text-[#171717]/22 line-through"
+                        : "text-[#171717] hover:bg-[#EEF4FF]"
+                  }`}
+                  disabled={isDisabled}
+                  key={isoDate}
+                  onClick={() => {
+                    onSelect(isoDate);
+                    onOpenChange(false);
+                  }}
+                  type="button"
+                >
+                  {date.getUTCDate()}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex items-center justify-end">
+            <button
+              className={`rounded-full border px-3 py-2 font-poppins text-sm font-semibold transition-colors ${
+                minDate && maxDate < minDate
+                  ? "cursor-not-allowed border-[#171717]/10 bg-[#171717]/[0.04] text-[#171717]/28"
+                  : "border-[#0057FF]/18 bg-[#EEF4FF] text-[#0057FF] hover:border-[#0057FF]/35"
+              }`}
+              disabled={Boolean(minDate && maxDate < minDate)}
+              onClick={() => {
+                onSelect(maxDate);
+                onOpenChange(false);
+              }}
+              type="button"
+            >
+              Bugün
+            </button>
+          </div>
+        </div>
+      ) : null}
     </label>
   );
 }
@@ -113,6 +328,7 @@ export default function IsYatirimDateFilterPicker({
   const todayDate = getTodayDateString();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [openCalendar, setOpenCalendar] = useState<"start" | "end" | null>(null);
   const [draftStartDate, setDraftStartDate] = useState(dateFilter.startDate);
   const [draftEndDate, setDraftEndDate] = useState(dateFilter.endDate);
   const range7 = getQuickRangeDateFilter(7, todayDate);
@@ -138,6 +354,7 @@ export default function IsYatirimDateFilterPicker({
     setDraftStartDate(dateFilter.startDate);
     setDraftEndDate(dateFilter.endDate);
     setIsCustomRangePickerVisible(isCurrentFilterCustom);
+    setOpenCalendar(null);
   }, [dateFilter.endDate, dateFilter.startDate, isCurrentFilterCustom, isOpen]);
 
   useEffect(() => {
@@ -204,18 +421,21 @@ export default function IsYatirimDateFilterPicker({
     setDraftStartDate(nextDate);
     setDraftEndDate(nextDate);
     setIsCustomRangePickerVisible(false);
+    setOpenCalendar(null);
   };
 
   const applyRangeDates = (nextStartDate: string, nextEndDate: string) => {
     setDraftStartDate(nextStartDate);
     setDraftEndDate(nextEndDate);
     setIsCustomRangePickerVisible(false);
+    setOpenCalendar(null);
   };
 
   const closeAndReset = () => {
     setDraftStartDate(dateFilter.startDate);
     setDraftEndDate(dateFilter.endDate);
     setIsCustomRangePickerVisible(isCurrentFilterCustom);
+    setOpenCalendar(null);
     setIsOpen(false);
   };
 
@@ -297,20 +517,39 @@ export default function IsYatirimDateFilterPicker({
               <QuickButton
                 isActive={isCustomRange}
                 label="Özel Aralık"
-                onClick={() => setIsCustomRangePickerVisible(true)}
+                onClick={() => {
+                  if (!isCustomRangePickerVisible) {
+                    setDraftEndDate(todayDate);
+                  }
+                  setIsCustomRangePickerVisible(true);
+                  setOpenCalendar("start");
+                }}
               />
             </div>
 
             {isCustomRangePickerVisible ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <DateInput
+                  isOpen={openCalendar === "start"}
                   label="Başlangıç"
-                  setValue={setDraftStartDate}
+                  maxDate={draftEndDate < todayDate ? draftEndDate : todayDate}
+                  onOpenChange={(nextOpen) =>
+                    setOpenCalendar(nextOpen ? "start" : null)
+                  }
+                  onSelect={setDraftStartDate}
+                  position="left"
                   value={draftStartDate}
                 />
                 <DateInput
+                  isOpen={openCalendar === "end"}
                   label="Bitiş"
-                  setValue={setDraftEndDate}
+                  minDate={draftStartDate}
+                  maxDate={todayDate}
+                  onOpenChange={(nextOpen) =>
+                    setOpenCalendar(nextOpen ? "end" : null)
+                  }
+                  onSelect={setDraftEndDate}
+                  position="right"
                   value={draftEndDate}
                 />
               </div>
