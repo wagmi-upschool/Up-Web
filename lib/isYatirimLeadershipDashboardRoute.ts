@@ -29,7 +29,7 @@ export function buildIsYatirimDashboardUrl({
   baseUrl: string;
   segment?: string | null;
   token?: string | null;
-  dateFilter: {
+  dateFilter?: {
     mode: "single" | "range";
     startDate: string;
     endDate: string;
@@ -42,9 +42,11 @@ export function buildIsYatirimDashboardUrl({
   url.searchParams.set("client", IS_YATIRIM_CLIENT);
   url.searchParams.set("competencyId", IS_YATIRIM_COMPETENCY_ID);
   url.searchParams.set("segment", normalizeIsYatirimSegment(segment));
-  url.searchParams.set("dateMode", dateFilter.mode);
-  url.searchParams.set("startDate", dateFilter.startDate);
-  url.searchParams.set("endDate", dateFilter.endDate);
+  if (dateFilter) {
+    url.searchParams.set("dateMode", dateFilter.mode);
+    url.searchParams.set("startDate", dateFilter.startDate);
+    url.searchParams.set("endDate", dateFilter.endDate);
+  }
   if (normalizedToken) {
     url.searchParams.set("token", normalizedToken);
   }
@@ -78,16 +80,22 @@ export async function handleIsYatirimLeadershipDashboardRequest(
   const token = normalizeIsYatirimDashboardToken(
     request.nextUrl.searchParams.get("token"),
   );
-  const dateFilter = normalizeIsYatirimDateFilter(
-    {
-      dateMode: request.nextUrl.searchParams.get("dateMode"),
-      startDate: request.nextUrl.searchParams.get("startDate"),
-      endDate: request.nextUrl.searchParams.get("endDate"),
-    },
-    {
-      todayDate: request.nextUrl.searchParams.get("startDate") || undefined,
-    },
-  );
+  const hasExplicitDateFilter =
+    request.nextUrl.searchParams.has("dateMode") ||
+    request.nextUrl.searchParams.has("startDate") ||
+    request.nextUrl.searchParams.has("endDate");
+  const dateFilter = hasExplicitDateFilter
+    ? normalizeIsYatirimDateFilter(
+        {
+          dateMode: request.nextUrl.searchParams.get("dateMode"),
+          startDate: request.nextUrl.searchParams.get("startDate"),
+          endDate: request.nextUrl.searchParams.get("endDate"),
+        },
+        {
+          todayDate: request.nextUrl.searchParams.get("startDate") || undefined,
+        },
+      )
+    : undefined;
   const upstreamUrl = buildIsYatirimDashboardUrl({
     baseUrl,
     segment,

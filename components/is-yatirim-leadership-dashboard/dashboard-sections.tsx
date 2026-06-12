@@ -260,11 +260,13 @@ export function IsYatirimPageShell({ children }: { children: ReactNode }) {
 
 export function IsYatirimHeader({
   dateFilter,
+  isDateTimePickerEnabled,
   onDateFilterChange,
   response,
   isUpdating,
 }: {
   dateFilter: IsYatirimDateFilter;
+  isDateTimePickerEnabled: boolean;
   onDateFilterChange: (dateFilter: IsYatirimDateFilter) => void;
   response?: LeadershipDashboardResponse;
   isUpdating: boolean;
@@ -277,6 +279,9 @@ export function IsYatirimHeader({
     dateFilter.mode === "single"
       ? "Tek gün görünümü"
       : `${formatCount(dateFilter.dayCount)} günlük aralık`;
+  const subtitleLabel = isDateTimePickerEnabled
+    ? `${displayTurkishText(latestLabel)} · ${filterContextLabel}`
+    : displayTurkishText(latestLabel);
 
   return (
     <header className="relative z-30 overflow-visible rounded-[30px] border border-[#171717]/10 bg-[#F8F2E7]/80 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm">
@@ -311,12 +316,14 @@ export function IsYatirimHeader({
                 Güncelleniyor
               </div>
             ) : null}
-            <IsYatirimDateFilterPicker
-              dateFilter={dateFilter}
-              isUpdating={isUpdating}
-              onApply={onDateFilterChange}
-              onOpenChange={setIsDatePickerOpen}
-            />
+            {isDateTimePickerEnabled ? (
+              <IsYatirimDateFilterPicker
+                dateFilter={dateFilter}
+                isUpdating={isUpdating}
+                onApply={onDateFilterChange}
+                onOpenChange={setIsDatePickerOpen}
+              />
+            ) : null}
             {generatedAt ? (
               <div className="rounded-full bg-[#EFE7D8] px-4 py-2 font-poppins text-sm font-semibold text-[#171717]/60">
                 {generatedAt}
@@ -326,7 +333,7 @@ export function IsYatirimHeader({
         </div>
         <div
           className={`px-5 py-8 text-left sm:px-7 sm:py-10 lg:py-11 ${
-            isDatePickerOpen ? "lg:pr-[29rem]" : ""
+            isDateTimePickerEnabled && isDatePickerOpen ? "lg:pr-[29rem]" : ""
           }`}
         >
           <div className="inline-flex items-center gap-2 rounded-full border border-[#0057FF]/20 bg-[#0057FF]/8 px-3 py-1 font-poppins text-xs font-semibold tracking-[0.24em] text-[#0057FF]">
@@ -339,7 +346,7 @@ export function IsYatirimHeader({
             {displayTurkishText(title)}
           </h1>
           <p className="mt-3 font-poppins text-base font-medium text-[#171717]/52 sm:text-lg">
-            {displayTurkishText(latestLabel)} · {filterContextLabel}
+            {subtitleLabel}
           </p>
         </div>
       </div>

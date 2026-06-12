@@ -6,10 +6,12 @@ import {
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
   normalizeIsYatirimDateFilter,
+  normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimSegment,
   normalizeLeadershipDashboardResponse,
   formatTrendWindowLabel,
+  resolveIsYatirimDateFilterByPickerFlag,
 } from "../../lib/isYatirimLeadershipDashboard";
 import {
   buildIsYatirimDashboardUrl,
@@ -27,6 +29,12 @@ test("normalizeIsYatirimDashboardToken trims optional URL token", () => {
   assert.equal(normalizeIsYatirimDashboardToken(null), "");
   assert.equal(normalizeIsYatirimDashboardToken(""), "");
   assert.equal(normalizeIsYatirimDashboardToken("  token-123  "), "token-123");
+});
+
+test("normalizeIsYatirimDateTimePickerFlag only enables explicit true", () => {
+  assert.equal(normalizeIsYatirimDateTimePickerFlag(null), false);
+  assert.equal(normalizeIsYatirimDateTimePickerFlag("false"), false);
+  assert.equal(normalizeIsYatirimDateTimePickerFlag(" true "), true);
 });
 
 test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => {
@@ -67,6 +75,20 @@ test("buildIsYatirimDashboardUrl forwards İş Yatırım URL token when present"
   assert.equal(url.searchParams.get("dateMode"), "range");
   assert.equal(url.searchParams.get("startDate"), "2026-06-01");
   assert.equal(url.searchParams.get("endDate"), "2026-06-07");
+  assert.equal(url.searchParams.get("token"), "secure-token");
+});
+
+test("buildIsYatirimDashboardUrl omits date params when date picker flow is disabled", () => {
+  const url = buildIsYatirimDashboardUrl({
+    baseUrl: "https://example.com",
+    segment: "yonetim",
+    token: "secure-token",
+  });
+
+  assert.equal(url.searchParams.get("segment"), "yonetim");
+  assert.equal(url.searchParams.get("dateMode"), null);
+  assert.equal(url.searchParams.get("startDate"), null);
+  assert.equal(url.searchParams.get("endDate"), null);
   assert.equal(url.searchParams.get("token"), "secure-token");
 });
 
@@ -121,6 +143,26 @@ test("normalizeIsYatirimDateFilter keeps valid range metadata", () => {
       endDate: "2026-06-07",
       dayCount: 7,
     },
+  );
+});
+
+test("resolveIsYatirimDateFilterByPickerFlag gives picker flag priority over date params", () => {
+  const dateFilter = normalizeIsYatirimDateFilter(
+    {
+      dateMode: "range",
+      startDate: "2026-06-01",
+      endDate: "2026-06-07",
+    },
+    { todayDate: "2026-06-11" },
+  );
+
+  assert.equal(
+    resolveIsYatirimDateFilterByPickerFlag(false, dateFilter),
+    undefined,
+  );
+  assert.deepEqual(
+    resolveIsYatirimDateFilterByPickerFlag(true, dateFilter),
+    dateFilter,
   );
 });
 

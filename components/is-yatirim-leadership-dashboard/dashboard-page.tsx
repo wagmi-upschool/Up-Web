@@ -30,6 +30,7 @@ type IsYatirimLeadershipDashboardProps = {
   selectedSegment: string;
   isLoading: boolean;
   isUpdating: boolean;
+  isDateTimePickerEnabled: boolean;
   errorMessage?: string | null;
   onDateFilterChange: (dateFilter: IsYatirimDateFilter) => void;
   onSegmentSelect: (segment: string) => void;
@@ -41,6 +42,7 @@ export default function IsYatirimLeadershipDashboard({
   selectedSegment,
   isLoading,
   isUpdating,
+  isDateTimePickerEnabled,
   errorMessage,
   onDateFilterChange,
   onSegmentSelect,
@@ -49,6 +51,7 @@ export default function IsYatirimLeadershipDashboard({
     <IsYatirimPageShell>
       <IsYatirimHeader
         dateFilter={dateFilter}
+        isDateTimePickerEnabled={isDateTimePickerEnabled}
         isUpdating={isUpdating}
         onDateFilterChange={onDateFilterChange}
         response={response}

@@ -22,19 +22,23 @@ import {
   getTodayDateString,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimDateFilter,
+  normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimSegment,
+  resolveIsYatirimDateFilterByPickerFlag,
 } from "@/lib/isYatirimLeadershipDashboard";
 
 async function getLeadershipDashboard(
   segment: string,
   token: string,
-  dateFilter: IsYatirimDateFilter,
+  dateFilter?: IsYatirimDateFilter,
 ) {
   const query = new URLSearchParams({
     segment,
   });
 
-  applyIsYatirimDateFilterToSearchParams(query, dateFilter);
+  if (dateFilter) {
+    applyIsYatirimDateFilterToSearchParams(query, dateFilter);
+  }
 
   if (token) {
     query.set("token", token);
@@ -78,15 +82,15 @@ function formatApiError(error: unknown) {
 function getLeadershipDashboardQueryKey(
   segment: string,
   token: string,
-  dateFilter: IsYatirimDateFilter,
+  dateFilter?: IsYatirimDateFilter,
 ) {
   return [
     "isYatirimLeadershipDashboard",
     segment,
     token,
-    dateFilter.mode,
-    dateFilter.startDate,
-    dateFilter.endDate,
+    dateFilter?.mode || "legacy",
+    dateFilter?.startDate || "",
+    dateFilter?.endDate || "",
   ] as const;
 }
 
@@ -95,9 +99,11 @@ function buildDashboardSearchParams(
   {
     segment,
     dateFilter,
+    isDateTimePickerEnabled,
   }: {
     segment: string;
-    dateFilter: IsYatirimDateFilter;
+    dateFilter?: IsYatirimDateFilter;
+    isDateTimePickerEnabled: boolean;
   },
 ) {
   const nextSearchParams = new URLSearchParams(currentSearchParams.toString());
@@ -108,7 +114,13 @@ function buildDashboardSearchParams(
     nextSearchParams.set("segment", segment);
   }
 
-  applyIsYatirimDateFilterToSearchParams(nextSearchParams, dateFilter);
+  if (isDateTimePickerEnabled && dateFilter) {
+    applyIsYatirimDateFilterToSearchParams(nextSearchParams, dateFilter);
+  } else {
+    nextSearchParams.delete("dateMode");
+    nextSearchParams.delete("startDate");
+    nextSearchParams.delete("endDate");
+  }
 
   return nextSearchParams;
 }
@@ -119,14 +131,17 @@ function replaceDashboardRoute(
   {
     segment,
     dateFilter,
+    isDateTimePickerEnabled,
   }: {
     segment: string;
-    dateFilter: IsYatirimDateFilter;
+    dateFilter?: IsYatirimDateFilter;
+    isDateTimePickerEnabled: boolean;
   },
 ) {
   const nextSearchParams = buildDashboardSearchParams(currentSearchParams, {
     segment,
     dateFilter,
+    isDateTimePickerEnabled,
   });
   const nextSearch = nextSearchParams.toString();
   const currentSearch = currentSearchParams.toString();
@@ -146,6 +161,9 @@ function IsYatirimLeadershipDashboardContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const isDateTimePickerEnabled = normalizeIsYatirimDateTimePickerFlag(
+    searchParams.get("isDateTimePicker"),
+  );
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
   const token = normalizeIsYatirimDashboardToken(searchParams.get("token"));
   const dateFilter = normalizeIsYatirimDateFilter(
@@ -158,33 +176,65 @@ function IsYatirimLeadershipDashboardContent() {
       todayDate: getTodayDateString(),
     },
   );
+  const effectiveDateFilter = resolveIsYatirimDateFilterByPickerFlag(
+    isDateTimePickerEnabled,
+    dateFilter,
+  );
 
   useEffect(() => {
+    if (!isDateTimePickerEnabled) {
+      if (
+        searchParams.has("dateMode") ||
+        searchParams.has("startDate") ||
+        searchParams.has("endDate")
+      ) {
+        replaceDashboardRoute(router, searchParams, {
+          segment,
+          dateFilter: undefined,
+          isDateTimePickerEnabled: false,
+        });
+      }
+      return;
+    }
+
     if (
       searchParams.get("dateMode") !== dateFilter.mode ||
       searchParams.get("startDate") !== dateFilter.startDate ||
       searchParams.get("endDate") !== dateFilter.endDate
     ) {
-      replaceDashboardRoute(router, searchParams, { segment, dateFilter });
+      replaceDashboardRoute(router, searchParams, {
+        segment,
+        dateFilter,
+        isDateTimePickerEnabled: true,
+      });
     }
   }, [
     dateFilter,
     dateFilter.endDate,
     dateFilter.mode,
     dateFilter.startDate,
+    isDateTimePickerEnabled,
     router,
     searchParams,
     segment,
   ]);
 
   const dashboardQuery = useQuery({
-    queryKey: getLeadershipDashboardQueryKey(segment, token, dateFilter),
-    queryFn: () => getLeadershipDashboard(segment, token, dateFilter),
+    queryKey: getLeadershipDashboardQueryKey(
+      segment,
+      token,
+      effectiveDateFilter,
+    ),
+    queryFn: () => getLeadershipDashboard(segment, token, effectiveDateFilter),
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
+    if (!isDateTimePickerEnabled) {
+      return;
+    }
+
     const backendDateFilter = dashboardQuery.data?.meta.dateFilter;
 
     if (
@@ -201,6 +251,7 @@ function IsYatirimLeadershipDashboardContent() {
     replaceDashboardRoute(router, searchParams, {
       segment,
       dateFilter: backendDateFilter,
+      isDateTimePickerEnabled: true,
     });
   }, [
     dashboardQuery.data?.meta.dateFilter,
@@ -209,24 +260,32 @@ function IsYatirimLeadershipDashboardContent() {
     dateFilter.endDate,
     dateFilter.mode,
     dateFilter.startDate,
+    isDateTimePickerEnabled,
     router,
     searchParams,
     segment,
   ]);
 
   const activeDateFilter =
-    !dashboardQuery.isPlaceholderData && dashboardQuery.data?.meta.dateFilter
+    isDateTimePickerEnabled &&
+    !dashboardQuery.isPlaceholderData &&
+    dashboardQuery.data?.meta.dateFilter
       ? dashboardQuery.data.meta.dateFilter
       : dateFilter;
 
   const handleSegmentSelect = (selectedSegment: string) => {
     replaceDashboardRoute(router, searchParams, {
       segment: normalizeIsYatirimSegment(selectedSegment),
-      dateFilter,
+      dateFilter: effectiveDateFilter,
+      isDateTimePickerEnabled,
     });
   };
 
   const handleDateFilterChange = (nextDateFilter: IsYatirimDateFilter) => {
+    if (!isDateTimePickerEnabled) {
+      return;
+    }
+
     void queryClient.prefetchQuery({
       queryKey: getLeadershipDashboardQueryKey(
         segment,
@@ -239,6 +298,7 @@ function IsYatirimLeadershipDashboardContent() {
     replaceDashboardRoute(router, searchParams, {
       segment,
       dateFilter: nextDateFilter,
+      isDateTimePickerEnabled: true,
     });
   };
 
@@ -250,6 +310,7 @@ function IsYatirimLeadershipDashboardContent() {
       }
       isLoading={dashboardQuery.isLoading}
       isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
+      isDateTimePickerEnabled={isDateTimePickerEnabled}
       onDateFilterChange={handleDateFilterChange}
       onSegmentSelect={handleSegmentSelect}
       response={dashboardQuery.data}

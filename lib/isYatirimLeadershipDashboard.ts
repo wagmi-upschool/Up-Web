@@ -305,6 +305,12 @@ export function normalizeIsYatirimDashboardToken(
   return value?.trim() || "";
 }
 
+export function normalizeIsYatirimDateTimePickerFlag(
+  value: string | null | undefined,
+) {
+  return value?.trim() === "true";
+}
+
 export function getTodayDateString(now = new Date()) {
   return formatIsoDate(
     createUtcDate(now.getFullYear(), now.getMonth(), now.getDate()),
@@ -378,6 +384,13 @@ export function normalizeIsYatirimDateFilter(
   }
 
   return fallbackFilter;
+}
+
+export function resolveIsYatirimDateFilterByPickerFlag(
+  isDateTimePickerEnabled: boolean,
+  dateFilter: IsYatirimDateFilter,
+) {
+  return isDateTimePickerEnabled ? dateFilter : undefined;
 }
 
 export function isSameIsYatirimDateFilter(
