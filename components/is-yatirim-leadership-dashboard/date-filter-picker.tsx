@@ -12,6 +12,7 @@ import type { IsYatirimDateFilter } from "@/lib/isYatirimLeadershipDashboard";
 import {
   formatIsYatirimDateFilterLabel,
   getTodayDateString,
+  IS_YATIRIM_DATE_PICKER_MIN_DATE,
   normalizeIsYatirimDateFilter,
 } from "@/lib/isYatirimLeadershipDashboard";
 
@@ -24,8 +25,13 @@ function shiftIsoDate(value: string, amount: number) {
 }
 
 function getQuickRangeDateFilter(dayCount: number, todayDate: string) {
+  const startDate = shiftIsoDate(todayDate, -(dayCount - 1));
+
   return {
-    startDate: shiftIsoDate(todayDate, -(dayCount - 1)),
+    startDate:
+      startDate < IS_YATIRIM_DATE_PICKER_MIN_DATE
+        ? IS_YATIRIM_DATE_PICKER_MIN_DATE
+        : startDate,
     endDate: todayDate,
   };
 }
@@ -181,7 +187,14 @@ function DateInput({
   value: string;
   isOpen: boolean;
 }) {
-  const maxDateValue = useMemo(() => parseIsoDate(maxDate) || new Date(), [maxDate]);
+  const maxDateValue = useMemo(
+    () => parseIsoDate(maxDate) || new Date(),
+    [maxDate],
+  );
+  const minDateValue = useMemo(
+    () => (minDate ? parseIsoDate(minDate) : null),
+    [minDate],
+  );
   const [viewedMonth, setViewedMonth] = useState(
     () => parseIsoDate(value) || maxDateValue,
   );
@@ -191,13 +204,30 @@ function DateInput({
       return;
     }
 
-    setViewedMonth(parseIsoDate(value) || maxDateValue);
-  }, [isOpen, maxDateValue, value]);
+    const nextViewedMonth = parseIsoDate(value) || maxDateValue;
+
+    if (
+      minDateValue &&
+      getMonthStart(nextViewedMonth).getTime() <
+        getMonthStart(minDateValue).getTime()
+    ) {
+      setViewedMonth(minDateValue);
+      return;
+    }
+
+    setViewedMonth(nextViewedMonth);
+  }, [isOpen, maxDateValue, minDateValue, value]);
 
   const calendarDays = getCalendarDays(viewedMonth);
   const selectedDate = parseIsoDate(value);
+  const isPreviousMonthDisabled = Boolean(
+    minDateValue &&
+      getMonthStart(viewedMonth).getTime() <=
+        getMonthStart(minDateValue).getTime(),
+  );
   const isNextMonthDisabled =
-    getMonthStart(viewedMonth).getTime() >= getMonthStart(maxDateValue).getTime();
+    getMonthStart(viewedMonth).getTime() >=
+    getMonthStart(maxDateValue).getTime();
 
   return (
     <label className="relative flex flex-col gap-2">
@@ -223,8 +253,15 @@ function DateInput({
         >
           <div className="flex items-center justify-between gap-3">
             <button
-              className="rounded-full border border-[#171717]/10 p-2 text-[#171717]/62 transition-colors hover:border-[#0057FF]/25 hover:text-[#0057FF]"
-              onClick={() => setViewedMonth((current) => addMonths(current, -1))}
+              className={`rounded-full border border-[#171717]/10 p-2 transition-colors ${
+                isPreviousMonthDisabled
+                  ? "cursor-not-allowed text-[#171717]/25"
+                  : "text-[#171717]/62 hover:border-[#0057FF]/25 hover:text-[#0057FF]"
+              }`}
+              disabled={isPreviousMonthDisabled}
+              onClick={() =>
+                setViewedMonth((current) => addMonths(current, -1))
+              }
               type="button"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -261,7 +298,9 @@ function DateInput({
               const isBeforeMinDate = Boolean(minDate && isoDate < minDate);
               const isAfterMaxDate = isoDate > maxDate;
               const isDisabled = isBeforeMinDate || isAfterMaxDate;
-              const isSelected = selectedDate ? isSameUtcDay(date, selectedDate) : false;
+              const isSelected = selectedDate
+                ? isSameUtcDay(date, selectedDate)
+                : false;
               const isCurrentMonth = isSameUtcMonth(date, viewedMonth);
 
               if (!isCurrentMonth) {
@@ -326,9 +365,12 @@ export default function IsYatirimDateFilterPicker({
   onOpenChange?: (isOpen: boolean) => void;
 }) {
   const todayDate = getTodayDateString();
+  const minSelectableDate = IS_YATIRIM_DATE_PICKER_MIN_DATE;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [openCalendar, setOpenCalendar] = useState<"start" | "end" | null>(null);
+  const [openCalendar, setOpenCalendar] = useState<"start" | "end" | null>(
+    null,
+  );
   const [draftStartDate, setDraftStartDate] = useState(dateFilter.startDate);
   const [draftEndDate, setDraftEndDate] = useState(dateFilter.endDate);
   const range7 = getQuickRangeDateFilter(7, todayDate);
@@ -398,11 +440,15 @@ export default function IsYatirimDateFilterPicker({
   const isCustomRange = isCustomRangePickerVisible;
 
   const validationError =
-    draftStartDate && draftEndDate && draftStartDate > draftEndDate
-      ? "Başlangıç tarihi bitiş tarihinden sonra olamaz."
-      : !draftStartDate || !draftEndDate
-        ? "Tarih seçimi tamamlanmalı."
-        : null;
+    !draftStartDate || !draftEndDate
+      ? "Tarih seçimi tamamlanmalı."
+      : draftStartDate && draftStartDate < minSelectableDate
+        ? "Başlangıç tarihi 20 Mayıs 2026 öncesi olamaz."
+        : draftEndDate && draftEndDate < minSelectableDate
+          ? "Bitiş tarihi 20 Mayıs 2026 öncesi olamaz."
+          : draftStartDate > draftEndDate
+            ? "Başlangıç tarihi bitiş tarihinden sonra olamaz."
+            : null;
 
   const draftFilter = normalizeIsYatirimDateFilter(
     {
@@ -418,14 +464,19 @@ export default function IsYatirimDateFilterPicker({
     Boolean(validationError) || isSameFilter(draftFilter, dateFilter);
 
   const applySingleDate = (nextDate: string) => {
-    setDraftStartDate(nextDate);
-    setDraftEndDate(nextDate);
+    const normalizedDate =
+      nextDate < minSelectableDate ? minSelectableDate : nextDate;
+
+    setDraftStartDate(normalizedDate);
+    setDraftEndDate(normalizedDate);
     setIsCustomRangePickerVisible(false);
     setOpenCalendar(null);
   };
 
   const applyRangeDates = (nextStartDate: string, nextEndDate: string) => {
-    setDraftStartDate(nextStartDate);
+    setDraftStartDate(
+      nextStartDate < minSelectableDate ? minSelectableDate : nextStartDate,
+    );
     setDraftEndDate(nextEndDate);
     setIsCustomRangePickerVisible(false);
     setOpenCalendar(null);
@@ -494,7 +545,9 @@ export default function IsYatirimDateFilterPicker({
                   draftEndDate === range7.endDate
                 }
                 label="Son 7 Gün"
-                onClick={() => applyRangeDates(range7.startDate, range7.endDate)}
+                onClick={() =>
+                  applyRangeDates(range7.startDate, range7.endDate)
+                }
               />
               <QuickButton
                 isActive={
@@ -503,7 +556,9 @@ export default function IsYatirimDateFilterPicker({
                   draftEndDate === range14.endDate
                 }
                 label="Son 14 Gün"
-                onClick={() => applyRangeDates(range14.startDate, range14.endDate)}
+                onClick={() =>
+                  applyRangeDates(range14.startDate, range14.endDate)
+                }
               />
               <QuickButton
                 isActive={
@@ -512,7 +567,9 @@ export default function IsYatirimDateFilterPicker({
                   draftEndDate === range30.endDate
                 }
                 label="Son 30 Gün"
-                onClick={() => applyRangeDates(range30.startDate, range30.endDate)}
+                onClick={() =>
+                  applyRangeDates(range30.startDate, range30.endDate)
+                }
               />
               <QuickButton
                 isActive={isCustomRange}
@@ -532,6 +589,7 @@ export default function IsYatirimDateFilterPicker({
                 <DateInput
                   isOpen={openCalendar === "start"}
                   label="Başlangıç"
+                  minDate={minSelectableDate}
                   maxDate={draftEndDate < todayDate ? draftEndDate : todayDate}
                   onOpenChange={(nextOpen) =>
                     setOpenCalendar(nextOpen ? "start" : null)
@@ -543,7 +601,11 @@ export default function IsYatirimDateFilterPicker({
                 <DateInput
                   isOpen={openCalendar === "end"}
                   label="Bitiş"
-                  minDate={draftStartDate}
+                  minDate={
+                    draftStartDate > minSelectableDate
+                      ? draftStartDate
+                      : minSelectableDate
+                  }
                   maxDate={todayDate}
                   onOpenChange={(nextOpen) =>
                     setOpenCalendar(nextOpen ? "end" : null)

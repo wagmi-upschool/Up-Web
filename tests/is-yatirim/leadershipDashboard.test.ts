@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_IS_YATIRIM_SEGMENT,
   formatIsYatirimDateFilterLabel,
+  IS_YATIRIM_DATE_PICKER_MIN_DATE,
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
   normalizeIsYatirimDateFilter,
@@ -142,6 +143,44 @@ test("normalizeIsYatirimDateFilter keeps valid range metadata", () => {
       startDate: "2026-06-01",
       endDate: "2026-06-07",
       dayCount: 7,
+    },
+  );
+});
+
+test("normalizeIsYatirimDateFilter clamps dates before İş Yatırım picker minimum", () => {
+  assert.equal(IS_YATIRIM_DATE_PICKER_MIN_DATE, "2026-05-20");
+
+  assert.deepEqual(
+    normalizeIsYatirimDateFilter(
+      {
+        dateMode: "range",
+        startDate: "2026-05-01",
+        endDate: "2026-06-16",
+      },
+      { todayDate: "2026-06-16" },
+    ),
+    {
+      mode: "range",
+      startDate: "2026-05-20",
+      endDate: "2026-06-16",
+      dayCount: 28,
+    },
+  );
+
+  assert.deepEqual(
+    normalizeIsYatirimDateFilter(
+      {
+        dateMode: "single",
+        startDate: "2026-05-01",
+        endDate: "2026-05-01",
+      },
+      { todayDate: "2026-06-16" },
+    ),
+    {
+      mode: "single",
+      startDate: "2026-05-20",
+      endDate: "2026-05-20",
+      dayCount: 1,
     },
   );
 });

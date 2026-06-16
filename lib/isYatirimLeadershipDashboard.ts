@@ -3,6 +3,7 @@ export const IS_YATIRIM_COMPETENCY_ID =
   "9bb629ad-afd3-4cae-9744-a3faf5729174";
 export const DEFAULT_IS_YATIRIM_SEGMENT = "all";
 export const DEFAULT_IS_YATIRIM_FALLBACK_DATE = "1970-01-01";
+export const IS_YATIRIM_DATE_PICKER_MIN_DATE = "2026-05-20";
 
 export type IsYatirimDateFilterMode = "single" | "range";
 export type IsYatirimDateFilter = {
@@ -336,6 +337,10 @@ export function normalizeIsYatirimDateFilter(
   const fallbackDate = parseIsoDate(todayDate)
     ? todayDate
     : DEFAULT_IS_YATIRIM_FALLBACK_DATE;
+  const fallbackDateWithMin =
+    fallbackDate < IS_YATIRIM_DATE_PICKER_MIN_DATE
+      ? IS_YATIRIM_DATE_PICKER_MIN_DATE
+      : fallbackDate;
   const normalizedMode = dateMode?.trim();
   const normalizedStartDate = startDate?.trim() || "";
   const normalizedEndDate = endDate?.trim() || "";
@@ -344,8 +349,8 @@ export function normalizeIsYatirimDateFilter(
 
   const fallbackFilter: IsYatirimDateFilter = {
     mode: "single",
-    startDate: fallbackDate,
-    endDate: fallbackDate,
+    startDate: fallbackDateWithMin,
+    endDate: fallbackDateWithMin,
     dayCount: 1,
   };
 
@@ -355,10 +360,15 @@ export function normalizeIsYatirimDateFilter(
       parsedEndDate &&
       normalizedStartDate === normalizedEndDate
     ) {
+      const normalizedDate =
+        normalizedStartDate < IS_YATIRIM_DATE_PICKER_MIN_DATE
+          ? IS_YATIRIM_DATE_PICKER_MIN_DATE
+          : normalizedStartDate;
+
       return {
         mode: "single",
-        startDate: normalizedStartDate,
-        endDate: normalizedEndDate,
+        startDate: normalizedDate,
+        endDate: normalizedDate,
         dayCount: 1,
       };
     }
@@ -372,11 +382,23 @@ export function normalizeIsYatirimDateFilter(
       parsedEndDate &&
       parsedStartDate.getTime() <= parsedEndDate.getTime()
     ) {
+      const normalizedRangeStartDate =
+        normalizedStartDate < IS_YATIRIM_DATE_PICKER_MIN_DATE
+          ? IS_YATIRIM_DATE_PICKER_MIN_DATE
+          : normalizedStartDate;
+
+      if (normalizedRangeStartDate > normalizedEndDate) {
+        return fallbackFilter;
+      }
+
       return {
         mode: "range",
-        startDate: normalizedStartDate,
+        startDate: normalizedRangeStartDate,
         endDate: normalizedEndDate,
-        dayCount: getInclusiveDayCount(normalizedStartDate, normalizedEndDate),
+        dayCount: getInclusiveDayCount(
+          normalizedRangeStartDate,
+          normalizedEndDate,
+        ),
       };
     }
 
