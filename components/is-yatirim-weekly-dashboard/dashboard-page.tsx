@@ -116,7 +116,7 @@ const LONG_TURKISH_MONTHS = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SURVEY_WEEK_ONE_START = createUtcDate(2026, 4, 25);
+const SURVEY_WEEK_ONE_START = createUtcDate(2026, 4, 18);
 
 type WeekDisplay = {
   isoStart: string;
@@ -209,6 +209,17 @@ function getUtcMonday(date: Date) {
 
 function getWeekCode(date: Date) {
   return `H${Math.floor((getUtcMonday(date).getTime() - SURVEY_WEEK_ONE_START.getTime()) / (7 * DAY_MS)) + 1}`;
+}
+
+function getDisplayPeriodLabel(weekFilter: IsYatirimWeekFilter, fallback?: string) {
+  if (weekFilter.mode === "last_4_weeks" || weekFilter.mode === "last_8_weeks") {
+    return fallback || getWeekOptionLabel(weekFilter);
+  }
+
+  const weekStart = getWeekStartForMode(weekFilter.mode, weekFilter.weekStartDate);
+  const display = getWeekDisplay(weekStart);
+
+  return `${display.weekCode} · ${display.rangeLabel}`;
 }
 
 function formatWeekRange(startDate: Date, includeYear = false) {
@@ -605,7 +616,10 @@ function WeeklyHeader({
   isUpdating: boolean;
   onWeekFilterChange: (weekFilter: IsYatirimWeekFilter) => void;
 }) {
-  const periodLabel = response?.meta.periodLabel || getWeekOptionLabel(weekFilter);
+  const periodLabel = getDisplayPeriodLabel(
+    response?.meta.weekFilter || weekFilter,
+    response?.meta.periodLabel,
+  );
 
   return (
     <header className="relative z-30 overflow-visible rounded-[30px] border border-[#171717]/10 bg-[#F8F2E7]/80 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm">
@@ -1025,6 +1039,19 @@ function getComparisonLegendLabels(response?: WeeklyDashboardResponse) {
     };
   }
 
+  if (response?.meta.weekFilter) {
+    const currentWeekStart = getWeekStartForMode(
+      response.meta.weekFilter.mode,
+      response.meta.weekFilter.weekStartDate,
+    );
+    const previousWeekStart = addUtcDays(currentWeekStart, -7);
+
+    return {
+      current: getWeekCode(currentWeekStart),
+      previous: getWeekCode(previousWeekStart),
+    };
+  }
+
   const currentLabel = extractWeekLegendLabel(
     response?.meta.weekFilter.periodLabel ||
       response?.meta.weekFilter.weekLabel ||
@@ -1398,10 +1425,33 @@ function renderParticipationValueLabel({
 
 function ParticipationChart({
   series,
+  weekFilter,
 }: {
   series: WeeklyParticipationSeries[];
+  weekFilter: IsYatirimWeekFilter;
 }) {
   const chartData = buildParticipationChartData(series);
+  const weekStartBySeriesId = useMemo(() => {
+    const starts = new Map<string, Date>();
+
+    if (weekFilter.mode === "last_4_weeks" || weekFilter.mode === "last_8_weeks") {
+      const currentWeekStart = getUtcMonday(getTodayUtcDate());
+      const requestedFirstWeekStart = addUtcDays(
+        currentWeekStart,
+        -(Math.max(series.length, 1) - 1) * 7,
+      );
+      const firstWeekStart =
+        requestedFirstWeekStart < SURVEY_WEEK_ONE_START
+          ? SURVEY_WEEK_ONE_START
+          : requestedFirstWeekStart;
+
+      series.forEach((item, index) => {
+        starts.set(item.id, addUtcDays(firstWeekStart, index * 7));
+      });
+    }
+
+    return starts;
+  }, [series, weekFilter.mode]);
 
   return (
     <AnalyticsCard>
@@ -1465,7 +1515,11 @@ function ParticipationChart({
                     fill={color}
                     key={item.id}
                     maxBarSize={34}
-                    name={extractWeekLegendLabel(item.label) || item.label}
+                    name={
+                      weekStartBySeriesId.has(item.id)
+                        ? getWeekCode(weekStartBySeriesId.get(item.id) as Date)
+                        : extractWeekLegendLabel(item.label) || item.label
+                    }
                     radius={[8, 8, 0, 0]}
                   >
                     <LabelList content={renderParticipationValueLabel} dataKey={item.id} />
@@ -1581,7 +1635,9 @@ export default function IsYatirimWeeklyDashboard({
 }: WeeklyDashboardProps) {
   const activeSegment =
     response?.meta.selectedSegmentId || selectedSegment || "all";
-  const periodLabel = response?.meta.periodLabel || getWeekOptionLabel(weekFilter);
+  const periodLabel = response
+    ? getDisplayPeriodLabel(response.meta.weekFilter, response.meta.periodLabel)
+    : getWeekOptionLabel(weekFilter);
   const comparisonLegendLabels = useMemo(
     () => getComparisonLegendLabels(response),
     [response],
@@ -1676,7 +1732,7 @@ export default function IsYatirimWeeklyDashboard({
                 items={response.selectedSegment.expectationBalance}
                 periodLabel={periodLabel}
               />
-              <ParticipationChart series={participationSeries} />
+              <ParticipationChart series={participationSeries} weekFilter={response.meta.weekFilter} />
             </section>
 
             <AnalyticsSectionHeading>ÖZET</AnalyticsSectionHeading>
