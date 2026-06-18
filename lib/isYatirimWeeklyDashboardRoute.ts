@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   DEFAULT_IS_YATIRIM_WEEK_MODE,
   IS_YATIRIM_WEEKLY_CLIENT,
-  applyIsYatirimWeekFilterToSearchParams,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
   normalizeIsYatirimWeeklyToken,
@@ -34,8 +33,12 @@ export function buildIsYatirimWeeklyDashboardUrl({
   url.searchParams.set("isWeekly", "true");
   url.searchParams.set("segment", normalizeIsYatirimWeeklySegment(segment));
 
-  if (normalizedWeekFilter.mode !== DEFAULT_IS_YATIRIM_WEEK_MODE) {
-    applyIsYatirimWeekFilterToSearchParams(url.searchParams, normalizedWeekFilter);
+  url.searchParams.set("weekMode", normalizedWeekFilter.mode);
+
+  if (normalizedWeekFilter.mode === "week" && normalizedWeekFilter.weekStartDate) {
+    url.searchParams.set("weekStartDate", normalizedWeekFilter.weekStartDate);
+  } else {
+    url.searchParams.delete("weekStartDate");
   }
 
   if (normalizedToken) {

@@ -1,6 +1,6 @@
 export const IS_YATIRIM_WEEKLY_CLIENT = "is-yatirim";
 export const DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT = "all";
-export const DEFAULT_IS_YATIRIM_WEEK_MODE = "this_week";
+export const DEFAULT_IS_YATIRIM_WEEK_MODE = "last_week";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE = "2026-05-18";
 

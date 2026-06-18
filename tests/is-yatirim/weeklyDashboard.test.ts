@@ -41,7 +41,7 @@ test("normalizeIsYatirimWeekFilter falls back when week date is missing", () => 
       weekMode: "week",
       weekStartDate: "",
     }),
-    { mode: "this_week" },
+    { mode: "last_week" },
   );
 });
 
@@ -61,7 +61,6 @@ test("buildIsYatirimWeeklyDashboardUrl sends isolated weekly request parameters"
   const url = buildIsYatirimWeeklyDashboardUrl({
     baseUrl: "https://example.com/base/",
     segment: "",
-    weekFilter: normalizeIsYatirimWeekFilter({ weekMode: "this_week" }),
   });
 
   assert.equal(url.origin, "https://example.com");
@@ -70,7 +69,7 @@ test("buildIsYatirimWeeklyDashboardUrl sends isolated weekly request parameters"
   assert.equal(url.searchParams.get("isWeekly"), "true");
   assert.equal(url.searchParams.get("segment"), "all");
   assert.equal(url.searchParams.get("competencyId"), null);
-  assert.equal(url.searchParams.get("weekMode"), null);
+  assert.equal(url.searchParams.get("weekMode"), "last_week");
   assert.equal(url.searchParams.get("weekStartDate"), null);
 });
 

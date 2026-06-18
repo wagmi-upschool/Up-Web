@@ -116,6 +116,7 @@ const LONG_TURKISH_MONTHS = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const SURVEY_WEEK_ONE_START = createUtcDate(2026, 4, 25);
 
 type WeekDisplay = {
   isoStart: string;
@@ -206,21 +207,8 @@ function getUtcMonday(date: Date) {
   return addUtcDays(date, -dayOffset);
 }
 
-function getIsoWeekNumber(date: Date) {
-  const normalized = createUtcDate(
-    date.getUTCFullYear(),
-    date.getUTCMonth(),
-    date.getUTCDate(),
-  );
-  const day = normalized.getUTCDay() || 7;
-  normalized.setUTCDate(normalized.getUTCDate() + 4 - day);
-  const yearStart = createUtcDate(normalized.getUTCFullYear(), 0, 1);
-
-  return Math.ceil(((normalized.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
-}
-
 function getWeekCode(date: Date) {
-  return `H${getIsoWeekNumber(date)}`;
+  return `H${Math.floor((getUtcMonday(date).getTime() - SURVEY_WEEK_ONE_START.getTime()) / (7 * DAY_MS)) + 1}`;
 }
 
 function formatWeekRange(startDate: Date, includeYear = false) {
@@ -1026,6 +1014,17 @@ function getPreviousWeekLegendLabel(currentLabel: string) {
 }
 
 function getComparisonLegendLabels(response?: WeeklyDashboardResponse) {
+  const mode = response?.meta.weekFilter.mode;
+
+  if (mode === "last_4_weeks" || mode === "last_8_weeks") {
+    const weekCount = mode === "last_4_weeks" ? 4 : 8;
+
+    return {
+      current: `${weekCount} haftalık ortalama`,
+      previous: `Önceki ${weekCount} haftalık ortalama`,
+    };
+  }
+
   const currentLabel = extractWeekLegendLabel(
     response?.meta.weekFilter.periodLabel ||
       response?.meta.weekFilter.weekLabel ||
