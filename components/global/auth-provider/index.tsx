@@ -45,7 +45,12 @@ Amplify.configure(amplifyConfig, {
   ssr: true, // Enable SSR support
 });
 
-const publicPaths = ["/feedback", "/analytics", "/is-yatirim/leadership-dashboard"];
+const publicPaths = [
+  "/feedback",
+  "/analytics",
+  "/is-yatirim/leadership-dashboard",
+  "/is-yatirim/weekly-dashboard",
+];
 
 function AuthProvider({ children }: Props) {
   const [user, setUser] = useState<any>(null);

@@ -28,6 +28,9 @@ type IsYatirimLeadershipDashboardProps = {
   dateFilter: IsYatirimDateFilter;
   response?: LeadershipDashboardResponse;
   selectedSegment: string;
+  dailyToken: string;
+  weeklyToken: string;
+  isWeeklyToggleEnabled: boolean;
   isLoading: boolean;
   isUpdating: boolean;
   isDateTimePickerEnabled: boolean;
@@ -40,6 +43,9 @@ export default function IsYatirimLeadershipDashboard({
   dateFilter,
   response,
   selectedSegment,
+  dailyToken,
+  weeklyToken,
+  isWeeklyToggleEnabled,
   isLoading,
   isUpdating,
   isDateTimePickerEnabled,
@@ -55,6 +61,10 @@ export default function IsYatirimLeadershipDashboard({
         isUpdating={isUpdating}
         onDateFilterChange={onDateFilterChange}
         response={response}
+        selectedSegment={response?.meta.selectedSegmentId || selectedSegment}
+        dailyToken={dailyToken}
+        isWeeklyToggleEnabled={isWeeklyToggleEnabled}
+        weeklyToken={weeklyToken}
       />
 
       {response?.meta.segments.length ? (

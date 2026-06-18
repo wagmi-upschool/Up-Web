@@ -164,8 +164,14 @@ function IsYatirimLeadershipDashboardContent() {
   const isDateTimePickerEnabled = normalizeIsYatirimDateTimePickerFlag(
     searchParams.get("isDateTimePicker"),
   );
+  const isWeeklyToggleEnabled = searchParams.get("isWeeklyToggle") === "true";
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
-  const token = normalizeIsYatirimDashboardToken(searchParams.get("token"));
+  const dailyToken = normalizeIsYatirimDashboardToken(
+    searchParams.get("dailyToken") || searchParams.get("token"),
+  );
+  const weeklyToken = normalizeIsYatirimDashboardToken(
+    searchParams.get("weeklyToken"),
+  );
   const dateFilter = normalizeIsYatirimDateFilter(
     {
       dateMode: searchParams.get("dateMode"),
@@ -222,10 +228,10 @@ function IsYatirimLeadershipDashboardContent() {
   const dashboardQuery = useQuery({
     queryKey: getLeadershipDashboardQueryKey(
       segment,
-      token,
+      dailyToken,
       effectiveDateFilter,
     ),
-    queryFn: () => getLeadershipDashboard(segment, token, effectiveDateFilter),
+    queryFn: () => getLeadershipDashboard(segment, dailyToken, effectiveDateFilter),
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
@@ -289,10 +295,10 @@ function IsYatirimLeadershipDashboardContent() {
     void queryClient.prefetchQuery({
       queryKey: getLeadershipDashboardQueryKey(
         segment,
-        token,
+        dailyToken,
         nextDateFilter,
       ),
-      queryFn: () => getLeadershipDashboard(segment, token, nextDateFilter),
+      queryFn: () => getLeadershipDashboard(segment, dailyToken, nextDateFilter),
     });
 
     replaceDashboardRoute(router, searchParams, {
@@ -315,6 +321,9 @@ function IsYatirimLeadershipDashboardContent() {
       onSegmentSelect={handleSegmentSelect}
       response={dashboardQuery.data}
       selectedSegment={segment}
+      dailyToken={dailyToken}
+      isWeeklyToggleEnabled={isWeeklyToggleEnabled}
+      weeklyToken={weeklyToken}
     />
   );
 }

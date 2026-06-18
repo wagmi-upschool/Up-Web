@@ -23,6 +23,7 @@ import {
   YAxis,
 } from "recharts";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
+import IsYatirimDashboardViewToggle from "@/components/is-yatirim-dashboard-view-toggle";
 import {
   AnalyticsCard,
   AnalyticsDashboardBody,
@@ -264,12 +265,20 @@ export function IsYatirimHeader({
   onDateFilterChange,
   response,
   isUpdating,
+  selectedSegment,
+  dailyToken,
+  weeklyToken,
+  isWeeklyToggleEnabled,
 }: {
   dateFilter: IsYatirimDateFilter;
   isDateTimePickerEnabled: boolean;
   onDateFilterChange: (dateFilter: IsYatirimDateFilter) => void;
   response?: LeadershipDashboardResponse;
   isUpdating: boolean;
+  selectedSegment: string;
+  dailyToken: string;
+  weeklyToken: string;
+  isWeeklyToggleEnabled: boolean;
 }) {
   const generatedAt = formatTurkishDateTime(response?.meta.generatedAt || "");
   const title = response?.meta.dashboardTitle || "İş Yatırım Duygu Durumu";
@@ -306,6 +315,15 @@ export function IsYatirimHeader({
             />
           </div>
           <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+            {isWeeklyToggleEnabled ? (
+              <IsYatirimDashboardViewToggle
+                active="daily"
+                dailyToken={dailyToken}
+                isWeeklyToggleEnabled={isWeeklyToggleEnabled}
+                segment={selectedSegment}
+                weeklyToken={weeklyToken}
+              />
+            ) : null}
             <div className="inline-flex items-center gap-2 rounded-full border border-[#00A878]/20 bg-[#00A878]/10 px-3 py-1.5 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#0B7D5E]">
               <span className="h-2 w-2 rounded-full bg-[#00A878]" />
               CANLI
