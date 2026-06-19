@@ -436,7 +436,7 @@ function WeeklyFilterPicker({
       if (cursor.getUTCMonth() === visibleMonth.getUTCMonth()) {
         const week = getWeekDisplay(cursor);
 
-        if (!week.isExcluded) {
+        if (cursor >= SURVEY_WEEK_ONE_START && !week.isExcluded) {
           rows.push(week);
         }
       }
