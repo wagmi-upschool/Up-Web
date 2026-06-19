@@ -40,11 +40,13 @@ import {
 } from "@/components/analytics-dashboard/dashboard-shell";
 import {
   IS_YATIRIM_WEEKLY_PICKER_MIN_DATE,
+  IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES,
   WEEKLY_PARTICIPATION_DAYS,
   formatWeeklyCount,
   formatWeeklyPercent,
   formatWeeklyPp,
   getMondayForIsoDate,
+  isIsYatirimExcludedWeeklyStartDate,
   normalizeIsYatirimWeekFilter,
   type IsYatirimWeekFilter,
   type IsYatirimWeekMode,
@@ -75,7 +77,6 @@ const WEEK_OPTIONS: Array<{ mode: IsYatirimWeekMode; label: string }> = [
   { mode: "this_week", label: "Bu Hafta" },
   { mode: "last_week", label: "Geçen Hafta" },
   { mode: "last_4_weeks", label: "Son 4 Hafta" },
-  { mode: "last_8_weeks", label: "Son 8 Hafta" },
   { mode: "week", label: "Hafta Seç" },
 ];
 
@@ -128,6 +129,7 @@ type WeekDisplay = {
   isLastWeek: boolean;
   isFuture: boolean;
   isBeforeMinimum: boolean;
+  isExcluded: boolean;
 };
 
 function formatDisplayValue(value: number | string, kind: "count" | "percent" | "pp" | "text") {
@@ -208,11 +210,57 @@ function getUtcMonday(date: Date) {
 }
 
 function getWeekCode(date: Date) {
-  return `H${Math.floor((getUtcMonday(date).getTime() - SURVEY_WEEK_ONE_START.getTime()) / (7 * DAY_MS)) + 1}`;
+  const weekStart = getUtcMonday(date);
+  const weekStartIso = formatUtcDate(weekStart);
+
+  if (isIsYatirimExcludedWeeklyStartDate(weekStartIso)) {
+    return "";
+  }
+
+  const skippedWeekCount = IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES.filter(
+    (excludedWeekStart) =>
+      excludedWeekStart >= formatUtcDate(SURVEY_WEEK_ONE_START) &&
+      excludedWeekStart <= weekStartIso,
+  ).length;
+  const calendarWeekIndex = Math.floor(
+    (weekStart.getTime() - SURVEY_WEEK_ONE_START.getTime()) / (7 * DAY_MS),
+  );
+
+  return `H${calendarWeekIndex - skippedWeekCount + 1}`;
+}
+
+function getSurveyWeekStartsEndingAt(endWeekStart: Date, count: number) {
+  const weeks: Date[] = [];
+
+  for (
+    let cursor = getUtcMonday(endWeekStart);
+    cursor >= SURVEY_WEEK_ONE_START && weeks.length < count;
+    cursor = addUtcDays(cursor, -7)
+  ) {
+    if (!isIsYatirimExcludedWeeklyStartDate(formatUtcDate(cursor))) {
+      weeks.unshift(cursor);
+    }
+  }
+
+  return weeks;
+}
+
+function getPreviousSurveyWeekStart(weekStart: Date) {
+  for (
+    let cursor = addUtcDays(getUtcMonday(weekStart), -7);
+    cursor >= SURVEY_WEEK_ONE_START;
+    cursor = addUtcDays(cursor, -7)
+  ) {
+    if (!isIsYatirimExcludedWeeklyStartDate(formatUtcDate(cursor))) {
+      return cursor;
+    }
+  }
+
+  return addUtcDays(getUtcMonday(weekStart), -7);
 }
 
 function getDisplayPeriodLabel(weekFilter: IsYatirimWeekFilter, fallback?: string) {
-  if (weekFilter.mode === "last_4_weeks" || weekFilter.mode === "last_8_weeks") {
+  if (weekFilter.mode === "last_4_weeks") {
     return fallback || getWeekOptionLabel(weekFilter);
   }
 
@@ -253,6 +301,7 @@ function getWeekDisplay(startDate: Date, todayDate = getTodayUtcDate()): WeekDis
     isLastWeek: startDate.getTime() === lastWeekStart.getTime(),
     isFuture: startDate.getTime() > currentWeekStart.getTime(),
     isBeforeMinimum: endDate.getTime() < minimumDate.getTime(),
+    isExcluded: isIsYatirimExcludedWeeklyStartDate(formatUtcDate(startDate)),
   };
 }
 
@@ -276,26 +325,14 @@ function getWeekOptionMeta(mode: IsYatirimWeekMode, weekStartDate?: string) {
   const display = getWeekDisplay(startDate);
 
   if (mode === "last_4_weeks") {
-    const firstWeekStart = addUtcDays(currentWeekStart, -21);
+    const weekStarts = getSurveyWeekStartsEndingAt(currentWeekStart, 4);
+    const firstWeekStart = weekStarts[0] || currentWeekStart;
     return {
       label: "Son 4 Hafta",
       detail: `${formatWeekRange(firstWeekStart).split("–")[0]}–${
         formatWeekRange(currentWeekStart).split("–")[1]
       }`,
       summary: `Son 4 Hafta · ${formatWeekRange(firstWeekStart).split("–")[0]}–${
-        formatWeekRange(currentWeekStart).split("–")[1]
-      }`,
-    };
-  }
-
-  if (mode === "last_8_weeks") {
-    const firstWeekStart = addUtcDays(currentWeekStart, -49);
-    return {
-      label: "Son 8 Hafta",
-      detail: `${formatWeekRange(firstWeekStart).split("–")[0]}–${
-        formatWeekRange(currentWeekStart).split("–")[1]
-      }`,
-      summary: `Son 8 Hafta · ${formatWeekRange(firstWeekStart).split("–")[0]}–${
         formatWeekRange(currentWeekStart).split("–")[1]
       }`,
     };
@@ -397,7 +434,11 @@ function WeeklyFilterPicker({
 
     for (let cursor = firstWeekStart; cursor <= lastDayOfMonth; cursor = addUtcDays(cursor, 7)) {
       if (cursor.getUTCMonth() === visibleMonth.getUTCMonth()) {
-        rows.push(getWeekDisplay(cursor));
+        const week = getWeekDisplay(cursor);
+
+        if (!week.isExcluded) {
+          rows.push(week);
+        }
       }
     }
 
@@ -1030,12 +1071,10 @@ function getPreviousWeekLegendLabel(currentLabel: string) {
 function getComparisonLegendLabels(response?: WeeklyDashboardResponse) {
   const mode = response?.meta.weekFilter.mode;
 
-  if (mode === "last_4_weeks" || mode === "last_8_weeks") {
-    const weekCount = mode === "last_4_weeks" ? 4 : 8;
-
+  if (mode === "last_4_weeks") {
     return {
-      current: `${weekCount} haftalık ortalama`,
-      previous: `Önceki ${weekCount} haftalık ortalama`,
+      current: "4 haftalık ortalama",
+      previous: "Önceki 4 haftalık ortalama",
     };
   }
 
@@ -1044,7 +1083,7 @@ function getComparisonLegendLabels(response?: WeeklyDashboardResponse) {
       response.meta.weekFilter.mode,
       response.meta.weekFilter.weekStartDate,
     );
-    const previousWeekStart = addUtcDays(currentWeekStart, -7);
+    const previousWeekStart = getPreviousSurveyWeekStart(currentWeekStart);
 
     return {
       current: getWeekCode(currentWeekStart),
@@ -1434,19 +1473,13 @@ function ParticipationChart({
   const weekStartBySeriesId = useMemo(() => {
     const starts = new Map<string, Date>();
 
-    if (weekFilter.mode === "last_4_weeks" || weekFilter.mode === "last_8_weeks") {
-      const currentWeekStart = getUtcMonday(getTodayUtcDate());
-      const requestedFirstWeekStart = addUtcDays(
-        currentWeekStart,
-        -(Math.max(series.length, 1) - 1) * 7,
-      );
-      const firstWeekStart =
-        requestedFirstWeekStart < SURVEY_WEEK_ONE_START
-          ? SURVEY_WEEK_ONE_START
-          : requestedFirstWeekStart;
+    if (weekFilter.mode === "last_4_weeks") {
+      series.forEach((item) => {
+        const weekStart = item.weekStartDate ? parseUtcIsoDate(item.weekStartDate) : null;
 
-      series.forEach((item, index) => {
-        starts.set(item.id, addUtcDays(firstWeekStart, index * 7));
+        if (weekStart) {
+          starts.set(item.id, weekStart);
+        }
       });
     }
 
@@ -1648,7 +1681,7 @@ export default function IsYatirimWeeklyDashboard({
     }
 
     const mode = response.meta.weekFilter.mode;
-    const isMultiWeek = mode === "last_4_weeks" || mode === "last_8_weeks";
+    const isMultiWeek = mode === "last_4_weeks";
 
     if (!isMultiWeek) {
       const currentSeries = {

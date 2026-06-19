@@ -57,6 +57,16 @@ test("normalizeIsYatirimWeekFilter clamps weekly selection before 20 May 2026", 
   );
 });
 
+test("normalizeIsYatirimWeekFilter excludes the holiday week", () => {
+  assert.deepEqual(
+    normalizeIsYatirimWeekFilter({
+      weekMode: "week",
+      weekStartDate: "2026-05-25",
+    }),
+    { mode: "last_week" },
+  );
+});
+
 test("buildIsYatirimWeeklyDashboardUrl sends isolated weekly request parameters", () => {
   const url = buildIsYatirimWeeklyDashboardUrl({
     baseUrl: "https://example.com/base/",
@@ -74,7 +84,7 @@ test("buildIsYatirimWeeklyDashboardUrl sends isolated weekly request parameters"
 });
 
 test("buildIsYatirimWeeklyDashboardUrl forwards segment token and preset week modes", () => {
-  for (const weekMode of ["last_week", "last_4_weeks", "last_8_weeks"] as const) {
+  for (const weekMode of ["last_week", "last_4_weeks"] as const) {
     const url = buildIsYatirimWeeklyDashboardUrl({
       baseUrl: "https://example.com",
       segment: "gmy-1",
@@ -90,6 +100,13 @@ test("buildIsYatirimWeeklyDashboardUrl forwards segment token and preset week mo
     assert.equal(url.searchParams.get("weekStartDate"), null);
     assert.equal(url.searchParams.get("competencyId"), null);
   }
+});
+
+test("normalizeIsYatirimWeekFilter falls back for unsupported weekly ranges", () => {
+  assert.deepEqual(
+    normalizeIsYatirimWeekFilter({ weekMode: "last_8_weeks" }),
+    { mode: "last_week" },
+  );
 });
 
 test("buildIsYatirimWeeklyDashboardUrl only sends weekStartDate for week mode", () => {
@@ -172,21 +189,21 @@ test("normalizeWeeklyDashboardResponse preserves expectation balance signs", () 
 test("normalizeWeeklyDashboardResponse preserves week comparison labels", () => {
   const response = normalizeWeeklyDashboardResponse({
     meta: {
-      periodLabel: "H24 · 8-14 Haz",
+      periodLabel: "H3 · 8-14 Haz",
       weekFilter: {
         mode: "last_week",
-        periodLabel: "H24 · 8-14 Haz",
+        periodLabel: "H3 · 8-14 Haz",
       },
       previousWeekFilter: {
         mode: "week",
         weekStartDate: "2026-06-01",
-        periodLabel: "H23 · 1-7 Haz",
+        periodLabel: "H2 · 1-7 Haz",
       },
     },
   });
 
-  assert.equal(response.meta.weekFilter.periodLabel, "H24 · 8-14 Haz");
-  assert.equal(response.meta.previousWeekFilter?.periodLabel, "H23 · 1-7 Haz");
+  assert.equal(response.meta.weekFilter.periodLabel, "H3 · 8-14 Haz");
+  assert.equal(response.meta.previousWeekFilter?.periodLabel, "H2 · 1-7 Haz");
 });
 
 test("normalizeWeeklyDashboardResponse labels participant when previous week is missing", () => {
@@ -210,10 +227,51 @@ test("normalizeWeeklyDashboardResponse labels participant when previous week is 
   );
 });
 
+test("normalizeWeeklyDashboardResponse filters unavailable weekly participation series", () => {
+  const response = normalizeWeeklyDashboardResponse({
+    selectedSegment: {
+      participation: {
+        days: [],
+        weeklySeries: [
+          {
+            weekStart: "2026-05-04",
+            label: "H-1 · 4-10 May",
+            days: [{ day: "friday", respondentCount: 10 }],
+          },
+          {
+            weekStart: "2026-05-18",
+            label: "H1 · 18-24 May",
+            days: [{ day: "friday", respondentCount: 201 }],
+          },
+          {
+            weekStart: "2026-05-25",
+            label: "H2 · 25-31 May",
+            days: [{ day: "friday", respondentCount: 157 }],
+          },
+          {
+            weekStart: "2026-06-15",
+            label: "H4 · 15-21 Haz",
+            days: [{ day: "friday", respondentCount: 0 }],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.deepEqual(
+    response.selectedSegment.participation.weeklySeries.map((series) => ({
+      label: series.label,
+      weekStartDate: series.weekStartDate,
+      friday: series.days[0]?.value,
+    })),
+    [{ label: "H1 · 18-24 May", weekStartDate: "2026-05-18", friday: 201 }],
+  );
+});
+
 test("normalizeWeeklyDashboardResponse maps backend weekly dashboard fields", () => {
   const response = normalizeWeeklyDashboardResponse({
     meta: {
-      periodLabel: "H24 · 8-14 Haz",
+      periodLabel: "H3 · 8-14 Haz",
       categories: {
         experienced: [{ id: "appreciation", label: "Takdir" }],
         desired: [{ id: "appreciation", label: "Takdir" }],

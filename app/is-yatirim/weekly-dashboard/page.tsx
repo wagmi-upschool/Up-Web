@@ -18,6 +18,7 @@ import {
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_ROUTE,
   applyIsYatirimWeekFilterToSearchParams,
+  isIsYatirimExcludedWeeklyStartDate,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
   normalizeIsYatirimWeeklyToken,
@@ -137,10 +138,23 @@ function getTodayIsoDate() {
   );
 }
 
+function getPreviousIncludedWeekStartDate(value: string) {
+  let previousWeekStart = addDaysToIsoDate(value, -7);
+
+  while (
+    previousWeekStart >= IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE &&
+    isIsYatirimExcludedWeeklyStartDate(previousWeekStart)
+  ) {
+    previousWeekStart = addDaysToIsoDate(previousWeekStart, -7);
+  }
+
+  return previousWeekStart;
+}
+
 function getPreviousParticipationWeekFilter(
   weekFilter: IsYatirimWeekFilter,
 ): IsYatirimWeekFilter | null {
-  if (weekFilter.mode === "last_4_weeks" || weekFilter.mode === "last_8_weeks") {
+  if (weekFilter.mode === "last_4_weeks") {
     return null;
   }
 
@@ -161,7 +175,7 @@ function getPreviousParticipationWeekFilter(
   }
 
   const previousWeekStart = selectedWeekStart
-    ? addDaysToIsoDate(selectedWeekStart, -7)
+    ? getPreviousIncludedWeekStartDate(selectedWeekStart)
     : "";
 
   if (

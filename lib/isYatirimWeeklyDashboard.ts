@@ -3,6 +3,7 @@ export const DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT = "all";
 export const DEFAULT_IS_YATIRIM_WEEK_MODE = "last_week";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE = "2026-05-18";
+export const IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES = ["2026-05-25"] as const;
 
 export const IS_YATIRIM_WEEKLY_ROUTE = "/is-yatirim/weekly-dashboard";
 export const IS_YATIRIM_DAILY_ROUTE = "/is-yatirim/leadership-dashboard";
@@ -18,7 +19,6 @@ export type IsYatirimWeekMode =
   | "this_week"
   | "last_week"
   | "last_4_weeks"
-  | "last_8_weeks"
   | "week";
 
 export type IsYatirimWeekFilter = {
@@ -82,6 +82,7 @@ export type WeeklyParticipationDay = {
 export type WeeklyParticipationSeries = {
   id: string;
   label: string;
+  weekStartDate?: string;
   days: WeeklyParticipationDay[];
 };
 
@@ -209,6 +210,12 @@ export function normalizeIsYatirimWeeklyToken(value: string | null | undefined) 
   return value?.trim() || "";
 }
 
+export function isIsYatirimExcludedWeeklyStartDate(value: string | null | undefined) {
+  return IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES.includes(
+    (value || "") as (typeof IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES)[number],
+  );
+}
+
 export function normalizeIsYatirimWeekMode(
   value: string | null | undefined,
 ): IsYatirimWeekMode {
@@ -217,7 +224,6 @@ export function normalizeIsYatirimWeekMode(
   if (
     normalized === "last_week" ||
     normalized === "last_4_weeks" ||
-    normalized === "last_8_weeks" ||
     normalized === "week" ||
     normalized === "this_week"
   ) {
@@ -243,6 +249,10 @@ export function normalizeIsYatirimWeekFilter({
   const normalizedWeekStartDate = getMondayForIsoDate(weekStartDate?.trim() || "");
 
   if (!normalizedWeekStartDate) {
+    return { mode: DEFAULT_IS_YATIRIM_WEEK_MODE };
+  }
+
+  if (isIsYatirimExcludedWeeklyStartDate(normalizedWeekStartDate)) {
     return { mode: DEFAULT_IS_YATIRIM_WEEK_MODE };
   }
 
@@ -499,6 +509,7 @@ function sortFixedParticipationDays(days: WeeklyParticipationDay[]) {
 function normalizeParticipationSeries(value: unknown, index: number): WeeklyParticipationSeries {
   const input = asObject(value);
   const rawDays = input.days || input.data || input.points || [];
+  const weekStartDate = asString(input.weekStart || input.weekStartDate);
   const days = sortFixedParticipationDays(
     asArray(rawDays, (dayItem, dayIndex) =>
       normalizeParticipationDay(
@@ -511,8 +522,23 @@ function normalizeParticipationSeries(value: unknown, index: number): WeeklyPart
   return {
     id: asString(input.id || input.key, `week-${index + 1}`),
     label: asString(input.label || input.name || input.weekLabel, `Hafta ${index + 1}`),
+    ...(weekStartDate ? { weekStartDate } : {}),
     days,
   };
+}
+
+function hasParticipationSeriesData(series: WeeklyParticipationSeries) {
+  const total = series.days.reduce((sum, day) => sum + day.value, 0);
+
+  if (total <= 0) {
+    return false;
+  }
+
+  return (
+    !series.weekStartDate ||
+    (series.weekStartDate >= IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE &&
+      !isIsYatirimExcludedWeeklyStartDate(series.weekStartDate))
+  );
 }
 
 function normalizeParticipation(value: unknown): WeeklyParticipation {
@@ -522,14 +548,15 @@ function normalizeParticipation(value: unknown): WeeklyParticipation {
       normalizeParticipationDay(dayItem, WEEKLY_PARTICIPATION_DAYS[index]),
     ),
   );
-  const weeklySeries = asArray(
+  const rawWeeklySeries = asArray(
     input.weeklySeries || input.series,
     normalizeParticipationSeries,
   );
+  const weeklySeries = rawWeeklySeries.filter(hasParticipationSeriesData);
 
   return {
     days,
-    weeklySeries: weeklySeries.length
+    weeklySeries: rawWeeklySeries.length
       ? weeklySeries
       : [{ id: "current", label: "Seçili dönem", days }],
   };
