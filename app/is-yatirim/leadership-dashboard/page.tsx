@@ -164,7 +164,7 @@ function IsYatirimLeadershipDashboardContent() {
   const isDateTimePickerEnabled = normalizeIsYatirimDateTimePickerFlag(
     searchParams.get("isDateTimePicker"),
   );
-  const isWeeklyToggleEnabled = searchParams.get("isWeeklyToggle") === "true";
+  const isWeeklyToggleEnabled = searchParams.get("isWeeklyToggle") !== "false";
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
   const dailyToken = normalizeIsYatirimDashboardToken(
     searchParams.get("dailyToken") || searchParams.get("token"),

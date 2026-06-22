@@ -309,7 +309,7 @@ export function normalizeIsYatirimDashboardToken(
 export function normalizeIsYatirimDateTimePickerFlag(
   value: string | null | undefined,
 ) {
-  return value?.trim() === "true";
+  return value?.trim() !== "false";
 }
 
 export function getTodayDateString(now = new Date()) {

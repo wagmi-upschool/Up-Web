@@ -32,8 +32,9 @@ test("normalizeIsYatirimDashboardToken trims optional URL token", () => {
   assert.equal(normalizeIsYatirimDashboardToken("  token-123  "), "token-123");
 });
 
-test("normalizeIsYatirimDateTimePickerFlag only enables explicit true", () => {
-  assert.equal(normalizeIsYatirimDateTimePickerFlag(null), false);
+test("normalizeIsYatirimDateTimePickerFlag defaults enabled unless explicit false", () => {
+  assert.equal(normalizeIsYatirimDateTimePickerFlag(null), true);
+  assert.equal(normalizeIsYatirimDateTimePickerFlag(""), true);
   assert.equal(normalizeIsYatirimDateTimePickerFlag("false"), false);
   assert.equal(normalizeIsYatirimDateTimePickerFlag(" true "), true);
 });
