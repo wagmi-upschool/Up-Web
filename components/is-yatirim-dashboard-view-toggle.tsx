@@ -12,11 +12,15 @@ export function buildIsYatirimDashboardRouteWithSharedParams(
     dailyToken,
     weeklyToken,
     segment,
+    selectedUnvan = "",
+    isUnvanComparisonEnabled = false,
     isWeeklyToggleEnabled = true,
   }: {
     dailyToken: string;
     weeklyToken: string;
     segment: string;
+    selectedUnvan?: string;
+    isUnvanComparisonEnabled?: boolean;
     isWeeklyToggleEnabled?: boolean;
   },
 ) {
@@ -40,6 +44,15 @@ export function buildIsYatirimDashboardRouteWithSharedParams(
     query.set("segment", segment);
   }
 
+  if (isUnvanComparisonEnabled) {
+    query.set("isUnvan", "true");
+
+    if (selectedUnvan) {
+      query.delete("segment");
+      query.set("unvan", selectedUnvan);
+    }
+  }
+
   if (isWeeklyToggleEnabled) {
     query.set("isWeeklyToggle", "true");
   }
@@ -53,21 +66,39 @@ export default function IsYatirimDashboardViewToggle({
   dailyToken,
   weeklyToken,
   segment,
+  selectedUnvan = "",
+  isUnvanComparisonEnabled = false,
   isWeeklyToggleEnabled = true,
 }: {
   active: "daily" | "weekly";
   dailyToken: string;
   weeklyToken: string;
   segment: string;
+  selectedUnvan?: string;
+  isUnvanComparisonEnabled?: boolean;
   isWeeklyToggleEnabled?: boolean;
 }) {
   const dailyHref = buildIsYatirimDashboardRouteWithSharedParams(
     IS_YATIRIM_DAILY_ROUTE,
-    { dailyToken, weeklyToken, segment, isWeeklyToggleEnabled },
+    {
+      dailyToken,
+      weeklyToken,
+      segment,
+      selectedUnvan,
+      isUnvanComparisonEnabled,
+      isWeeklyToggleEnabled,
+    },
   );
   const weeklyHref = buildIsYatirimDashboardRouteWithSharedParams(
     IS_YATIRIM_WEEKLY_ROUTE,
-    { dailyToken, weeklyToken, segment, isWeeklyToggleEnabled },
+    {
+      dailyToken,
+      weeklyToken,
+      segment,
+      selectedUnvan,
+      isUnvanComparisonEnabled,
+      isWeeklyToggleEnabled,
+    },
   );
 
   return (

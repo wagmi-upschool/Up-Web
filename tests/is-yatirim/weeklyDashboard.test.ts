@@ -133,6 +133,20 @@ test("buildIsYatirimWeeklyDashboardUrl only sends weekStartDate for week mode", 
   assert.equal(presetUrl.searchParams.get("weekStartDate"), null);
 });
 
+test("buildIsYatirimWeeklyDashboardUrl forwards selected unvan for weekly requests", () => {
+  const url = buildIsYatirimWeeklyDashboardUrl({
+    baseUrl: "https://example.com",
+    segment: "",
+    unvan: "  mudur  ",
+    weekFilter: { mode: "last_week" },
+  });
+
+  assert.equal(url.searchParams.get("isWeekly"), "true");
+  assert.equal(url.searchParams.get("segment"), "all");
+  assert.equal(url.searchParams.get("unvan"), "mudur");
+  assert.equal(url.searchParams.get("isUnvan"), null);
+});
+
 test("normalizeWeeklyDashboardResponse fills safe weekly fallbacks", () => {
   const response = normalizeWeeklyDashboardResponse({
     meta: {
@@ -160,6 +174,7 @@ test("normalizeWeeklyDashboardResponse fills safe weekly fallbacks", () => {
   });
 
   assert.equal(response.meta.segments.length, 1);
+  assert.deepEqual(response.meta.unvans, []);
   assert.equal(response.meta.categories[0]?.label, "Takdir");
   assert.equal(response.selectedSegment.kpis.participant.value, 207);
   assert.deepEqual(
@@ -170,6 +185,63 @@ test("normalizeWeeklyDashboardResponse fills safe weekly fallbacks", () => {
   assert.equal(response.selectedSegment.participation.days[3]?.value, 12);
   assert.deepEqual(response.selectedSegment.experiencedFeelings, []);
   assert.deepEqual(response.selectedSegment.table.rows, []);
+});
+
+test("normalizeWeeklyDashboardResponse maps additive weekly unvan fields", () => {
+  const response = normalizeWeeklyDashboardResponse({
+    meta: {
+      selectedUnvanId: "mudur",
+      unvans: [
+        {
+          id: "mudur",
+          label: "Müdür",
+          respondentCount: 12,
+        },
+      ],
+    },
+    selectedSegment: {
+      kpis: {
+        participant: { value: 207 },
+      },
+    },
+    selectedUnvan: {
+      kpis: {
+        participant: { value: 12 },
+        noneOnly: { percentage: 10 },
+        topExpectationGap: { label: "Takdir", balancePp: 8.4 },
+      },
+      experiencedFeelings: [
+        {
+          category: "appreciation",
+          label: "Takdir",
+          percentage: 22.5,
+        },
+      ],
+      participation: {
+        days: [{ day: "Cuma", respondentCount: 4 }],
+      },
+      table: {
+        rows: [
+          {
+            label: "Takdir",
+            experiencePercentage: 22.5,
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(response.meta.selectedUnvanId, "mudur");
+  assert.equal(response.meta.unvans[0]?.id, "mudur");
+  assert.equal(response.meta.unvans[0]?.label, "Müdür");
+  assert.equal(response.meta.unvans[0]?.respondentCount, 12);
+  assert.equal(response.selectedSegment.kpis.participant.value, 207);
+  assert.equal(response.selectedUnvan?.kpis.participant.value, 12);
+  assert.equal(response.selectedUnvan?.kpis.noneOnly.value, 10);
+  assert.equal(response.selectedUnvan?.kpis.topExpectationGap.value, 8.4);
+  assert.equal(response.selectedUnvan?.experiencedFeelings[0]?.current, 22.5);
+  assert.equal(response.selectedUnvan?.participation.days[0]?.value, 4);
+  assert.equal(response.selectedUnvan?.table.rows[0]?.experienced, 22.5);
 });
 
 test("normalizeWeeklyDashboardResponse preserves expectation balance signs", () => {

@@ -304,6 +304,8 @@ export function IsYatirimHeader({
   dailyToken,
   weeklyToken,
   isWeeklyToggleEnabled,
+  selectedUnvan,
+  isUnvanComparisonEnabled,
 }: {
   dateFilter: IsYatirimDateFilter;
   isDateTimePickerEnabled: boolean;
@@ -314,6 +316,8 @@ export function IsYatirimHeader({
   dailyToken: string;
   weeklyToken: string;
   isWeeklyToggleEnabled: boolean;
+  selectedUnvan: string;
+  isUnvanComparisonEnabled: boolean;
 }) {
   const generatedAt = formatTurkishDateTime(response?.meta.generatedAt || "");
   const title = response?.meta.dashboardTitle || "İş Yatırım Duygu Durumu";
@@ -354,8 +358,10 @@ export function IsYatirimHeader({
               <IsYatirimDashboardViewToggle
                 active="daily"
                 dailyToken={dailyToken}
+                isUnvanComparisonEnabled={isUnvanComparisonEnabled}
                 isWeeklyToggleEnabled={isWeeklyToggleEnabled}
                 segment={selectedSegment}
+                selectedUnvan={selectedUnvan}
                 weeklyToken={weeklyToken}
               />
             ) : null}

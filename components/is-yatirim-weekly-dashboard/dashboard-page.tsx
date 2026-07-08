@@ -66,10 +66,13 @@ type WeeklyDashboardProps = {
   weekFilter: IsYatirimWeekFilter;
   dailyToken: string;
   weeklyToken: string;
+  selectedUnvan: string;
+  isUnvanComparisonEnabled: boolean;
   isLoading: boolean;
   isUpdating: boolean;
   errorMessage?: string | null;
   onSegmentSelect: (segment: string) => void;
+  onUnvanSelect: (unvan: string) => void;
   onWeekFilterChange: (weekFilter: IsYatirimWeekFilter) => void;
 };
 
@@ -646,6 +649,8 @@ function WeeklyHeader({
   selectedSegment,
   dailyToken,
   weeklyToken,
+  selectedUnvan,
+  isUnvanComparisonEnabled,
   isUpdating,
   onWeekFilterChange,
 }: {
@@ -654,6 +659,8 @@ function WeeklyHeader({
   selectedSegment: string;
   dailyToken: string;
   weeklyToken: string;
+  selectedUnvan: string;
+  isUnvanComparisonEnabled: boolean;
   isUpdating: boolean;
   onWeekFilterChange: (weekFilter: IsYatirimWeekFilter) => void;
 }) {
@@ -688,7 +695,9 @@ function WeeklyHeader({
             <IsYatirimDashboardViewToggle
               active="weekly"
               dailyToken={dailyToken}
+              isUnvanComparisonEnabled={isUnvanComparisonEnabled}
               segment={selectedSegment}
+              selectedUnvan={selectedUnvan}
               weeklyToken={weeklyToken}
             />
             <div className="inline-flex items-center gap-2 rounded-full border border-[#00A878]/20 bg-[#00A878]/10 px-3 py-1.5 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#0B7D5E]">
@@ -816,6 +825,45 @@ function SegmentTabs({
               type="button"
             >
               {formatSegmentTabLabel(segment)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function UnvanTabs({
+  unvans,
+  selectedUnvan,
+  onUnvanSelect,
+}: {
+  unvans: WeeklySegmentOption[];
+  selectedUnvan: string;
+  onUnvanSelect: (unvan: string) => void;
+}) {
+  if (!unvans.length) {
+    return null;
+  }
+
+  return (
+    <div className="relative z-0 border-b border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.04)] backdrop-blur-sm">
+      <div className="flex w-full flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-5 lg:px-6">
+        {unvans.map((unvan) => {
+          const isActive = selectedUnvan === unvan.id;
+
+          return (
+            <button
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-2 font-poppins text-sm font-bold tracking-[0.01em] transition-colors sm:text-base lg:px-4 ${
+                isActive
+                  ? "bg-[#0057FF] text-white shadow-[0_8px_18px_rgba(0,87,255,0.24)]"
+                  : "text-[#0057FF]/75 hover:text-[#0057FF]"
+              }`}
+              key={unvan.id}
+              onClick={() => onUnvanSelect(unvan.id)}
+              type="button"
+            >
+              {displayTurkishText(unvan.label)}
             </button>
           );
         })}
@@ -1660,14 +1708,42 @@ export default function IsYatirimWeeklyDashboard({
   weekFilter,
   dailyToken,
   weeklyToken,
+  selectedUnvan,
+  isUnvanComparisonEnabled,
   isLoading,
   isUpdating,
   errorMessage,
   onSegmentSelect,
+  onUnvanSelect,
   onWeekFilterChange,
 }: WeeklyDashboardProps) {
   const activeSegment =
-    response?.meta.selectedSegmentId || selectedSegment || "all";
+    selectedSegment || response?.meta.selectedSegmentId || "all";
+  const activeUnvan = selectedUnvan;
+  const canShowUnvanTabs =
+    isUnvanComparisonEnabled && Boolean(response?.meta.unvans.length);
+  const displayResponse = useMemo(
+    () =>
+      isUnvanComparisonEnabled && selectedUnvan && response?.selectedUnvan
+        ? {
+            ...response,
+            selectedSegment: response.selectedUnvan,
+          }
+        : response,
+    [isUnvanComparisonEnabled, response, selectedUnvan],
+  );
+  const previousDisplayResponse = useMemo(
+    () =>
+      isUnvanComparisonEnabled &&
+      selectedUnvan &&
+      previousParticipationResponse?.selectedUnvan
+        ? {
+            ...previousParticipationResponse,
+            selectedSegment: previousParticipationResponse.selectedUnvan,
+          }
+        : previousParticipationResponse,
+    [isUnvanComparisonEnabled, previousParticipationResponse, selectedUnvan],
+  );
   const periodLabel = response
     ? getDisplayPeriodLabel(response.meta.weekFilter, response.meta.periodLabel)
     : getWeekOptionLabel(weekFilter);
@@ -1680,23 +1756,24 @@ export default function IsYatirimWeeklyDashboard({
       return [];
     }
 
-    const mode = response.meta.weekFilter.mode;
+    const activeResponse = displayResponse || response;
+    const mode = activeResponse.meta.weekFilter.mode;
     const isMultiWeek = mode === "last_4_weeks";
 
     if (!isMultiWeek) {
       const currentSeries = {
         id: "current",
-        label: response.meta.periodLabel || "Seçili dönem",
-        days: response.selectedSegment.participation.days,
+        label: activeResponse.meta.periodLabel || "Seçili dönem",
+        days: activeResponse.selectedSegment.participation.days,
       };
       const previousSeries =
-        previousParticipationResponse?.selectedSegment.participation.days.length
+        previousDisplayResponse?.selectedSegment.participation.days.length
           ? [
               {
                 id: "previous",
                 label:
-                  previousParticipationResponse.meta.periodLabel || "Önceki dönem",
-                days: previousParticipationResponse.selectedSegment.participation.days,
+                  previousDisplayResponse.meta.periodLabel || "Önceki dönem",
+                days: previousDisplayResponse.selectedSegment.participation.days,
               },
             ]
           : [];
@@ -1707,10 +1784,10 @@ export default function IsYatirimWeeklyDashboard({
       ];
     }
 
-    return response.selectedSegment.participation.weeklySeries.length
-      ? response.selectedSegment.participation.weeklySeries
-      : response.selectedSegment.weeklySeries;
-  }, [previousParticipationResponse, response]);
+    return activeResponse.selectedSegment.participation.weeklySeries.length
+      ? activeResponse.selectedSegment.participation.weeklySeries
+      : activeResponse.selectedSegment.weeklySeries;
+  }, [displayResponse, previousDisplayResponse, response]);
 
   return (
     <AnalyticsDashboardPageShell>
@@ -1720,40 +1797,51 @@ export default function IsYatirimWeeklyDashboard({
           onWeekFilterChange={onWeekFilterChange}
           response={response}
           selectedSegment={activeSegment}
+          selectedUnvan={activeUnvan}
           dailyToken={dailyToken}
+          isUnvanComparisonEnabled={isUnvanComparisonEnabled}
           weeklyToken={weeklyToken}
           weekFilter={weekFilter}
         />
 
         {response?.meta.segments.length ? (
-          <SegmentTabs
-            onSegmentSelect={onSegmentSelect}
-            segments={response.meta.segments}
-            selectedSegment={activeSegment}
-          />
+          <>
+            <SegmentTabs
+              onSegmentSelect={onSegmentSelect}
+              segments={response.meta.segments}
+              selectedSegment={selectedUnvan ? "" : activeSegment}
+            />
+            {canShowUnvanTabs ? (
+              <UnvanTabs
+                onUnvanSelect={onUnvanSelect}
+                selectedUnvan={activeUnvan}
+                unvans={response.meta.unvans}
+              />
+            ) : null}
+          </>
         ) : null}
 
         {isLoading || isUpdating ? (
           <AnalyticsLoadingState />
         ) : errorMessage ? (
           <AnalyticsErrorState message={errorMessage} />
-        ) : response ? (
+        ) : displayResponse ? (
           <>
-            <KpiGrid response={response} />
+            <KpiGrid response={displayResponse} />
 
             <AnalyticsSectionHeading>DUYGU DAĞILIMI</AnalyticsSectionHeading>
             <section className="grid gap-4 xl:grid-cols-2">
               <VerticalComparisonChart
                 currentLabel={comparisonLegendLabels.current}
                 dotColor="#0057FF"
-                items={response.selectedSegment.experiencedFeelings}
+                items={displayResponse.selectedSegment.experiencedFeelings}
                 previousLabel={comparisonLegendLabels.previous}
                 title={`DENEYİMLENEN DUYGULAR - ${periodLabel}`}
               />
               <VerticalComparisonChart
                 currentLabel={comparisonLegendLabels.current}
                 dotColor="#985DF8"
-                items={response.selectedSegment.desiredFeelings}
+                items={displayResponse.selectedSegment.desiredFeelings}
                 previousLabel={comparisonLegendLabels.previous}
                 title={`İSTENEN DUYGULAR - ${periodLabel}`}
               />
@@ -1762,14 +1850,17 @@ export default function IsYatirimWeeklyDashboard({
             <AnalyticsSectionHeading>BEKLENTİ VE KATILIM</AnalyticsSectionHeading>
             <section className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
               <ExpectationBalanceChart
-                items={response.selectedSegment.expectationBalance}
+                items={displayResponse.selectedSegment.expectationBalance}
                 periodLabel={periodLabel}
               />
-              <ParticipationChart series={participationSeries} weekFilter={response.meta.weekFilter} />
+              <ParticipationChart
+                series={participationSeries}
+                weekFilter={displayResponse.meta.weekFilter}
+              />
             </section>
 
             <AnalyticsSectionHeading>ÖZET</AnalyticsSectionHeading>
-            <WeeklySummaryTable rows={response.selectedSegment.table.rows} />
+            <WeeklySummaryTable rows={displayResponse.selectedSegment.table.rows} />
           </>
         ) : (
           <AnalyticsEmptyState

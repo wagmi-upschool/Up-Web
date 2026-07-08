@@ -37,6 +37,8 @@ export type WeeklySegmentOption = {
   targetEmployeeCount?: number;
 };
 
+export type WeeklyUnvanOption = WeeklySegmentOption;
+
 export type WeeklyCategory = {
   id: string;
   label: string;
@@ -101,27 +103,32 @@ export type WeeklyTableRow = {
   trend: string;
 };
 
+export type WeeklyDashboardSegmentData = {
+  kpis: WeeklyDashboardKpis;
+  experiencedFeelings: WeeklyFeelingBarItem[];
+  desiredFeelings: WeeklyFeelingBarItem[];
+  expectationBalance: WeeklyExpectationBalanceItem[];
+  participation: WeeklyParticipation;
+  weeklySeries: WeeklyParticipationSeries[];
+  table: {
+    rows: WeeklyTableRow[];
+  };
+};
+
 export type WeeklyDashboardResponse = {
   meta: {
     periodLabel: string;
     weekFilter: IsYatirimWeekFilter;
     previousWeekFilter?: IsYatirimWeekFilter;
     segments: WeeklySegmentOption[];
+    unvans: WeeklyUnvanOption[];
     categories: WeeklyCategory[];
     selectedSegmentId: string;
+    selectedUnvanId?: string | null;
     generatedAt: string;
   };
-  selectedSegment: {
-    kpis: WeeklyDashboardKpis;
-    experiencedFeelings: WeeklyFeelingBarItem[];
-    desiredFeelings: WeeklyFeelingBarItem[];
-    expectationBalance: WeeklyExpectationBalanceItem[];
-    participation: WeeklyParticipation;
-    weeklySeries: WeeklyParticipationSeries[];
-    table: {
-      rows: WeeklyTableRow[];
-    };
-  };
+  selectedSegment: WeeklyDashboardSegmentData;
+  selectedUnvan?: WeeklyDashboardSegmentData | null;
 };
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -600,6 +607,34 @@ function normalizeTableRow(value: unknown, index: number): WeeklyTableRow {
   };
 }
 
+function normalizeWeeklyDashboardSegmentData(
+  value: unknown,
+): WeeklyDashboardSegmentData {
+  const input = asObject(value);
+  const kpis = asObject(input.kpis);
+  const participation = normalizeParticipation(input.participation);
+  const weeklySeries = asArray(input.weeklySeries, normalizeParticipationSeries);
+
+  return {
+    kpis: {
+      participant: normalizeKpiMetric(kpis.participant, "Katılımcı"),
+      noneOnly: normalizeKpiMetric(kpis.noneOnly, "Hiçbiri"),
+      topExpectationGap: normalizeKpiMetric(
+        kpis.topExpectationGap,
+        "Tek beklenti açığı",
+      ),
+    },
+    experiencedFeelings: normalizeChartItems(input.experiencedFeelings),
+    desiredFeelings: normalizeChartItems(input.desiredFeelings),
+    expectationBalance: normalizeExpectationBalance(input.expectationBalance),
+    participation,
+    weeklySeries: weeklySeries.length ? weeklySeries : participation.weeklySeries,
+    table: {
+      rows: asArray(asObject(input.table).rows, normalizeTableRow),
+    },
+  };
+}
+
 export function normalizeWeeklyDashboardResponse(
   value: unknown,
   {
@@ -613,12 +648,6 @@ export function normalizeWeeklyDashboardResponse(
   const input = asObject(value);
   const meta = asObject(input.meta);
   const selectedSegmentInput = asObject(input.selectedSegment);
-  const kpis = asObject(selectedSegmentInput.kpis);
-  const participation = normalizeParticipation(selectedSegmentInput.participation);
-  const weeklySeries = asArray(
-    selectedSegmentInput.weeklySeries,
-    normalizeParticipationSeries,
-  );
   const resolvedWeekFilter = normalizeWeekFilterLike(
     meta.weekFilter,
     fallbackWeekFilter || { mode: DEFAULT_IS_YATIRIM_WEEK_MODE },
@@ -632,6 +661,7 @@ export function normalizeWeeklyDashboardResponse(
         ? normalizeWeekFilterLike(meta.previousWeekFilter, resolvedWeekFilter)
         : undefined,
       segments: asArray(meta.segments, normalizeSegmentOption),
+      unvans: asArray(meta.unvans, normalizeSegmentOption),
       categories: Array.isArray(meta.categories)
         ? asArray(meta.categories, normalizeCategory)
         : [
@@ -642,28 +672,13 @@ export function normalizeWeeklyDashboardResponse(
         meta.selectedSegmentId || selectedSegmentInput.segmentId,
         selectedSegment || DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
       ),
+      selectedUnvanId: asString(meta.selectedUnvanId) || null,
       generatedAt: asString(meta.generatedAt),
     },
-    selectedSegment: {
-      kpis: {
-        participant: normalizeKpiMetric(kpis.participant, "Katılımcı"),
-        noneOnly: normalizeKpiMetric(kpis.noneOnly, "Hiçbiri"),
-        topExpectationGap: normalizeKpiMetric(
-          kpis.topExpectationGap,
-          "Tek beklenti açığı",
-        ),
-      },
-      experiencedFeelings: normalizeChartItems(selectedSegmentInput.experiencedFeelings),
-      desiredFeelings: normalizeChartItems(selectedSegmentInput.desiredFeelings),
-      expectationBalance: normalizeExpectationBalance(
-        selectedSegmentInput.expectationBalance,
-      ),
-      participation,
-      weeklySeries: weeklySeries.length ? weeklySeries : participation.weeklySeries,
-      table: {
-        rows: asArray(asObject(selectedSegmentInput.table).rows, normalizeTableRow),
-      },
-    },
+    selectedSegment: normalizeWeeklyDashboardSegmentData(selectedSegmentInput),
+    selectedUnvan: input.selectedUnvan
+      ? normalizeWeeklyDashboardSegmentData(input.selectedUnvan)
+      : null,
   };
 }
 

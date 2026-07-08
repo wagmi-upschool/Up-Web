@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import {
   type ReadonlyURLSearchParams,
   useRouter,
@@ -14,6 +14,11 @@ import {
 } from "@tanstack/react-query";
 import IsYatirimWeeklyDashboard from "@/components/is-yatirim-weekly-dashboard/dashboard-page";
 import {
+  applyIsYatirimBreakdownSelectionToSearchParams,
+  normalizeIsYatirimUnvan,
+  normalizeIsYatirimUnvanFlag,
+} from "@/lib/isYatirimLeadershipDashboard";
+import {
   DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_ROUTE,
@@ -26,16 +31,27 @@ import {
   type WeeklyDashboardResponse,
 } from "@/lib/isYatirimWeeklyDashboard";
 
+type OptimisticWeeklyBreakdownSelection = {
+  segment: string;
+  selectedUnvan: string;
+};
+
 async function getWeeklyDashboard(
   segment: string,
   token: string,
   weekFilter: IsYatirimWeekFilter,
+  unvan?: string,
 ) {
   const query = new URLSearchParams({
     segment,
   });
+  const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
 
   applyIsYatirimWeekFilterToSearchParams(query, weekFilter);
+
+  if (normalizedUnvan) {
+    query.set("unvan", normalizedUnvan);
+  }
 
   if (token) {
     query.set("token", token);
@@ -78,12 +94,14 @@ function formatApiError(error: unknown) {
 
 function getWeeklyDashboardQueryKey(
   segment: string,
+  unvan: string,
   token: string,
   weekFilter: IsYatirimWeekFilter,
 ) {
   return [
     "isYatirimWeeklyDashboard",
     segment,
+    unvan,
     token,
     weekFilter.mode,
     weekFilter.weekStartDate || "",
@@ -195,18 +213,29 @@ function buildWeeklyDashboardSearchParams(
   currentSearchParams: ReadonlyURLSearchParams,
   {
     segment,
+    selectedUnvan,
+    isUnvanComparisonEnabled,
     weekFilter,
   }: {
     segment: string;
+    selectedUnvan?: string;
+    isUnvanComparisonEnabled: boolean;
     weekFilter: IsYatirimWeekFilter;
   },
 ) {
   const nextSearchParams = new URLSearchParams(currentSearchParams.toString());
 
-  if (segment === DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT) {
-    nextSearchParams.delete("segment");
+  if (isUnvanComparisonEnabled && selectedUnvan) {
+    applyIsYatirimBreakdownSelectionToSearchParams(nextSearchParams, {
+      type: "unvan",
+      unvan: selectedUnvan,
+      isUnvanEnabled: true,
+    });
   } else {
-    nextSearchParams.set("segment", segment);
+    applyIsYatirimBreakdownSelectionToSearchParams(nextSearchParams, {
+      type: "gmy",
+      segment,
+    });
   }
 
   applyIsYatirimWeekFilterToSearchParams(nextSearchParams, weekFilter);
@@ -219,14 +248,20 @@ function replaceWeeklyDashboardRoute(
   currentSearchParams: ReadonlyURLSearchParams,
   {
     segment,
+    selectedUnvan,
+    isUnvanComparisonEnabled,
     weekFilter,
   }: {
     segment: string;
+    selectedUnvan?: string;
+    isUnvanComparisonEnabled: boolean;
     weekFilter: IsYatirimWeekFilter;
   },
 ) {
   const nextSearchParams = buildWeeklyDashboardSearchParams(currentSearchParams, {
     segment,
+    selectedUnvan,
+    isUnvanComparisonEnabled,
     weekFilter,
   });
   const nextSearch = nextSearchParams.toString();
@@ -245,7 +280,19 @@ function IsYatirimWeeklyDashboardContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const [optimisticBreakdown, setOptimisticBreakdown] =
+    useState<OptimisticWeeklyBreakdownSelection | null>(null);
+  const isUnvanComparisonEnabled = normalizeIsYatirimUnvanFlag(
+    searchParams.get("isUnvan"),
+  );
   const segment = normalizeIsYatirimWeeklySegment(searchParams.get("segment"));
+  const selectedUnvan = isUnvanComparisonEnabled
+    ? normalizeIsYatirimUnvan(searchParams.get("unvan"))
+    : "";
+  const visibleSegment = optimisticBreakdown?.segment ?? segment;
+  const visibleSelectedUnvan = isUnvanComparisonEnabled
+    ? (optimisticBreakdown?.selectedUnvan ?? selectedUnvan)
+    : "";
   const weeklyToken = normalizeIsYatirimWeeklyToken(
     searchParams.get("weeklyToken") || searchParams.get("token"),
   );
@@ -255,9 +302,25 @@ function IsYatirimWeeklyDashboardContent() {
     weekStartDate: searchParams.get("weekStartDate"),
   });
 
+  useEffect(() => {
+    if (
+      optimisticBreakdown &&
+      optimisticBreakdown.segment === segment &&
+      optimisticBreakdown.selectedUnvan === selectedUnvan
+    ) {
+      setOptimisticBreakdown(null);
+    }
+  }, [optimisticBreakdown, segment, selectedUnvan]);
+
   const dashboardQuery = useQuery({
-    queryKey: getWeeklyDashboardQueryKey(segment, weeklyToken, weekFilter),
-    queryFn: () => getWeeklyDashboard(segment, weeklyToken, weekFilter),
+    queryKey: getWeeklyDashboardQueryKey(
+      segment,
+      selectedUnvan,
+      weeklyToken,
+      weekFilter,
+    ),
+    queryFn: () =>
+      getWeeklyDashboard(segment, weeklyToken, weekFilter, selectedUnvan),
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
@@ -267,12 +330,14 @@ function IsYatirimWeeklyDashboardContent() {
     queryKey: previousParticipationWeekFilter
       ? getWeeklyDashboardQueryKey(
           segment,
+          selectedUnvan,
           weeklyToken,
           previousParticipationWeekFilter,
         )
       : [
           "isYatirimWeeklyDashboardPreviousParticipation",
           segment,
+          selectedUnvan,
           weeklyToken,
           "",
         ],
@@ -281,26 +346,72 @@ function IsYatirimWeeklyDashboardContent() {
         segment,
         weeklyToken,
         previousParticipationWeekFilter || { mode: "this_week" },
+        selectedUnvan,
       ),
     enabled: Boolean(previousParticipationWeekFilter && weeklyToken),
     refetchOnWindowFocus: false,
   });
 
   const handleSegmentSelect = (selectedSegment: string) => {
+    const normalizedSegment = normalizeIsYatirimWeeklySegment(selectedSegment);
+
+    if (selectedUnvan || normalizedSegment !== segment) {
+      setOptimisticBreakdown({
+        segment: normalizedSegment,
+        selectedUnvan: "",
+      });
+    }
+
     replaceWeeklyDashboardRoute(router, searchParams, {
-      segment: normalizeIsYatirimWeeklySegment(selectedSegment),
+      segment: normalizedSegment,
+      selectedUnvan: "",
+      isUnvanComparisonEnabled,
+      weekFilter,
+    });
+  };
+
+  const handleUnvanSelect = (nextUnvan: string) => {
+    if (!isUnvanComparisonEnabled) {
+      return;
+    }
+    const normalizedUnvan = normalizeIsYatirimUnvan(nextUnvan);
+
+    if (normalizedUnvan !== selectedUnvan) {
+      setOptimisticBreakdown({
+        segment: DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
+        selectedUnvan: normalizedUnvan,
+      });
+    }
+
+    replaceWeeklyDashboardRoute(router, searchParams, {
+      segment: DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
+      selectedUnvan: normalizedUnvan,
+      isUnvanComparisonEnabled,
       weekFilter,
     });
   };
 
   const handleWeekFilterChange = (nextWeekFilter: IsYatirimWeekFilter) => {
     void queryClient.prefetchQuery({
-      queryKey: getWeeklyDashboardQueryKey(segment, weeklyToken, nextWeekFilter),
-      queryFn: () => getWeeklyDashboard(segment, weeklyToken, nextWeekFilter),
+      queryKey: getWeeklyDashboardQueryKey(
+        segment,
+        selectedUnvan,
+        weeklyToken,
+        nextWeekFilter,
+      ),
+      queryFn: () =>
+        getWeeklyDashboard(
+          segment,
+          weeklyToken,
+          nextWeekFilter,
+          selectedUnvan,
+        ),
     });
 
     replaceWeeklyDashboardRoute(router, searchParams, {
       segment,
+      selectedUnvan,
+      isUnvanComparisonEnabled,
       weekFilter: nextWeekFilter,
     });
   };
@@ -313,11 +424,14 @@ function IsYatirimWeeklyDashboardContent() {
       isLoading={dashboardQuery.isLoading}
       isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
       onSegmentSelect={handleSegmentSelect}
+      onUnvanSelect={handleUnvanSelect}
       onWeekFilterChange={handleWeekFilterChange}
       previousParticipationResponse={previousParticipationQuery.data}
       response={dashboardQuery.data}
-      selectedSegment={segment}
+      selectedSegment={visibleSegment}
+      selectedUnvan={visibleSelectedUnvan}
       dailyToken={dailyToken}
+      isUnvanComparisonEnabled={isUnvanComparisonEnabled}
       weeklyToken={weeklyToken}
       weekFilter={weekFilter}
     />

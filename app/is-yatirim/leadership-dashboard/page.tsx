@@ -34,6 +34,11 @@ import {
 const BREAKDOWN_LOADING_STORAGE_KEY = "isYatirimBreakdownLoadingUntil";
 const BREAKDOWN_LOADING_DURATION_MS = 900;
 
+type OptimisticBreakdownSelection = {
+  segment: string;
+  selectedUnvan: string;
+};
+
 function getStoredBreakdownLoadingUntil() {
   if (typeof window === "undefined") {
     return 0;
@@ -207,6 +212,8 @@ function IsYatirimLeadershipDashboardContent() {
   const [isBreakdownUpdating, setIsBreakdownUpdating] = useState(
     () => getStoredBreakdownLoadingUntil() > Date.now(),
   );
+  const [optimisticBreakdown, setOptimisticBreakdown] =
+    useState<OptimisticBreakdownSelection | null>(null);
   const breakdownUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -220,6 +227,10 @@ function IsYatirimLeadershipDashboardContent() {
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
   const selectedUnvan = isUnvanComparisonEnabled
     ? normalizeIsYatirimUnvan(searchParams.get("unvan"))
+    : "";
+  const visibleSegment = optimisticBreakdown?.segment ?? segment;
+  const visibleSelectedUnvan = isUnvanComparisonEnabled
+    ? (optimisticBreakdown?.selectedUnvan ?? selectedUnvan)
     : "";
   const dailyToken = normalizeIsYatirimDashboardToken(
     searchParams.get("dailyToken") || searchParams.get("token"),
@@ -241,6 +252,16 @@ function IsYatirimLeadershipDashboardContent() {
     isDateTimePickerEnabled,
     dateFilter,
   );
+
+  useEffect(() => {
+    if (
+      optimisticBreakdown &&
+      optimisticBreakdown.segment === segment &&
+      optimisticBreakdown.selectedUnvan === selectedUnvan
+    ) {
+      setOptimisticBreakdown(null);
+    }
+  }, [optimisticBreakdown, segment, selectedUnvan]);
 
   useEffect(() => {
     return () => {
@@ -393,6 +414,10 @@ function IsYatirimLeadershipDashboardContent() {
     const normalizedSegment = normalizeIsYatirimSegment(selectedSegment);
 
     if (selectedUnvan || normalizedSegment !== segment) {
+      setOptimisticBreakdown({
+        segment: normalizedSegment,
+        selectedUnvan: "",
+      });
       beginBreakdownUpdate();
     }
 
@@ -413,6 +438,10 @@ function IsYatirimLeadershipDashboardContent() {
     const normalizedUnvan = normalizeIsYatirimUnvan(nextUnvan);
 
     if (normalizedUnvan !== selectedUnvan) {
+      setOptimisticBreakdown({
+        segment: DEFAULT_IS_YATIRIM_SEGMENT,
+        selectedUnvan: normalizedUnvan,
+      });
       beginBreakdownUpdate();
     }
 
@@ -470,8 +499,8 @@ function IsYatirimLeadershipDashboardContent() {
       onSegmentSelect={handleSegmentSelect}
       onUnvanSelect={handleUnvanSelect}
       response={dashboardQuery.data}
-      selectedSegment={segment}
-      selectedUnvan={selectedUnvan}
+      selectedSegment={visibleSegment}
+      selectedUnvan={visibleSelectedUnvan}
       dailyToken={dailyToken}
       isWeeklyToggleEnabled={isWeeklyToggleEnabled}
       weeklyToken={weeklyToken}

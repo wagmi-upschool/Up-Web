@@ -75,7 +75,7 @@ export default function IsYatirimLeadershipDashboard({
     response?.comparisons,
   );
   const canShowUnvanBreakdown = isUnvanComparisonEnabled && hasUnvanComparisons;
-  const selectedSegmentId = response?.meta.selectedSegmentId || selectedSegment;
+  const selectedSegmentId = selectedSegment || response?.meta.selectedSegmentId;
   const isAllSegmentSelected =
     normalizeIsYatirimSegment(selectedSegmentId) === DEFAULT_IS_YATIRIM_SEGMENT;
   const detailBreakdown =
@@ -106,8 +106,10 @@ export default function IsYatirimLeadershipDashboard({
         isUpdating={isUpdating}
         onDateFilterChange={onDateFilterChange}
         response={response}
-        selectedSegment={response?.meta.selectedSegmentId || selectedSegment}
+        selectedSegment={selectedSegment}
+        selectedUnvan={selectedUnvan}
         dailyToken={dailyToken}
+        isUnvanComparisonEnabled={isUnvanComparisonEnabled}
         isWeeklyToggleEnabled={isWeeklyToggleEnabled}
         weeklyToken={weeklyToken}
       />
@@ -117,11 +119,7 @@ export default function IsYatirimLeadershipDashboard({
           onSegmentSelect={onSegmentSelect}
           onUnvanSelect={onUnvanSelect}
           response={response}
-          selectedSegment={
-            selectedUnvan
-              ? ""
-              : response.meta.selectedSegmentId || selectedSegment
-          }
+          selectedSegment={selectedUnvan ? "" : selectedSegment}
           selectedUnvan={selectedUnvan}
         />
       ) : response?.meta.segments.length ? (

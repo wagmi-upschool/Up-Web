@@ -8,16 +8,19 @@ import {
   normalizeWeeklyDashboardResponse,
   type IsYatirimWeekFilter,
 } from "@/lib/isYatirimWeeklyDashboard";
+import { normalizeIsYatirimUnvan } from "@/lib/isYatirimLeadershipDashboard";
 import { getIsYatirimDashboardBaseUrl } from "@/lib/isYatirimLeadershipDashboardRoute";
 
 export function buildIsYatirimWeeklyDashboardUrl({
   baseUrl,
   segment,
+  unvan,
   token,
   weekFilter,
 }: {
   baseUrl: string;
   segment?: string | null;
+  unvan?: string | null;
   token?: string | null;
   weekFilter?: IsYatirimWeekFilter;
 }) {
@@ -32,6 +35,10 @@ export function buildIsYatirimWeeklyDashboardUrl({
   url.searchParams.set("client", IS_YATIRIM_WEEKLY_CLIENT);
   url.searchParams.set("isWeekly", "true");
   url.searchParams.set("segment", normalizeIsYatirimWeeklySegment(segment));
+  const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
+  if (normalizedUnvan) {
+    url.searchParams.set("unvan", normalizedUnvan);
+  }
 
   url.searchParams.set("weekMode", normalizedWeekFilter.mode);
 
@@ -74,6 +81,9 @@ export async function handleIsYatirimWeeklyDashboardRequest(
   const token = normalizeIsYatirimWeeklyToken(
     request.nextUrl.searchParams.get("token"),
   );
+  const unvan = normalizeIsYatirimUnvan(
+    request.nextUrl.searchParams.get("unvan"),
+  );
   const weekFilter = normalizeIsYatirimWeekFilter({
     weekMode: request.nextUrl.searchParams.get("weekMode"),
     weekStartDate: request.nextUrl.searchParams.get("weekStartDate"),
@@ -81,6 +91,7 @@ export async function handleIsYatirimWeeklyDashboardRequest(
   const upstreamUrl = buildIsYatirimWeeklyDashboardUrl({
     baseUrl,
     segment,
+    unvan,
     token,
     weekFilter,
   });
