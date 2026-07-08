@@ -41,6 +41,7 @@ import {
   formatScore,
   formatTurkishDate,
   formatTurkishDateTime,
+  sortIsYatirimUnvanOptions,
   type EngagementAnswer,
   type GmyExtremeItem,
   type GmyRankingItem,
@@ -254,7 +255,7 @@ function getUnvanBreakdownOptions(
   response.comparisons.unvanScoreChanges.forEach(addOption);
   response.comparisons.unvanExtremes.forEach(addOption);
 
-  return Array.from(options.values());
+  return sortIsYatirimUnvanOptions(Array.from(options.values()));
 }
 
 function MiniProgressBar({

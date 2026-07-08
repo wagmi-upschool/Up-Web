@@ -20,6 +20,7 @@ import {
   hasIsYatirimUnvanComparisons,
   resolveIsYatirimComparisonBreakdown,
   resolveIsYatirimDateFilterByPickerFlag,
+  sortIsYatirimUnvanOptions,
 } from "../../lib/isYatirimLeadershipDashboard";
 import {
   buildIsYatirimDashboardUrl,
@@ -45,6 +46,33 @@ test("normalizeIsYatirimUnvan helpers keep unvan feature URL state explicit", ()
   assert.equal(normalizeIsYatirimUnvanFlag(null), false);
   assert.equal(normalizeIsYatirimUnvanFlag("false"), false);
   assert.equal(normalizeIsYatirimUnvanFlag(" true "), true);
+});
+
+test("sortIsYatirimUnvanOptions keeps daily and weekly tabs in fixed business order", () => {
+  const sorted = sortIsYatirimUnvanOptions([
+    { id: "ara-kademe-yonetici", label: "Ara Kademe Yönetici" },
+    { id: "mudur", label: "Müdür" },
+    { id: "support", label: "Support" },
+    { id: "uzman-yardimcisi", label: "Uzman Yardımcısı" },
+    { id: "ic-sistemler", label: "İç Sistemler" },
+    { id: "yonetim", label: "Yönetim" },
+    { id: "direktor", label: "Direktör" },
+    { id: "uzman", label: "Uzman" },
+  ]);
+
+  assert.deepEqual(
+    sorted.map((item) => item.id),
+    [
+      "support",
+      "direktor",
+      "ic-sistemler",
+      "uzman",
+      "ara-kademe-yonetici",
+      "uzman-yardimcisi",
+      "mudur",
+      "yonetim",
+    ],
+  );
 });
 
 test("normalizeIsYatirimDateTimePickerFlag defaults enabled unless explicit false", () => {

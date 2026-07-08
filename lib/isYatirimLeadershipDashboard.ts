@@ -4,6 +4,20 @@ export const DEFAULT_IS_YATIRIM_SEGMENT = "all";
 export const DEFAULT_IS_YATIRIM_FALLBACK_DATE = "1970-01-01";
 export const IS_YATIRIM_DATE_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_UNVAN_QUERY_PARAM = "unvan";
+export const IS_YATIRIM_UNVAN_ORDER = [
+  "support",
+  "direktor",
+  "ic-sistemler",
+  "uzman",
+  "ara-kademe-yonetici",
+  "uzman-yardimcisi",
+  "mudur",
+  "yonetim",
+] as const;
+
+const IS_YATIRIM_UNVAN_ORDER_INDEX = new Map<string, number>(
+  IS_YATIRIM_UNVAN_ORDER.map((unvan, index) => [unvan, index]),
+);
 
 export type IsYatirimDateFilterMode = "single" | "range";
 export type IsYatirimDateFilter = {
@@ -22,6 +36,12 @@ export type SegmentOption = {
   type: "all" | "gmy" | "department" | "management";
   respondentCount: number;
   targetEmployeeCount: number;
+};
+
+export type IsYatirimUnvanSortableOption = {
+  id?: string;
+  segmentId?: string;
+  label?: string;
 };
 
 export type WordItem = {
@@ -375,6 +395,57 @@ export function normalizeIsYatirimUnvan(value: string | null | undefined) {
 
 export function normalizeIsYatirimUnvanFlag(value: string | null | undefined) {
   return value?.trim() === "true";
+}
+
+function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {
+  return (value || "")
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ç/g, "c")
+    .replace(/ğ/g, "g")
+    .replace(/ı/g, "i")
+    .replace(/i̇/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ş/g, "s")
+    .replace(/ü/g, "u")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getIsYatirimUnvanOrderIndex(option: IsYatirimUnvanSortableOption) {
+  const candidateKeys = [
+    normalizeIsYatirimUnvanOrderKey(option.id),
+    normalizeIsYatirimUnvanOrderKey(option.segmentId),
+    normalizeIsYatirimUnvanOrderKey(option.label),
+  ];
+
+  for (const key of candidateKeys) {
+    const index = IS_YATIRIM_UNVAN_ORDER_INDEX.get(key);
+
+    if (index !== undefined) {
+      return index;
+    }
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+}
+
+export function sortIsYatirimUnvanOptions<
+  T extends IsYatirimUnvanSortableOption,
+>(items: T[]) {
+  return [...items].sort((left, right) => {
+    const leftIndex = getIsYatirimUnvanOrderIndex(left);
+    const rightIndex = getIsYatirimUnvanOrderIndex(right);
+
+    if (leftIndex !== rightIndex) {
+      return leftIndex - rightIndex;
+    }
+
+    return (left.label || left.id || left.segmentId || "").localeCompare(
+      right.label || right.id || right.segmentId || "",
+      "tr",
+    );
+  });
 }
 
 export function normalizeIsYatirimDateTimePickerFlag(

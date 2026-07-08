@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import LottieSpinner from "@/components/global/loader/lottie-spinner";
 import IsYatirimDashboardViewToggle from "@/components/is-yatirim-dashboard-view-toggle";
+import { sortIsYatirimUnvanOptions } from "@/lib/isYatirimLeadershipDashboard";
 import {
   AnalyticsCard,
   AnalyticsDashboardBody,
@@ -846,10 +847,12 @@ function UnvanTabs({
     return null;
   }
 
+  const sortedUnvans = sortIsYatirimUnvanOptions(unvans);
+
   return (
     <div className="relative z-0 border-b border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.04)] backdrop-blur-sm">
       <div className="flex w-full flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-5 lg:px-6">
-        {unvans.map((unvan) => {
+        {sortedUnvans.map((unvan) => {
           const isActive = selectedUnvan === unvan.id;
 
           return (
