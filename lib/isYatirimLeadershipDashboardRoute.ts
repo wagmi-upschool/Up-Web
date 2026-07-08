@@ -5,6 +5,7 @@ import {
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimSegment,
+  normalizeIsYatirimUnvan,
   normalizeLeadershipDashboardResponse,
 } from "@/lib/isYatirimLeadershipDashboard";
 
@@ -23,11 +24,13 @@ export function getIsYatirimDashboardBaseUrl(env: DashboardEnv = process.env) {
 export function buildIsYatirimDashboardUrl({
   baseUrl,
   segment,
+  unvan,
   token,
   dateFilter,
 }: {
   baseUrl: string;
   segment?: string | null;
+  unvan?: string | null;
   token?: string | null;
   dateFilter?: {
     mode: "single" | "range";
@@ -42,6 +45,10 @@ export function buildIsYatirimDashboardUrl({
   url.searchParams.set("client", IS_YATIRIM_CLIENT);
   url.searchParams.set("competencyId", IS_YATIRIM_COMPETENCY_ID);
   url.searchParams.set("segment", normalizeIsYatirimSegment(segment));
+  const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
+  if (normalizedUnvan) {
+    url.searchParams.set("unvan", normalizedUnvan);
+  }
   if (dateFilter) {
     url.searchParams.set("dateMode", dateFilter.mode);
     url.searchParams.set("startDate", dateFilter.startDate);
@@ -80,6 +87,9 @@ export async function handleIsYatirimLeadershipDashboardRequest(
   const token = normalizeIsYatirimDashboardToken(
     request.nextUrl.searchParams.get("token"),
   );
+  const unvan = normalizeIsYatirimUnvan(
+    request.nextUrl.searchParams.get("unvan"),
+  );
   const hasExplicitDateFilter =
     request.nextUrl.searchParams.has("dateMode") ||
     request.nextUrl.searchParams.has("startDate") ||
@@ -99,6 +109,7 @@ export async function handleIsYatirimLeadershipDashboardRequest(
   const upstreamUrl = buildIsYatirimDashboardUrl({
     baseUrl,
     segment,
+    unvan,
     token,
     dateFilter,
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import {
   type ReadonlyURLSearchParams,
   useRouter,
@@ -18,26 +18,50 @@ import type {
   LeadershipDashboardResponse,
 } from "@/lib/isYatirimLeadershipDashboard";
 import {
+  DEFAULT_IS_YATIRIM_SEGMENT,
+  applyIsYatirimBreakdownSelectionToSearchParams,
   applyIsYatirimDateFilterToSearchParams,
   getTodayDateString,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimSegment,
+  normalizeIsYatirimUnvan,
+  normalizeIsYatirimUnvanFlag,
   resolveIsYatirimDateFilterByPickerFlag,
 } from "@/lib/isYatirimLeadershipDashboard";
+
+const BREAKDOWN_LOADING_STORAGE_KEY = "isYatirimBreakdownLoadingUntil";
+const BREAKDOWN_LOADING_DURATION_MS = 900;
+
+function getStoredBreakdownLoadingUntil() {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+
+  const value = Number(
+    window.sessionStorage.getItem(BREAKDOWN_LOADING_STORAGE_KEY),
+  );
+  return Number.isFinite(value) ? value : 0;
+}
 
 async function getLeadershipDashboard(
   segment: string,
   token: string,
   dateFilter?: IsYatirimDateFilter,
+  unvan?: string,
 ) {
   const query = new URLSearchParams({
     segment,
   });
+  const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
 
   if (dateFilter) {
     applyIsYatirimDateFilterToSearchParams(query, dateFilter);
+  }
+
+  if (normalizedUnvan) {
+    query.set("unvan", normalizedUnvan);
   }
 
   if (token) {
@@ -81,12 +105,14 @@ function formatApiError(error: unknown) {
 
 function getLeadershipDashboardQueryKey(
   segment: string,
+  unvan: string,
   token: string,
   dateFilter?: IsYatirimDateFilter,
 ) {
   return [
     "isYatirimLeadershipDashboard",
     segment,
+    unvan,
     token,
     dateFilter?.mode || "legacy",
     dateFilter?.startDate || "",
@@ -98,20 +124,31 @@ function buildDashboardSearchParams(
   currentSearchParams: ReadonlyURLSearchParams,
   {
     segment,
+    selectedUnvan,
+    isUnvanComparisonEnabled,
     dateFilter,
     isDateTimePickerEnabled,
   }: {
     segment: string;
+    selectedUnvan?: string;
+    isUnvanComparisonEnabled: boolean;
     dateFilter?: IsYatirimDateFilter;
     isDateTimePickerEnabled: boolean;
   },
 ) {
   const nextSearchParams = new URLSearchParams(currentSearchParams.toString());
 
-  if (segment === "all") {
-    nextSearchParams.delete("segment");
+  if (isUnvanComparisonEnabled && selectedUnvan) {
+    applyIsYatirimBreakdownSelectionToSearchParams(nextSearchParams, {
+      type: "unvan",
+      unvan: selectedUnvan,
+      isUnvanEnabled: true,
+    });
   } else {
-    nextSearchParams.set("segment", segment);
+    applyIsYatirimBreakdownSelectionToSearchParams(nextSearchParams, {
+      type: "gmy",
+      segment,
+    });
   }
 
   if (isDateTimePickerEnabled && dateFilter) {
@@ -130,16 +167,22 @@ function replaceDashboardRoute(
   currentSearchParams: ReadonlyURLSearchParams,
   {
     segment,
+    selectedUnvan,
+    isUnvanComparisonEnabled,
     dateFilter,
     isDateTimePickerEnabled,
   }: {
     segment: string;
+    selectedUnvan?: string;
+    isUnvanComparisonEnabled: boolean;
     dateFilter?: IsYatirimDateFilter;
     isDateTimePickerEnabled: boolean;
   },
 ) {
   const nextSearchParams = buildDashboardSearchParams(currentSearchParams, {
     segment,
+    selectedUnvan,
+    isUnvanComparisonEnabled,
     dateFilter,
     isDateTimePickerEnabled,
   });
@@ -161,11 +204,23 @@ function IsYatirimLeadershipDashboardContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const [isBreakdownUpdating, setIsBreakdownUpdating] = useState(
+    () => getStoredBreakdownLoadingUntil() > Date.now(),
+  );
+  const breakdownUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const isDateTimePickerEnabled = normalizeIsYatirimDateTimePickerFlag(
     searchParams.get("isDateTimePicker"),
   );
+  const isUnvanComparisonEnabled = normalizeIsYatirimUnvanFlag(
+    searchParams.get("isUnvan"),
+  );
   const isWeeklyToggleEnabled = searchParams.get("isWeeklyToggle") !== "false";
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
+  const selectedUnvan = isUnvanComparisonEnabled
+    ? normalizeIsYatirimUnvan(searchParams.get("unvan"))
+    : "";
   const dailyToken = normalizeIsYatirimDashboardToken(
     searchParams.get("dailyToken") || searchParams.get("token"),
   );
@@ -188,6 +243,44 @@ function IsYatirimLeadershipDashboardContent() {
   );
 
   useEffect(() => {
+    return () => {
+      if (breakdownUpdateTimerRef.current) {
+        clearTimeout(breakdownUpdateTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isBreakdownUpdating) {
+      return;
+    }
+
+    if (breakdownUpdateTimerRef.current) {
+      clearTimeout(breakdownUpdateTimerRef.current);
+    }
+
+    const loadingUntil = getStoredBreakdownLoadingUntil();
+    const timeoutMs = Math.max(160, loadingUntil - Date.now());
+
+    breakdownUpdateTimerRef.current = setTimeout(() => {
+      setIsBreakdownUpdating(false);
+      window.sessionStorage.removeItem(BREAKDOWN_LOADING_STORAGE_KEY);
+      breakdownUpdateTimerRef.current = null;
+    }, timeoutMs);
+  }, [isBreakdownUpdating, selectedUnvan, segment]);
+
+  const beginBreakdownUpdate = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(
+        BREAKDOWN_LOADING_STORAGE_KEY,
+        `${Date.now() + BREAKDOWN_LOADING_DURATION_MS}`,
+      );
+    }
+
+    setIsBreakdownUpdating(true);
+  };
+
+  useEffect(() => {
     if (!isDateTimePickerEnabled) {
       if (
         searchParams.has("dateMode") ||
@@ -196,6 +289,8 @@ function IsYatirimLeadershipDashboardContent() {
       ) {
         replaceDashboardRoute(router, searchParams, {
           segment,
+          selectedUnvan,
+          isUnvanComparisonEnabled,
           dateFilter: undefined,
           isDateTimePickerEnabled: false,
         });
@@ -210,6 +305,8 @@ function IsYatirimLeadershipDashboardContent() {
     ) {
       replaceDashboardRoute(router, searchParams, {
         segment,
+        selectedUnvan,
+        isUnvanComparisonEnabled,
         dateFilter,
         isDateTimePickerEnabled: true,
       });
@@ -220,18 +317,27 @@ function IsYatirimLeadershipDashboardContent() {
     dateFilter.mode,
     dateFilter.startDate,
     isDateTimePickerEnabled,
+    isUnvanComparisonEnabled,
     router,
     searchParams,
     segment,
+    selectedUnvan,
   ]);
 
   const dashboardQuery = useQuery({
     queryKey: getLeadershipDashboardQueryKey(
       segment,
+      selectedUnvan,
       dailyToken,
       effectiveDateFilter,
     ),
-    queryFn: () => getLeadershipDashboard(segment, dailyToken, effectiveDateFilter),
+    queryFn: () =>
+      getLeadershipDashboard(
+        segment,
+        dailyToken,
+        effectiveDateFilter,
+        selectedUnvan,
+      ),
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
@@ -256,6 +362,8 @@ function IsYatirimLeadershipDashboardContent() {
 
     replaceDashboardRoute(router, searchParams, {
       segment,
+      selectedUnvan,
+      isUnvanComparisonEnabled,
       dateFilter: backendDateFilter,
       isDateTimePickerEnabled: true,
     });
@@ -267,9 +375,11 @@ function IsYatirimLeadershipDashboardContent() {
     dateFilter.mode,
     dateFilter.startDate,
     isDateTimePickerEnabled,
+    isUnvanComparisonEnabled,
     router,
     searchParams,
     segment,
+    selectedUnvan,
   ]);
 
   const activeDateFilter =
@@ -280,8 +390,36 @@ function IsYatirimLeadershipDashboardContent() {
       : dateFilter;
 
   const handleSegmentSelect = (selectedSegment: string) => {
+    const normalizedSegment = normalizeIsYatirimSegment(selectedSegment);
+
+    if (selectedUnvan || normalizedSegment !== segment) {
+      beginBreakdownUpdate();
+    }
+
     replaceDashboardRoute(router, searchParams, {
-      segment: normalizeIsYatirimSegment(selectedSegment),
+      segment: normalizedSegment,
+      selectedUnvan: "",
+      isUnvanComparisonEnabled,
+      dateFilter: effectiveDateFilter,
+      isDateTimePickerEnabled,
+    });
+  };
+
+  const handleUnvanSelect = (nextUnvan: string) => {
+    if (!isUnvanComparisonEnabled) {
+      return;
+    }
+
+    const normalizedUnvan = normalizeIsYatirimUnvan(nextUnvan);
+
+    if (normalizedUnvan !== selectedUnvan) {
+      beginBreakdownUpdate();
+    }
+
+    replaceDashboardRoute(router, searchParams, {
+      segment: DEFAULT_IS_YATIRIM_SEGMENT,
+      selectedUnvan: normalizedUnvan,
+      isUnvanComparisonEnabled,
       dateFilter: effectiveDateFilter,
       isDateTimePickerEnabled,
     });
@@ -295,14 +433,23 @@ function IsYatirimLeadershipDashboardContent() {
     void queryClient.prefetchQuery({
       queryKey: getLeadershipDashboardQueryKey(
         segment,
+        selectedUnvan,
         dailyToken,
         nextDateFilter,
       ),
-      queryFn: () => getLeadershipDashboard(segment, dailyToken, nextDateFilter),
+      queryFn: () =>
+        getLeadershipDashboard(
+          segment,
+          dailyToken,
+          nextDateFilter,
+          selectedUnvan,
+        ),
     });
 
     replaceDashboardRoute(router, searchParams, {
       segment,
+      selectedUnvan,
+      isUnvanComparisonEnabled,
       dateFilter: nextDateFilter,
       isDateTimePickerEnabled: true,
     });
@@ -316,11 +463,15 @@ function IsYatirimLeadershipDashboardContent() {
       }
       isLoading={dashboardQuery.isLoading}
       isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
+      isBreakdownUpdating={isBreakdownUpdating}
       isDateTimePickerEnabled={isDateTimePickerEnabled}
+      isUnvanComparisonEnabled={isUnvanComparisonEnabled}
       onDateFilterChange={handleDateFilterChange}
       onSegmentSelect={handleSegmentSelect}
+      onUnvanSelect={handleUnvanSelect}
       response={dashboardQuery.data}
       selectedSegment={segment}
+      selectedUnvan={selectedUnvan}
       dailyToken={dailyToken}
       isWeeklyToggleEnabled={isWeeklyToggleEnabled}
       weeklyToken={weeklyToken}

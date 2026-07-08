@@ -1,9 +1,9 @@
 export const IS_YATIRIM_CLIENT = "is-yatirim";
-export const IS_YATIRIM_COMPETENCY_ID =
-  "9bb629ad-afd3-4cae-9744-a3faf5729174";
+export const IS_YATIRIM_COMPETENCY_ID = "9bb629ad-afd3-4cae-9744-a3faf5729174";
 export const DEFAULT_IS_YATIRIM_SEGMENT = "all";
 export const DEFAULT_IS_YATIRIM_FALLBACK_DATE = "1970-01-01";
 export const IS_YATIRIM_DATE_PICKER_MIN_DATE = "2026-05-20";
+export const IS_YATIRIM_UNVAN_QUERY_PARAM = "unvan";
 
 export type IsYatirimDateFilterMode = "single" | "range";
 export type IsYatirimDateFilter = {
@@ -129,12 +129,21 @@ export type GmyExtremeItem = {
   respondentCount: number;
 };
 
+export type UnvanRankingItem = GmyRankingItem;
+export type UnvanScoreChangeItem = GmyScoreChangeItem;
+export type UnvanExtremeItem = GmyExtremeItem;
+
 export type DashboardComparisons = {
   gmyRanking: GmyRankingItem[];
   gmyScoreChanges: GmyScoreChangeItem[];
   gmyExtremes: GmyExtremeItem[];
+  unvanRanking: UnvanRankingItem[];
+  unvanScoreChanges: UnvanScoreChangeItem[];
+  unvanExtremes: UnvanExtremeItem[];
   dateComparison: SurveyDateComparisonItem[];
 };
+
+export type IsYatirimComparisonBreakdown = "gmy" | "unvan";
 
 export type LeadershipDashboardResponse = {
   meta: {
@@ -150,11 +159,63 @@ export type LeadershipDashboardResponse = {
     dateFilter: IsYatirimDateFilter;
     maxMoodScore: 4;
     selectedSegmentId: string;
+    selectedUnvanId?: string | null;
     segments: SegmentOption[];
   };
   selectedSegment: SegmentDashboardData;
+  selectedUnvan?: SegmentDashboardData | null;
   comparisons: DashboardComparisons;
 };
+
+export function hasIsYatirimUnvanComparisons(
+  comparisons?: Partial<DashboardComparisons> | null,
+) {
+  return Boolean(
+    comparisons &&
+      ((comparisons.unvanRanking?.length || 0) > 0 ||
+        (comparisons.unvanScoreChanges?.length || 0) > 0 ||
+        (comparisons.unvanExtremes?.length || 0) > 0),
+  );
+}
+
+export function resolveIsYatirimComparisonBreakdown({
+  comparisons,
+  isUnvanComparisonEnabled,
+  selectedUnvan,
+}: {
+  comparisons?: Partial<DashboardComparisons> | null;
+  isUnvanComparisonEnabled: boolean;
+  selectedUnvan: string;
+}): IsYatirimComparisonBreakdown {
+  if (
+    isUnvanComparisonEnabled &&
+    normalizeIsYatirimUnvan(selectedUnvan) &&
+    hasIsYatirimUnvanComparisons(comparisons)
+  ) {
+    return "unvan";
+  }
+
+  return "gmy";
+}
+
+export function getIsYatirimComparisonItems(
+  comparisons: DashboardComparisons | undefined,
+  breakdown: IsYatirimComparisonBreakdown,
+) {
+  if (breakdown === "unvan") {
+    return {
+      rankingItems: comparisons?.unvanRanking || [],
+      scoreChangeItems: comparisons?.unvanScoreChanges || [],
+      extremeItems: comparisons?.unvanExtremes || [],
+    };
+  }
+
+  return {
+    rankingItems: comparisons?.gmyRanking || [],
+    scoreChangeItems: comparisons?.gmyScoreChanges || [],
+    extremeItems: comparisons?.gmyExtremes || [],
+  };
+}
 
 export const MOOD_ORDER: MoodCategory[] = ["bad", "meh", "good", "great"];
 
@@ -219,7 +280,9 @@ const EMPTY_WORD_CLOUDS = MOOD_ORDER.reduce(
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function asObject(value: unknown): Record<string, any> {
-  return value && typeof value === "object" ? (value as Record<string, any>) : {};
+  return value && typeof value === "object"
+    ? (value as Record<string, any>)
+    : {};
 }
 
 function asString(value: unknown, fallback = "") {
@@ -304,6 +367,14 @@ export function normalizeIsYatirimDashboardToken(
   value: string | null | undefined,
 ) {
   return value?.trim() || "";
+}
+
+export function normalizeIsYatirimUnvan(value: string | null | undefined) {
+  return value?.trim() || "";
+}
+
+export function normalizeIsYatirimUnvanFlag(value: string | null | undefined) {
+  return value?.trim() === "true";
 }
 
 export function normalizeIsYatirimDateTimePickerFlag(
@@ -436,6 +507,37 @@ export function applyIsYatirimDateFilterToSearchParams(
   searchParams.set("endDate", dateFilter.endDate);
 }
 
+export function applyIsYatirimBreakdownSelectionToSearchParams(
+  searchParams: URLSearchParams,
+  selection:
+    | { type: "gmy"; segment: string }
+    | { type: "unvan"; unvan: string; isUnvanEnabled: boolean },
+) {
+  if (selection.type === "unvan" && selection.isUnvanEnabled) {
+    const unvan = normalizeIsYatirimUnvan(selection.unvan);
+
+    searchParams.delete("segment");
+    if (unvan) {
+      searchParams.set(IS_YATIRIM_UNVAN_QUERY_PARAM, unvan);
+    } else {
+      searchParams.delete(IS_YATIRIM_UNVAN_QUERY_PARAM);
+    }
+    return;
+  }
+
+  const segment =
+    selection.type === "gmy"
+      ? normalizeIsYatirimSegment(selection.segment)
+      : DEFAULT_IS_YATIRIM_SEGMENT;
+
+  searchParams.delete(IS_YATIRIM_UNVAN_QUERY_PARAM);
+  if (segment === DEFAULT_IS_YATIRIM_SEGMENT) {
+    searchParams.delete("segment");
+  } else {
+    searchParams.set("segment", segment);
+  }
+}
+
 function hasDateFilterFields(value: Record<string, any>) {
   return Boolean(
     value.mode ||
@@ -482,7 +584,9 @@ function normalizeWord(value: unknown): WordItem {
   return {
     text: asString(input.text),
     count: asNumber(input.count),
-    ...(input.normalizedText ? { normalizedText: asString(input.normalizedText) } : {}),
+    ...(input.normalizedText
+      ? { normalizedText: asString(input.normalizedText) }
+      : {}),
     ...(MOOD_ORDER.includes(category) ? { category } : {}),
   };
 }
@@ -653,7 +757,7 @@ function normalizeRankingItem(value: unknown): GmyRankingItem {
   const input = asObject(value);
 
   return {
-    segmentId: asString(input.segmentId),
+    segmentId: asString(input.segmentId || input.unvanId),
     label: asString(input.label),
     rank: asNumber(input.rank),
     averageMoodScore: asNumber(input.averageMoodScore),
@@ -669,7 +773,7 @@ function normalizeScoreChangeItem(
   const input = asObject(value);
 
   return {
-    segmentId: asString(input.segmentId),
+    segmentId: asString(input.segmentId || input.unvanId),
     label: asString(input.label),
     previousSurveyDate: asString(input.previousSurveyDate),
     previousStartDate: asString(input.previousStartDate),
@@ -689,12 +793,30 @@ function normalizeExtremeItem(value: unknown): GmyExtremeItem {
   const input = asObject(value);
 
   return {
-    segmentId: asString(input.segmentId),
+    segmentId: asString(input.segmentId || input.unvanId),
     label: asString(input.label),
     badRate: asNumber(input.badRate),
     greatRate: asNumber(input.greatRate),
     respondentCount: asNumber(input.respondentCount),
   };
+}
+
+function sortRankingItems<T extends GmyRankingItem>(items: T[]) {
+  return items.sort((left, right) => {
+    const leftHasRank = left.rank > 0;
+    const rightHasRank = right.rank > 0;
+
+    if (leftHasRank && rightHasRank && left.rank !== right.rank) {
+      return left.rank - right.rank;
+    }
+    if (leftHasRank !== rightHasRank) {
+      return leftHasRank ? -1 : 1;
+    }
+    if (right.averageMoodScore !== left.averageMoodScore) {
+      return right.averageMoodScore - left.averageMoodScore;
+    }
+    return left.label.localeCompare(right.label, "tr");
+  });
 }
 
 export function normalizeLeadershipDashboardResponse(
@@ -714,7 +836,10 @@ export function normalizeLeadershipDashboardResponse(
     fallbackDateFilter ||
     normalizeIsYatirimDateFilter(
       {
-        dateMode: asString(meta.dateMode || selectedSegmentLatest.dateMode, "single"),
+        dateMode: asString(
+          meta.dateMode || selectedSegmentLatest.dateMode,
+          "single",
+        ),
         startDate:
           asString(meta.latestSurveyDate) ||
           asString(selectedSegmentLatest.startDate) ||
@@ -743,10 +868,7 @@ export function normalizeLeadershipDashboardResponse(
     meta: {
       organizationId: asString(meta.organizationId, IS_YATIRIM_CLIENT),
       organizationName: asString(meta.organizationName, "İş Yatırım"),
-      dashboardTitle: asString(
-        meta.dashboardTitle,
-        "İş Yatırım Duygu Durumu",
-      ),
+      dashboardTitle: asString(meta.dashboardTitle, "İş Yatırım Duygu Durumu"),
       surveyId: asString(meta.surveyId),
       surveyName: asString(meta.surveyName, "Günlük Duygu Durumu Anketi"),
       latestSurveyDate: asString(meta.latestSurveyDate),
@@ -759,35 +881,31 @@ export function normalizeLeadershipDashboardResponse(
         meta.selectedSegmentId,
         DEFAULT_IS_YATIRIM_SEGMENT,
       ),
+      selectedUnvanId: asString(meta.selectedUnvanId) || null,
       segments: asArray(meta.segments, normalizeSegmentOption),
     },
     selectedSegment: normalizeSelectedSegment(
       input.selectedSegment,
       normalizedMetaDateFilter,
     ),
+    selectedUnvan: input.selectedUnvan
+      ? normalizeSelectedSegment(input.selectedUnvan, normalizedMetaDateFilter)
+      : null,
     comparisons: {
-      gmyRanking: asArray(comparisons.gmyRanking, normalizeRankingItem).sort(
-        (left, right) => {
-          const leftHasRank = left.rank > 0;
-          const rightHasRank = right.rank > 0;
-
-          if (leftHasRank && rightHasRank && left.rank !== right.rank) {
-            return left.rank - right.rank;
-          }
-          if (leftHasRank !== rightHasRank) {
-            return leftHasRank ? -1 : 1;
-          }
-          if (right.averageMoodScore !== left.averageMoodScore) {
-            return right.averageMoodScore - left.averageMoodScore;
-          }
-          return left.label.localeCompare(right.label, "tr");
-        },
+      gmyRanking: sortRankingItems(
+        asArray(comparisons.gmyRanking, normalizeRankingItem),
       ),
-      gmyScoreChanges: asArray(
-        comparisons.gmyScoreChanges,
-        (item) => normalizeScoreChangeItem(item, normalizedMetaDateFilter.mode),
+      gmyScoreChanges: asArray(comparisons.gmyScoreChanges, (item) =>
+        normalizeScoreChangeItem(item, normalizedMetaDateFilter.mode),
       ),
       gmyExtremes: asArray(comparisons.gmyExtremes, normalizeExtremeItem),
+      unvanRanking: sortRankingItems(
+        asArray(comparisons.unvanRanking, normalizeRankingItem),
+      ),
+      unvanScoreChanges: asArray(comparisons.unvanScoreChanges, (item) =>
+        normalizeScoreChangeItem(item, normalizedMetaDateFilter.mode),
+      ),
+      unvanExtremes: asArray(comparisons.unvanExtremes, normalizeExtremeItem),
       dateComparison: asArray(comparisons.dateComparison, normalizeTrendPoint),
     },
   };

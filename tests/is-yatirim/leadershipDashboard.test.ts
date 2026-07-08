@@ -1,17 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyIsYatirimBreakdownSelectionToSearchParams,
   DEFAULT_IS_YATIRIM_SEGMENT,
   formatIsYatirimDateFilterLabel,
   IS_YATIRIM_DATE_PICKER_MIN_DATE,
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
+  IS_YATIRIM_UNVAN_QUERY_PARAM,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimSegment,
+  normalizeIsYatirimUnvan,
+  normalizeIsYatirimUnvanFlag,
   normalizeLeadershipDashboardResponse,
   formatTrendWindowLabel,
+  getIsYatirimComparisonItems,
+  hasIsYatirimUnvanComparisons,
+  resolveIsYatirimComparisonBreakdown,
   resolveIsYatirimDateFilterByPickerFlag,
 } from "../../lib/isYatirimLeadershipDashboard";
 import {
@@ -30,6 +37,14 @@ test("normalizeIsYatirimDashboardToken trims optional URL token", () => {
   assert.equal(normalizeIsYatirimDashboardToken(null), "");
   assert.equal(normalizeIsYatirimDashboardToken(""), "");
   assert.equal(normalizeIsYatirimDashboardToken("  token-123  "), "token-123");
+});
+
+test("normalizeIsYatirimUnvan helpers keep unvan feature URL state explicit", () => {
+  assert.equal(normalizeIsYatirimUnvan(null), "");
+  assert.equal(normalizeIsYatirimUnvan("  mudur  "), "mudur");
+  assert.equal(normalizeIsYatirimUnvanFlag(null), false);
+  assert.equal(normalizeIsYatirimUnvanFlag("false"), false);
+  assert.equal(normalizeIsYatirimUnvanFlag(" true "), true);
 });
 
 test("normalizeIsYatirimDateTimePickerFlag defaults enabled unless explicit false", () => {
@@ -92,6 +107,43 @@ test("buildIsYatirimDashboardUrl omits date params when date picker flow is disa
   assert.equal(url.searchParams.get("startDate"), null);
   assert.equal(url.searchParams.get("endDate"), null);
   assert.equal(url.searchParams.get("token"), "secure-token");
+});
+
+test("applyIsYatirimBreakdownSelectionToSearchParams keeps GMY and Unvan mutually exclusive", () => {
+  const params = new URLSearchParams("segment=gmy-1&isUnvan=true");
+
+  applyIsYatirimBreakdownSelectionToSearchParams(params, {
+    type: "unvan",
+    unvan: "mudur",
+    isUnvanEnabled: true,
+  });
+
+  assert.equal(params.get("segment"), null);
+  assert.equal(params.get(IS_YATIRIM_UNVAN_QUERY_PARAM), "mudur");
+  assert.equal(params.get("isUnvan"), "true");
+
+  applyIsYatirimBreakdownSelectionToSearchParams(params, {
+    type: "gmy",
+    segment: "gmy-2",
+  });
+
+  assert.equal(params.get("segment"), "gmy-2");
+  assert.equal(params.get(IS_YATIRIM_UNVAN_QUERY_PARAM), null);
+  assert.equal(params.get("isUnvan"), "true");
+});
+
+test("buildIsYatirimDashboardUrl forwards selected unvan to İş Yatırım upstream URL", () => {
+  const params = new URLSearchParams("isUnvan=true&unvan=mudur");
+  const url = buildIsYatirimDashboardUrl({
+    baseUrl: "https://example.com",
+    segment: normalizeIsYatirimSegment(params.get("segment")),
+    unvan: normalizeIsYatirimUnvan(params.get("unvan")),
+  });
+
+  assert.equal(params.get("unvan"), "mudur");
+  assert.equal(url.searchParams.get("segment"), "all");
+  assert.equal(url.searchParams.get("unvan"), "mudur");
+  assert.equal(url.searchParams.get("isUnvan"), null);
 });
 
 test("normalizeIsYatirimDateFilter sanitizes invalid combinations to single today", () => {
@@ -247,6 +299,9 @@ test("normalizeLeadershipDashboardResponse fills empty arrays and numeric fallba
   assert.deepEqual(response.selectedSegment.allWords, []);
   assert.equal(response.selectedSegment.engagementByMood.bad.workLinkedRate, 0);
   assert.equal(response.comparisons.gmyRanking.length, 0);
+  assert.equal(response.comparisons.unvanRanking.length, 0);
+  assert.equal(response.comparisons.unvanScoreChanges.length, 0);
+  assert.equal(response.comparisons.unvanExtremes.length, 0);
   assert.equal(response.comparisons.dateComparison.length, 0);
 });
 
@@ -283,6 +338,167 @@ test("normalizeLeadershipDashboardResponse sorts GMY ranking by rank then score"
   );
 });
 
+test("normalizeLeadershipDashboardResponse maps and sorts Unvan comparison fields", () => {
+  const response = normalizeLeadershipDashboardResponse({
+    meta: {
+      selectedUnvanId: "mudur",
+      dateFilter: {
+        mode: "range",
+        startDate: "2026-06-01",
+        endDate: "2026-06-07",
+      },
+    },
+    selectedSegment: {},
+    comparisons: {
+      unvanRanking: [
+        {
+          unvanId: "uzman",
+          label: "Uzman",
+          averageMoodScore: 3.5,
+        },
+        {
+          unvanId: "mudur",
+          label: "Müdür",
+          rank: 1,
+          averageMoodScore: 3.1,
+        },
+      ],
+      unvanScoreChanges: [
+        {
+          unvanId: "mudur",
+          label: "Müdür",
+          previousStartDate: "2026-05-25",
+          previousEndDate: "2026-05-31",
+          currentStartDate: "2026-06-01",
+          currentEndDate: "2026-06-07",
+          delta: 0.4,
+        },
+      ],
+      unvanExtremes: [
+        {
+          unvanId: "uzman-yardimcisi",
+          label: "Uzman Yardımcısı",
+          badRate: 12.5,
+          greatRate: 31.2,
+        },
+      ],
+    },
+  });
+
+  assert.deepEqual(
+    response.comparisons.unvanRanking.map((item) => item.segmentId),
+    ["mudur", "uzman"],
+  );
+  assert.equal(response.comparisons.unvanScoreChanges[0]?.segmentId, "mudur");
+  assert.equal(response.comparisons.unvanScoreChanges[0]?.mode, "range");
+  assert.equal(
+    response.comparisons.unvanExtremes[0]?.segmentId,
+    "uzman-yardimcisi",
+  );
+});
+
+test("resolveIsYatirimComparisonBreakdown only activates Unvan when flag, selection, and data exist", () => {
+  const emptyResponse = normalizeLeadershipDashboardResponse({
+    selectedSegment: {},
+    comparisons: {},
+  });
+  const response = normalizeLeadershipDashboardResponse({
+    selectedSegment: {},
+    comparisons: {
+      unvanRanking: [{ unvanId: "mudur", label: "Müdür" }],
+    },
+  });
+
+  assert.equal(hasIsYatirimUnvanComparisons(emptyResponse.comparisons), false);
+  assert.equal(hasIsYatirimUnvanComparisons(response.comparisons), true);
+  assert.equal(
+    resolveIsYatirimComparisonBreakdown({
+      comparisons: response.comparisons,
+      isUnvanComparisonEnabled: false,
+      selectedUnvan: "mudur",
+    }),
+    "gmy",
+  );
+  assert.equal(
+    resolveIsYatirimComparisonBreakdown({
+      comparisons: response.comparisons,
+      isUnvanComparisonEnabled: true,
+      selectedUnvan: "",
+    }),
+    "gmy",
+  );
+  assert.equal(
+    resolveIsYatirimComparisonBreakdown({
+      comparisons: response.comparisons,
+      isUnvanComparisonEnabled: true,
+      selectedUnvan: "",
+    }),
+    "gmy",
+  );
+  assert.equal(
+    resolveIsYatirimComparisonBreakdown({
+      comparisons: emptyResponse.comparisons,
+      isUnvanComparisonEnabled: true,
+      selectedUnvan: "mudur",
+    }),
+    "gmy",
+  );
+  assert.equal(
+    resolveIsYatirimComparisonBreakdown({
+      comparisons: response.comparisons,
+      isUnvanComparisonEnabled: true,
+      selectedUnvan: "mudur",
+    }),
+    "unvan",
+  );
+});
+
+test("getIsYatirimComparisonItems uses full Unvan comparison arrays", () => {
+  const response = normalizeLeadershipDashboardResponse({
+    selectedSegment: {},
+    comparisons: {
+      gmyRanking: [{ segmentId: "gmy-1", label: "GMY", rank: 1 }],
+      gmyScoreChanges: [{ segmentId: "gmy-1", label: "GMY" }],
+      gmyExtremes: [{ segmentId: "gmy-1", label: "GMY" }],
+      unvanRanking: [
+        { unvanId: "mudur", label: "Müdür", rank: 1 },
+        { unvanId: "direktor", label: "Direktör", rank: 2 },
+      ],
+      unvanScoreChanges: [
+        { unvanId: "mudur", label: "Müdür" },
+        { unvanId: "direktor", label: "Direktör" },
+      ],
+      unvanExtremes: [
+        { unvanId: "mudur", label: "Müdür" },
+        { unvanId: "direktor", label: "Direktör" },
+      ],
+    },
+  });
+
+  const unvanItems = getIsYatirimComparisonItems(
+    response.comparisons,
+    "unvan",
+  );
+  assert.deepEqual(
+    unvanItems.rankingItems.map((item) => item.segmentId),
+    ["mudur", "direktor"],
+  );
+  assert.deepEqual(
+    unvanItems.scoreChangeItems.map((item) => item.segmentId),
+    ["mudur", "direktor"],
+  );
+  assert.deepEqual(
+    unvanItems.extremeItems.map((item) => item.segmentId),
+    ["mudur", "direktor"],
+  );
+
+  const gmyItems = getIsYatirimComparisonItems(response.comparisons, "gmy");
+  assert.deepEqual(
+    gmyItems.rankingItems.map((item) => item.segmentId),
+    ["gmy-1"],
+  );
+});
+
 test("normalizeLeadershipDashboardResponse keeps full range date comparison rows", () => {
   const response = normalizeLeadershipDashboardResponse({
     selectedSegment: {},
@@ -298,13 +514,17 @@ test("normalizeLeadershipDashboardResponse keeps full range date comparison rows
   });
 
   assert.equal(response.comparisons.dateComparison.length, 5);
-  assert.equal(response.comparisons.dateComparison.at(-1)?.surveyDate, "2026-05-31");
+  assert.equal(
+    response.comparisons.dateComparison.at(-1)?.surveyDate,
+    "2026-05-31",
+  );
 });
 
 test("normalizeLeadershipDashboardResponse maps date filter metadata into response", () => {
   const response = normalizeLeadershipDashboardResponse(
     {
       meta: {
+        selectedUnvanId: "mudur",
         dateFilter: {
           mode: "range",
           startDate: "2026-06-01",
@@ -319,6 +539,27 @@ test("normalizeLeadershipDashboardResponse maps date filter metadata into respon
           dateMode: "range",
           dayCount: 7,
         },
+      },
+      selectedUnvan: {
+        segmentId: "mudur",
+        segmentLabel: "Müdür",
+        latest: {
+          startDate: "2026-06-01",
+          endDate: "2026-06-07",
+          dateMode: "range",
+          dayCount: 7,
+          respondentCount: 14,
+          targetEmployeeCount: 77,
+          participationRate: 2.6,
+          averageMoodScore: 3.2,
+        },
+        trend: [
+          {
+            surveyDate: "2026-06-01",
+            respondentCount: 2,
+            averageMoodScore: 3.5,
+          },
+        ],
       },
       comparisons: {
         gmyScoreChanges: [
@@ -348,10 +589,16 @@ test("normalizeLeadershipDashboardResponse maps date filter metadata into respon
     endDate: "2026-06-07",
     dayCount: 7,
   });
+  assert.equal(response.meta.selectedUnvanId, "mudur");
   assert.equal(response.selectedSegment.latest.dateMode, "range");
   assert.equal(response.selectedSegment.latest.startDate, "2026-06-01");
   assert.equal(response.selectedSegment.latest.endDate, "2026-06-07");
   assert.equal(response.selectedSegment.latest.dayCount, 7);
+  assert.equal(response.selectedUnvan?.segmentId, "mudur");
+  assert.equal(response.selectedUnvan?.segmentLabel, "Müdür");
+  assert.equal(response.selectedUnvan?.latest.respondentCount, 14);
+  assert.equal(response.selectedUnvan?.latest.averageMoodScore, 3.2);
+  assert.equal(response.selectedUnvan?.trend[0]?.respondentCount, 2);
   assert.equal(response.comparisons.gmyScoreChanges[0]?.mode, "range");
   assert.equal(
     response.comparisons.gmyScoreChanges[0]?.previousStartDate,

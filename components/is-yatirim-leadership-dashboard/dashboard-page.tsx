@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   AnalyticsEmptyState,
   AnalyticsErrorState,
@@ -7,11 +8,20 @@ import {
   AnalyticsSectionHeading,
 } from "@/components/analytics-dashboard/dashboard-shell";
 import type {
+  IsYatirimComparisonBreakdown,
   IsYatirimDateFilter,
   LeadershipDashboardResponse,
 } from "@/lib/isYatirimLeadershipDashboard";
 import {
+  DEFAULT_IS_YATIRIM_SEGMENT,
+  getIsYatirimComparisonItems,
+  hasIsYatirimUnvanComparisons,
+  normalizeIsYatirimSegment,
+  resolveIsYatirimComparisonBreakdown,
+} from "@/lib/isYatirimLeadershipDashboard";
+import {
   DashboardEmptyContent,
+  ComparisonBreakdownTabs,
   EngagementByMoodGrid,
   GmyExtremeSection,
   GmyRankingSection,
@@ -33,10 +43,14 @@ type IsYatirimLeadershipDashboardProps = {
   isWeeklyToggleEnabled: boolean;
   isLoading: boolean;
   isUpdating: boolean;
+  isBreakdownUpdating: boolean;
   isDateTimePickerEnabled: boolean;
+  isUnvanComparisonEnabled: boolean;
   errorMessage?: string | null;
   onDateFilterChange: (dateFilter: IsYatirimDateFilter) => void;
   onSegmentSelect: (segment: string) => void;
+  onUnvanSelect: (unvan: string) => void;
+  selectedUnvan: string;
 };
 
 export default function IsYatirimLeadershipDashboard({
@@ -48,11 +62,42 @@ export default function IsYatirimLeadershipDashboard({
   isWeeklyToggleEnabled,
   isLoading,
   isUpdating,
+  isBreakdownUpdating,
   isDateTimePickerEnabled,
+  isUnvanComparisonEnabled,
   errorMessage,
   onDateFilterChange,
   onSegmentSelect,
+  onUnvanSelect,
+  selectedUnvan,
 }: IsYatirimLeadershipDashboardProps) {
+  const hasUnvanComparisons = hasIsYatirimUnvanComparisons(
+    response?.comparisons,
+  );
+  const canShowUnvanBreakdown = isUnvanComparisonEnabled && hasUnvanComparisons;
+  const selectedSegmentId = response?.meta.selectedSegmentId || selectedSegment;
+  const isAllSegmentSelected =
+    normalizeIsYatirimSegment(selectedSegmentId) === DEFAULT_IS_YATIRIM_SEGMENT;
+  const detailBreakdown =
+    isUnvanComparisonEnabled && selectedUnvan && response?.selectedUnvan
+      ? "unvan"
+      : resolveIsYatirimComparisonBreakdown({
+          comparisons: response?.comparisons,
+          isUnvanComparisonEnabled,
+          selectedUnvan,
+      });
+  const comparisonBreakdowns: IsYatirimComparisonBreakdown[] =
+    canShowUnvanBreakdown && isAllSegmentSelected && !selectedUnvan
+      ? ["gmy", "unvan"]
+      : [detailBreakdown];
+  const displayResponse =
+    detailBreakdown === "unvan" && response?.selectedUnvan
+      ? {
+          ...response,
+          selectedSegment: response.selectedUnvan,
+        }
+      : response;
+
   return (
     <IsYatirimPageShell>
       <IsYatirimHeader
@@ -67,7 +112,19 @@ export default function IsYatirimLeadershipDashboard({
         weeklyToken={weeklyToken}
       />
 
-      {response?.meta.segments.length ? (
+      {response?.meta.segments.length && canShowUnvanBreakdown ? (
+        <ComparisonBreakdownTabs
+          onSegmentSelect={onSegmentSelect}
+          onUnvanSelect={onUnvanSelect}
+          response={response}
+          selectedSegment={
+            selectedUnvan
+              ? ""
+              : response.meta.selectedSegmentId || selectedSegment
+          }
+          selectedUnvan={selectedUnvan}
+        />
+      ) : response?.meta.segments.length ? (
         <SegmentTabs
           onSegmentSelect={onSegmentSelect}
           segments={response.meta.segments}
@@ -75,33 +132,49 @@ export default function IsYatirimLeadershipDashboard({
         />
       ) : null}
 
-      {isLoading || isUpdating ? (
+      {isLoading || isUpdating || isBreakdownUpdating ? (
         <AnalyticsLoadingState />
       ) : errorMessage ? (
         <AnalyticsErrorState message={errorMessage} />
-      ) : response ? (
+      ) : response && displayResponse ? (
         <>
-          <KpiGrid response={response} />
+          <KpiGrid response={displayResponse} />
 
           <AnalyticsSectionHeading>DUYGU DURUMU</AnalyticsSectionHeading>
-          <MoodDistributionCard response={response} />
-          <MoodTrendCard response={response} />
+          <MoodDistributionCard response={displayResponse} />
+          <MoodTrendCard response={displayResponse} />
 
-          <AnalyticsSectionHeading>GMY KARŞILAŞTIRMASI</AnalyticsSectionHeading>
-          <GmyRankingSection
-            dateFilter={response.meta.dateFilter}
-            items={response.comparisons.gmyRanking}
-          />
-          <GmyExtremeSection
-            dateFilter={response.meta.dateFilter}
-            items={response.comparisons.gmyExtremes}
-          />
+          {comparisonBreakdowns.map((breakdown) => {
+            const comparisonLabel = breakdown === "unvan" ? "Unvan" : "GMY";
+            const { rankingItems, extremeItems } = getIsYatirimComparisonItems(
+              response.comparisons,
+              breakdown,
+            );
+
+            return (
+              <Fragment key={breakdown}>
+                <AnalyticsSectionHeading>
+                  {`${comparisonLabel.toLocaleUpperCase("tr-TR")} KARŞILAŞTIRMASI`}
+                </AnalyticsSectionHeading>
+                <GmyRankingSection
+                  comparisonLabel={comparisonLabel}
+                  dateFilter={response.meta.dateFilter}
+                  items={rankingItems}
+                />
+                <GmyExtremeSection
+                  comparisonLabel={comparisonLabel}
+                  dateFilter={response.meta.dateFilter}
+                  items={extremeItems}
+                />
+              </Fragment>
+            );
+          })}
 
           <AnalyticsSectionHeading>İŞ BAĞLANTISI</AnalyticsSectionHeading>
-          <EngagementByMoodGrid response={response} />
+          <EngagementByMoodGrid response={displayResponse} />
 
           <AnalyticsSectionHeading>KELİME BULUTLARI</AnalyticsSectionHeading>
-          <WordCloudSections response={response} />
+          <WordCloudSections response={displayResponse} />
         </>
       ) : (
         <>

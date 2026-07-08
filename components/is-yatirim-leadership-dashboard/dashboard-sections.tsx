@@ -55,6 +55,11 @@ import {
 import IsYatirimDateFilterPicker from "./date-filter-picker";
 
 type SegmentOption = LeadershipDashboardResponse["meta"]["segments"][number];
+type ComparisonLabel = "GMY" | "Unvan";
+type BreakdownOption = {
+  id: string;
+  label: string;
+};
 
 const TREND_METRICS = [
   {
@@ -129,7 +134,9 @@ function clampPercent(value: number) {
 }
 
 function getTrendMetricConfig(metric: TrendMetric) {
-  return TREND_METRICS.find((item) => item.value === metric) || TREND_METRICS[0];
+  return (
+    TREND_METRICS.find((item) => item.value === metric) || TREND_METRICS[0]
+  );
 }
 
 function formatMetricValue(value: number, metric: TrendMetric) {
@@ -220,6 +227,34 @@ function formatSegmentTabLabel(segment: SegmentOption) {
   }
 
   return abbreviatePersonName(segment.label);
+}
+
+function getComparisonGroupTitle(label: ComparisonLabel) {
+  return label === "GMY" ? "GMY Gruplarına" : "Unvanlara";
+}
+
+function getUnvanBreakdownOptions(
+  response: LeadershipDashboardResponse,
+): BreakdownOption[] {
+  const options = new Map<string, BreakdownOption>();
+  const addOption = (item: { segmentId: string; label: string }) => {
+    const id = item.segmentId.trim();
+
+    if (!id || options.has(id)) {
+      return;
+    }
+
+    options.set(id, {
+      id,
+      label: item.label,
+    });
+  };
+
+  response.comparisons.unvanRanking.forEach(addOption);
+  response.comparisons.unvanScoreChanges.forEach(addOption);
+  response.comparisons.unvanExtremes.forEach(addOption);
+
+  return Array.from(options.values());
 }
 
 function MiniProgressBar({
@@ -411,7 +446,84 @@ export function SegmentTabs({
   );
 }
 
-export function KpiGrid({ response }: { response: LeadershipDashboardResponse }) {
+function UnvanTabs({
+  options,
+  selectedUnvan,
+  onUnvanSelect,
+}: {
+  options: BreakdownOption[];
+  selectedUnvan: string;
+  onUnvanSelect: (unvan: string) => void;
+}) {
+  if (!options.length) {
+    return null;
+  }
+
+  return (
+    <div className="relative z-0 border-b border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.04)] backdrop-blur-sm">
+      <div className="flex w-full flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-5 lg:px-6">
+        {options.map((option) => {
+          const isActive = selectedUnvan === option.id;
+
+          return (
+            <button
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-2 font-poppins text-sm font-semibold tracking-[0.01em] transition-colors sm:text-base lg:px-4 ${
+                isActive
+                  ? "bg-[#0057FF] text-white shadow-[0_8px_18px_rgba(0,87,255,0.24)]"
+                  : "text-[#0057FF]/45 hover:text-[#0057FF]"
+              }`}
+              key={option.id}
+              onClick={() => onUnvanSelect(option.id)}
+              type="button"
+            >
+              {displayTurkishText(option.label)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function ComparisonBreakdownTabs({
+  response,
+  selectedSegment,
+  selectedUnvan,
+  onSegmentSelect,
+  onUnvanSelect,
+}: {
+  response: LeadershipDashboardResponse;
+  selectedSegment: string;
+  selectedUnvan: string;
+  onSegmentSelect: (segment: string) => void;
+  onUnvanSelect: (unvan: string) => void;
+}) {
+  const unvanOptions = useMemo(
+    () => getUnvanBreakdownOptions(response),
+    [response],
+  );
+
+  return (
+    <div>
+      <SegmentTabs
+        onSegmentSelect={onSegmentSelect}
+        segments={response.meta.segments}
+        selectedSegment={selectedSegment}
+      />
+      <UnvanTabs
+        onUnvanSelect={onUnvanSelect}
+        options={unvanOptions}
+        selectedUnvan={selectedUnvan}
+      />
+    </div>
+  );
+}
+
+export function KpiGrid({
+  response,
+}: {
+  response: LeadershipDashboardResponse;
+}) {
   const latest = response.selectedSegment.latest;
   const topWord = latest.mostFrequentWord;
   const participationDetail =
@@ -515,7 +627,9 @@ export function MoodDistributionCard({
 
   return (
     <AnalyticsCard>
-      <AnalyticsSubheading dotColor="#FC7700">DUYGU DAĞILIMI</AnalyticsSubheading>
+      <AnalyticsSubheading dotColor="#FC7700">
+        DUYGU DAĞILIMI
+      </AnalyticsSubheading>
       <div className="mb-6 flex flex-col gap-4 rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] p-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-[#171717]/45">
@@ -552,9 +666,15 @@ export function MoodDistributionCard({
                   {formatPercent(item.percentage)}
                 </p>
               </div>
-              <MiniProgressBar color={token.color} minVisible={6} value={item.percentage} />
+              <MiniProgressBar
+                color={token.color}
+                minVisible={6}
+                value={item.percentage}
+              />
               <p className="mt-1 font-poppins text-xs font-semibold tracking-[0.16em] text-[#171717]/42">
-                {toTurkishUpperCase(`${formatCount(item.respondentCount)} yanıt`)}
+                {toTurkishUpperCase(
+                  `${formatCount(item.respondentCount)} yanıt`,
+                )}
               </p>
             </div>
           );
@@ -596,8 +716,7 @@ function getAverageMoodPercent(point: SurveyTrendPoint, maxMoodScore: number) {
 
 function getTrendDateRange(trend: SurveyTrendPoint[]) {
   const first = trend[0]?.surveyDateLabel || trend[0]?.surveyDate || "";
-  const last =
-    trend.at(-1)?.surveyDateLabel || trend.at(-1)?.surveyDate || "";
+  const last = trend.at(-1)?.surveyDateLabel || trend.at(-1)?.surveyDate || "";
 
   if (!first && !last) {
     return "Trend";
@@ -722,7 +841,8 @@ export function MoodTrendCard({
           Duygu Durumu Trendi
         </h2>
         <p className="mt-2 font-poppins text-base text-[#171717]/48 sm:text-lg">
-          {dateRange} · {formatCount(trend.length)} ölçüm günü · Metrik seçin veya legend&apos;a tıklayın
+          {dateRange} · {formatCount(trend.length)} ölçüm günü · Metrik seçin
+          veya legend&apos;a tıklayın
         </p>
       </div>
       <div className="mb-7 flex flex-wrap gap-3">
@@ -795,15 +915,20 @@ export function MoodTrendCard({
                     y1="0"
                     y2="1"
                   >
-                    <stop offset="0%" stopColor={metric.color} stopOpacity={0.18} />
-                    <stop offset="100%" stopColor={metric.color} stopOpacity={0.03} />
+                    <stop
+                      offset="0%"
+                      stopColor={metric.color}
+                      stopOpacity={0.18}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={metric.color}
+                      stopOpacity={0.03}
+                    />
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid
-                stroke="#171717"
-                strokeOpacity={0.08}
-              />
+              <CartesianGrid stroke="#171717" strokeOpacity={0.08} />
               <XAxis
                 axisLine={{ stroke: "#171717", strokeOpacity: 0.14 }}
                 dataKey="surveyDateLabel"
@@ -1033,17 +1158,20 @@ function TrendStatCard({
 export function GmyRankingSection({
   items,
   dateFilter,
+  comparisonLabel = "GMY",
 }: {
   items: GmyRankingItem[];
   dateFilter: IsYatirimDateFilter;
+  comparisonLabel?: ComparisonLabel;
 }) {
   const maxScore = Math.max(4, ...items.map((item) => item.averageMoodScore));
   const comparisonDateLabel = formatDashboardDateLabel(dateFilter);
+  const groupTitle = getComparisonGroupTitle(comparisonLabel);
 
   return (
     <AnalyticsCard>
       <AnalyticsSubheading dotColor="#AD7A00">
-        GMY Gruplarına Göre Ortalama Duygu Durumu
+        {`${groupTitle} Göre Ortalama Duygu Durumu`}
       </AnalyticsSubheading>
       <p className="-mt-3 mb-6 font-poppins text-sm font-medium text-[#171717]/45">
         {comparisonDateLabel} · Yüksekten düşüğe · 4 üzerinden
@@ -1052,7 +1180,8 @@ export function GmyRankingSection({
         <div className="space-y-4">
           {items.map((item, index) => {
             const rank = item.rank || index + 1;
-            const progress = maxScore > 0 ? (item.averageMoodScore / maxScore) * 100 : 0;
+            const progress =
+              maxScore > 0 ? (item.averageMoodScore / maxScore) * 100 : 0;
 
             return (
               <div
@@ -1080,13 +1209,17 @@ export function GmyRankingSection({
                     {formatScore(item.averageMoodScore)}
                   </p>
                 </div>
-                <MiniProgressBar color="#0057FF" minVisible={6} value={progress} />
+                <MiniProgressBar
+                  color="#0057FF"
+                  minVisible={6}
+                  value={progress}
+                />
               </div>
             );
           })}
         </div>
       ) : (
-        <EmptyInlineState>GMY sıralama verisi bulunamadı</EmptyInlineState>
+        <EmptyInlineState>{`${comparisonLabel} sıralama verisi bulunamadı`}</EmptyInlineState>
       )}
     </AnalyticsCard>
   );
@@ -1094,18 +1227,27 @@ export function GmyRankingSection({
 
 export function GmyScoreChangeSection({
   items,
+  comparisonLabel = "GMY",
 }: {
   items: GmyScoreChangeItem[];
+  comparisonLabel?: ComparisonLabel;
 }) {
   return (
     <AnalyticsCard>
-      <AnalyticsSubheading dotColor="#00A878">ÖNCEKİ - GÜNCEL PUAN</AnalyticsSubheading>
+      <AnalyticsSubheading dotColor="#00A878">
+        ÖNCEKİ - GÜNCEL PUAN
+      </AnalyticsSubheading>
       {items.length ? (
         <div className="space-y-3">
           {items.map((item) => {
             const deltaColor =
-              item.delta > 0 ? "#00A878" : item.delta < 0 ? "#E03030" : "#171717";
-            const DeltaIcon = item.delta > 0 ? ArrowUp : item.delta < 0 ? ArrowDown : BarChart3;
+              item.delta > 0
+                ? "#00A878"
+                : item.delta < 0
+                  ? "#E03030"
+                  : "#171717";
+            const DeltaIcon =
+              item.delta > 0 ? ArrowUp : item.delta < 0 ? ArrowDown : BarChart3;
 
             return (
               <div
@@ -1117,7 +1259,9 @@ export function GmyScoreChangeSection({
                     {displayTurkishText(item.label)}
                   </p>
                   <p className="font-poppins text-xs tracking-[0.16em] text-[#171717]/42">
-                    {toTurkishUpperCase(`${formatCount(item.respondentCount)} yanıt`)}
+                    {toTurkishUpperCase(
+                      `${formatCount(item.respondentCount)} yanıt`,
+                    )}
                   </p>
                 </div>
                 <ScoreCell
@@ -1137,7 +1281,10 @@ export function GmyScoreChangeSection({
                   value={item.currentAverageMoodScore}
                 />
                 <div className="flex items-center justify-start gap-2 md:justify-end">
-                  <DeltaIcon className="h-4 w-4" style={{ color: deltaColor }} />
+                  <DeltaIcon
+                    className="h-4 w-4"
+                    style={{ color: deltaColor }}
+                  />
                   <p
                     className="font-righteous text-2xl leading-none"
                     style={{ color: deltaColor }}
@@ -1151,7 +1298,7 @@ export function GmyScoreChangeSection({
           })}
         </div>
       ) : (
-        <EmptyInlineState>GMY değişim verisi bulunamadı</EmptyInlineState>
+        <EmptyInlineState>{`${comparisonLabel} değişim verisi bulunamadı`}</EmptyInlineState>
       )}
     </AnalyticsCard>
   );
@@ -1195,25 +1342,27 @@ function ScoreCell({ label, value }: { label: string; value: number }) {
 export function GmyExtremeSection({
   items,
   dateFilter,
+  comparisonLabel = "GMY",
 }: {
   items: GmyExtremeItem[];
   dateFilter: IsYatirimDateFilter;
+  comparisonLabel?: ComparisonLabel;
 }) {
   const maxRate = Math.max(
     1,
     ...items.flatMap((item) => [item.badRate, item.greatRate]),
   );
   const comparisonDateLabel = formatDashboardDateLabel(dateFilter);
+  const groupTitle = getComparisonGroupTitle(comparisonLabel);
 
   return (
     <AnalyticsCard>
       <div className="mb-7">
         <h3 className="font-poppins text-xl font-bold text-[#171717] sm:text-2xl">
-          GMY Gruplarına Göre 😞 Kötü ve 🤩 Harika Oranı
+          {groupTitle} Göre 😞 Kötü ve 🤩 Harika Oranı
         </h3>
         <p className="mt-2 font-poppins text-sm text-[#171717]/45 sm:text-base">
-          ← Kötü (%) &nbsp;&nbsp; Harika (%) → ·{" "}
-          {comparisonDateLabel}
+          ← Kötü (%) &nbsp;&nbsp; Harika (%) → · {comparisonDateLabel}
         </p>
       </div>
       {items.length ? (
@@ -1262,7 +1411,7 @@ export function GmyExtremeSection({
           </div>
         </div>
       ) : (
-        <EmptyInlineState>GMY uç değer verisi bulunamadı</EmptyInlineState>
+        <EmptyInlineState>{`${comparisonLabel} uç değer verisi bulunamadı`}</EmptyInlineState>
       )}
     </AnalyticsCard>
   );
@@ -1298,29 +1447,29 @@ export function EngagementByMoodGrid({
               )}
             </p>
             <div className="space-y-4">
-              {(Object.keys(ENGAGEMENT_ANSWER_LABELS) as EngagementAnswer[]).map(
-                (answer) => {
-                  const answerMetric = item.answers[answer];
+              {(
+                Object.keys(ENGAGEMENT_ANSWER_LABELS) as EngagementAnswer[]
+              ).map((answer) => {
+                const answerMetric = item.answers[answer];
 
-                  return (
-                    <div key={answer}>
-                      <div className="mb-1 flex items-center justify-between gap-3">
-                        <p className="font-poppins text-sm font-semibold text-[#171717]/72">
-                          {answerMetric.label}
-                        </p>
-                        <p className="font-righteous text-2xl leading-none">
-                          {formatPercent(answerMetric.percentage)}
-                        </p>
-                      </div>
-                      <MiniProgressBar
-                        color={answer === "no" ? "#AD7A00" : token.color}
-                        minVisible={5}
-                        value={answerMetric.percentage}
-                      />
+                return (
+                  <div key={answer}>
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <p className="font-poppins text-sm font-semibold text-[#171717]/72">
+                        {answerMetric.label}
+                      </p>
+                      <p className="font-righteous text-2xl leading-none">
+                        {formatPercent(answerMetric.percentage)}
+                      </p>
                     </div>
-                  );
-                },
-              )}
+                    <MiniProgressBar
+                      color={answer === "no" ? "#AD7A00" : token.color}
+                      minVisible={5}
+                      value={answerMetric.percentage}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </AnalyticsCard>
         );
@@ -1383,7 +1532,8 @@ function WordCloudCard({
           {sortedWords.map((word, index) => {
             const ratio = word.count / maxCount;
             const fontSize = 12 + Math.round(ratio * 10);
-            const pillTone = WORD_PILL_PALETTE[index % WORD_PILL_PALETTE.length];
+            const pillTone =
+              WORD_PILL_PALETTE[index % WORD_PILL_PALETTE.length];
 
             return (
               <span
@@ -1421,7 +1571,8 @@ export function DashboardEmptyContent() {
           Dashboard verisi bulunamadı
         </p>
         <p className="font-poppins text-base text-[#171717]/62">
-          Backend geçerli yanıt döndürdü ancak İş Yatırım dashboard contract&apos;ı boş geldi.
+          Backend geçerli yanıt döndürdü ancak İş Yatırım dashboard
+          contract&apos;ı boş geldi.
         </p>
       </div>
     </AnalyticsCard>
