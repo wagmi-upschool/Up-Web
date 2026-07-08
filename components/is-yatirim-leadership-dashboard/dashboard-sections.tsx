@@ -467,7 +467,7 @@ function UnvanTabs({
 
           return (
             <button
-              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-2 font-poppins text-sm font-semibold tracking-[0.01em] transition-colors sm:text-base lg:px-4 ${
+              className={`shrink-0 whitespace-nowrap rounded-full px-3 py-2 font-poppins text-sm font-bold tracking-[0.01em] transition-colors sm:text-base lg:px-4 ${
                 isActive
                   ? "bg-[#0057FF] text-white shadow-[0_8px_18px_rgba(0,87,255,0.24)]"
                   : "text-[#0057FF]/75 hover:text-[#0057FF]"
