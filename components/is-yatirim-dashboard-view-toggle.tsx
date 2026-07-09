@@ -13,7 +13,7 @@ export function buildIsYatirimDashboardRouteWithSharedParams(
     weeklyToken,
     segment,
     selectedUnvan = "",
-    isUnvanComparisonEnabled = false,
+    isUnvanComparisonEnabled = true,
     isWeeklyToggleEnabled = true,
   }: {
     dailyToken: string;
@@ -67,7 +67,7 @@ export default function IsYatirimDashboardViewToggle({
   weeklyToken,
   segment,
   selectedUnvan = "",
-  isUnvanComparisonEnabled = false,
+  isUnvanComparisonEnabled = true,
   isWeeklyToggleEnabled = true,
 }: {
   active: "daily" | "weekly";

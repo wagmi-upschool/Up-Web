@@ -810,7 +810,7 @@ function SegmentTabs({
 
   return (
     <div className="relative z-0 border-y border-[#171717]/10 bg-[#FFFFFF]/82 shadow-[0_10px_26px_rgba(23,23,23,0.05)] backdrop-blur-sm">
-      <div className="flex w-full flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-5 lg:px-6 xl:flex-nowrap xl:justify-between">
+      <div className="flex w-full flex-wrap items-center gap-2 px-4 py-4 sm:gap-3 sm:px-5 lg:px-6">
         {segments.map((segment) => {
           const isActive = selectedSegment === segment.id;
 

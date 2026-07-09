@@ -394,7 +394,7 @@ export function normalizeIsYatirimUnvan(value: string | null | undefined) {
 }
 
 export function normalizeIsYatirimUnvanFlag(value: string | null | undefined) {
-  return value?.trim() === "true";
+  return value?.trim() !== "false";
 }
 
 function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {

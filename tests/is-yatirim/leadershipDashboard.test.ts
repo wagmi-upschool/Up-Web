@@ -40,10 +40,11 @@ test("normalizeIsYatirimDashboardToken trims optional URL token", () => {
   assert.equal(normalizeIsYatirimDashboardToken("  token-123  "), "token-123");
 });
 
-test("normalizeIsYatirimUnvan helpers keep unvan feature URL state explicit", () => {
+test("normalizeIsYatirimUnvan helpers default the unvan feature to enabled", () => {
   assert.equal(normalizeIsYatirimUnvan(null), "");
   assert.equal(normalizeIsYatirimUnvan("  mudur  "), "mudur");
-  assert.equal(normalizeIsYatirimUnvanFlag(null), false);
+  assert.equal(normalizeIsYatirimUnvanFlag(null), true);
+  assert.equal(normalizeIsYatirimUnvanFlag(""), true);
   assert.equal(normalizeIsYatirimUnvanFlag("false"), false);
   assert.equal(normalizeIsYatirimUnvanFlag(" true "), true);
 });
