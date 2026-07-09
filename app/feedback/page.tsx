@@ -38,6 +38,8 @@ import {
 } from "@/lib/feedbackClient";
 import {
   buildFeedbackSubmitAnswers,
+  getLikertGuideText,
+  getLikertLevelLabel,
   getOrderedChoiceOptions,
   getQuestionScaleMax,
   getQuestionScaleMin,
@@ -83,17 +85,9 @@ type NormalizedFeedbackModule = {
   questions: FeedbackQuestion[];
 };
 
-const LIKERT_GUIDE_TEXT =
-  "1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model";
 const PERCENTAGE_GUIDE_TEXT =
   "0-100 arası ham yüzde değeri gir. Ondalık gerekiyorsa yalnızca virgül kullan.";
 const PERCENTAGE_SLIDER_COLOR = "#0057FF";
-const LIKERT_LEVEL_LABELS: Record<number, string> = {
-  1: "Zayıf",
-  2: "Kısmen yeterli",
-  3: "Güçlü",
-  4: "Rol Model",
-};
 const VALUES_OPTION_LABELS = {
   did: "Yaptı",
   didnt: "Yapmadı",
@@ -581,6 +575,7 @@ function QuestionField({
             }).map((_, index) => {
               const value = (questionScaleMin ?? 1) + index;
               const active = currentLikertValue >= value;
+              const levelLabel = getLikertLevelLabel(question, value);
 
               return (
                 <button
@@ -596,8 +591,8 @@ function QuestionField({
                   }
                   className="inline-flex rounded transition-transform duration-150 hover:scale-110 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                   aria-label={
-                    LIKERT_LEVEL_LABELS[value]
-                      ? `Puan ${value} - ${LIKERT_LEVEL_LABELS[value]}`
+                    levelLabel
+                      ? `Puan ${value} - ${levelLabel}`
                       : `Puan ${value}`
                   }
                   aria-pressed={active}
@@ -869,7 +864,7 @@ function QuestionField({
       !(hideFreeTextHelper && question.type === "free_text") ? (
         <p className="mt-2 text-[11px] text-gray-400">
           {question.type === "likert" ? (
-            <span>{LIKERT_GUIDE_TEXT}</span>
+            <span>{getLikertGuideText(question)}</span>
           ) : question.type === "percentage" ? (
             <span>{PERCENTAGE_GUIDE_TEXT}</span>
           ) : (

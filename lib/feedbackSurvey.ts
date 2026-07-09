@@ -13,6 +13,16 @@ const DEFAULT_NUMERIC_SCALES = {
   percentage: { min: 0, max: 100 },
 } as const;
 
+const DEFAULT_LIKERT_GUIDE_TEXT =
+  "1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model";
+
+const DEFAULT_LIKERT_LEVEL_LABELS: Record<number, string> = {
+  1: "Zayıf",
+  2: "Kısmen yeterli",
+  3: "Güçlü",
+  4: "Rol Model",
+};
+
 type NumericQuestionType = Extract<
   FeedbackQuestionType,
   keyof typeof DEFAULT_NUMERIC_SCALES
@@ -29,6 +39,34 @@ function getNumericBounds(question: FeedbackQuestion) {
     min: question.scale_min ?? defaults.min,
     max: question.scale_max ?? defaults.max,
   };
+}
+
+function normalizeScaleLabel(label?: string) {
+  const normalizedLabel = label?.trim();
+  return normalizedLabel || undefined;
+}
+
+function getConfiguredScaleLabel(question: FeedbackQuestion, value: number) {
+  const scaleLabels = question.scale_labels;
+  if (!scaleLabels) return undefined;
+
+  const labelKey = `label_${value}` as const;
+  const directLabel = normalizeScaleLabel(scaleLabels[labelKey]);
+  if (directLabel) return directLabel;
+
+  const byValueLabel = normalizeScaleLabel(scaleLabels.by_value?.[String(value)]);
+  if (byValueLabel) return byValueLabel;
+
+  const listLabel = normalizeScaleLabel(
+    scaleLabels.labels?.find((label) => Number(label.value) === value)?.label,
+  );
+  if (listLabel) return listLabel;
+
+  const { min, max } = getNumericBounds(question);
+  if (value === min) return normalizeScaleLabel(scaleLabels.min);
+  if (value === max) return normalizeScaleLabel(scaleLabels.max);
+
+  return undefined;
 }
 
 export function isNumericQuestion(
@@ -321,4 +359,32 @@ export function getQuestionScaleMin(question: FeedbackQuestion) {
 
 export function getQuestionScaleMax(question: FeedbackQuestion) {
   return getNumericBounds(question).max;
+}
+
+export function getLikertLevelLabel(question: FeedbackQuestion, value: number) {
+  return (
+    getConfiguredScaleLabel(question, value) ??
+    DEFAULT_LIKERT_LEVEL_LABELS[value]
+  );
+}
+
+export function getLikertGuideText(question: FeedbackQuestion) {
+  const displayLabel = normalizeScaleLabel(question.scale_labels?.display);
+  if (displayLabel) return displayLabel;
+
+  const { min, max } = getNumericBounds(question);
+  if (typeof min !== "number" || typeof max !== "number") {
+    return DEFAULT_LIKERT_GUIDE_TEXT;
+  }
+
+  const labels = [];
+  for (let value = min; value <= max; value += 1) {
+    const label = getConfiguredScaleLabel(question, value);
+    if (!label) continue;
+    labels.push(`${value} - ${label}`);
+  }
+
+  return labels.length > 0
+    ? labels.join(", ")
+    : DEFAULT_LIKERT_GUIDE_TEXT;
 }

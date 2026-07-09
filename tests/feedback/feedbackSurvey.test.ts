@@ -3,6 +3,8 @@ import test from "node:test";
 import type { FeedbackQuestion } from "../../lib/feedbackClient";
 import {
   buildFeedbackSubmitAnswers,
+  getLikertGuideText,
+  getLikertLevelLabel,
   getOrderedChoiceOptions,
   getQuestionScaleMax,
   getQuestionScaleMin,
@@ -307,6 +309,56 @@ test("numeric scale helpers fall back to type defaults", () => {
 
   assert.equal(getQuestionScaleMin(percentageQuestion), 0);
   assert.equal(getQuestionScaleMax(percentageQuestion), 100);
+});
+
+test("likert label helpers use configured scale labels", () => {
+  const likertQuestion: FeedbackQuestion = {
+    question_id: "likert-labels",
+    question_text: "Configured likert",
+    type: "likert",
+    order: 1,
+    scale_min: 1,
+    scale_max: 4,
+    scale_labels: {
+      min: "Hayır, bu hafta hiç olmadı",
+      max: "Evet, birden fazla kez",
+      display:
+        "1 - Hayır, bu hafta hiç olmadı, 2 - Oldu ama spesifik değildi, 3 - Evet, en az bir kez, 4 - Evet, birden fazla kez",
+      label_1: "Hayır, bu hafta hiç olmadı",
+      label_2: "Oldu ama spesifik değildi",
+      label_3: "Evet, en az bir kez",
+      label_4: "Evet, birden fazla kez",
+      labels: [
+        { value: 1, label: "Hayır, bu hafta hiç olmadı" },
+        { value: 2, label: "Oldu ama spesifik değildi" },
+        { value: 3, label: "Evet, en az bir kez" },
+        { value: 4, label: "Evet, birden fazla kez" },
+      ],
+      by_value: {
+        1: "Hayır, bu hafta hiç olmadı",
+        2: "Oldu ama spesifik değildi",
+        3: "Evet, en az bir kez",
+        4: "Evet, birden fazla kez",
+      },
+    },
+  };
+
+  assert.equal(
+    getLikertGuideText(likertQuestion),
+    "1 - Hayır, bu hafta hiç olmadı, 2 - Oldu ama spesifik değildi, 3 - Evet, en az bir kez, 4 - Evet, birden fazla kez",
+  );
+  assert.equal(
+    getLikertLevelLabel(likertQuestion, 2),
+    "Oldu ama spesifik değildi",
+  );
+});
+
+test("likert label helpers fall back to default labels", () => {
+  assert.equal(
+    getLikertGuideText(questions[0]),
+    "1 - Zayıf, 2 - Kısmen yeterli, 3 - Güçlü, 4 - Rol Model",
+  );
+  assert.equal(getLikertLevelLabel(questions[0], 4), "Rol Model");
 });
 
 test("sanitizePercentageInput keeps only digits and a single comma", () => {

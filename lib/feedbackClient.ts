@@ -187,6 +187,15 @@ export type FeedbackChoiceOption = {
   description?: string;
 };
 
+export type FeedbackScaleLabels = {
+  min?: string;
+  max?: string;
+  display?: string;
+  labels?: { value: number | string; label: string }[];
+  by_value?: Record<string, string>;
+  [key: `label_${number}`]: string | undefined;
+};
+
 export type FeedbackAnswerFormValue = string | string[];
 
 export type FeedbackQuestion = {
@@ -197,7 +206,7 @@ export type FeedbackQuestion = {
   answer_options?: string[] | FeedbackChoiceOption[];
   scale_min?: number;
   scale_max?: number;
-  scale_labels?: { min: string; max: string };
+  scale_labels?: FeedbackScaleLabels;
 };
 
 export type FeedbackCompetency = {
