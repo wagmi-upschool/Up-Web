@@ -865,7 +865,7 @@ function QuestionField({
         <div
           className={
             question.type === "likert"
-              ? "mt-3 space-y-1 text-[14px] font-medium leading-5 text-[#66707A] sm:text-[15px]"
+              ? "mt-3 space-y-1 text-[13px] font-medium leading-5 text-[#7D8792]"
               : "mt-2 text-[11px] text-gray-400"
           }
         >
