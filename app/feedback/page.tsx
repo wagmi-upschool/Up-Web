@@ -38,7 +38,7 @@ import {
 } from "@/lib/feedbackClient";
 import {
   buildFeedbackSubmitAnswers,
-  getLikertGuideText,
+  getLikertGuideItems,
   getLikertLevelLabel,
   getOrderedChoiceOptions,
   getQuestionScaleMax,
@@ -862,15 +862,23 @@ function QuestionField({
       {question.type !== "boolean" &&
       !isChoiceQuestion(question) &&
       !(hideFreeTextHelper && question.type === "free_text") ? (
-        <p className="mt-2 text-[11px] text-gray-400">
+        <div
+          className={
+            question.type === "likert"
+              ? "mt-3 space-y-1 text-[14px] font-medium leading-5 text-[#66707A] sm:text-[15px]"
+              : "mt-2 text-[11px] text-gray-400"
+          }
+        >
           {question.type === "likert" ? (
-            <span>{getLikertGuideText(question)}</span>
+            getLikertGuideItems(question).map((guideItem) => (
+              <div key={guideItem}>{guideItem}</div>
+            ))
           ) : question.type === "percentage" ? (
             <span>{PERCENTAGE_GUIDE_TEXT}</span>
           ) : (
             `${MAX_FEEDBACK_FREE_TEXT - questionValue.length} karakter kaldı.`
           )}
-        </p>
+        </div>
       ) : null}
 
       {errorMessage ? (

@@ -46,6 +46,13 @@ function normalizeScaleLabel(label?: string) {
   return normalizedLabel || undefined;
 }
 
+function splitScaleDisplayLabel(displayLabel: string) {
+  return displayLabel
+    .split(/,\s*(?=\d+\s*-)/)
+    .map((label) => label.trim())
+    .filter(Boolean);
+}
+
 function getConfiguredScaleLabel(question: FeedbackQuestion, value: number) {
   const scaleLabels = question.scale_labels;
   if (!scaleLabels) return undefined;
@@ -387,4 +394,23 @@ export function getLikertGuideText(question: FeedbackQuestion) {
   return labels.length > 0
     ? labels.join(", ")
     : DEFAULT_LIKERT_GUIDE_TEXT;
+}
+
+export function getLikertGuideItems(question: FeedbackQuestion) {
+  const { min, max } = getNumericBounds(question);
+  if (typeof min === "number" && typeof max === "number") {
+    const labels = [];
+    for (let value = min; value <= max; value += 1) {
+      const label = getConfiguredScaleLabel(question, value);
+      if (!label) continue;
+      labels.push(`${value} - ${label}`);
+    }
+
+    if (labels.length > 0) return labels;
+  }
+
+  const displayLabel = normalizeScaleLabel(question.scale_labels?.display);
+  if (displayLabel) return splitScaleDisplayLabel(displayLabel);
+
+  return splitScaleDisplayLabel(DEFAULT_LIKERT_GUIDE_TEXT);
 }
