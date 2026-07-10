@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
+  IS_YATIRIM_WEEKLY_COMPETENCY_ID,
   IS_YATIRIM_WEEKLY_PICKER_MIN_DATE,
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_CLIENT,
@@ -78,7 +79,10 @@ test("buildIsYatirimWeeklyDashboardUrl sends isolated weekly request parameters"
   assert.equal(url.searchParams.get("client"), IS_YATIRIM_WEEKLY_CLIENT);
   assert.equal(url.searchParams.get("isWeekly"), "true");
   assert.equal(url.searchParams.get("segment"), "all");
-  assert.equal(url.searchParams.get("competencyId"), null);
+  assert.equal(
+    url.searchParams.get("competencyId"),
+    IS_YATIRIM_WEEKLY_COMPETENCY_ID,
+  );
   assert.equal(url.searchParams.get("weekMode"), "last_week");
   assert.equal(url.searchParams.get("weekStartDate"), null);
 });
@@ -98,7 +102,10 @@ test("buildIsYatirimWeeklyDashboardUrl forwards segment token and preset week mo
     assert.equal(url.searchParams.get("token"), "secure-token");
     assert.equal(url.searchParams.get("weekMode"), weekMode);
     assert.equal(url.searchParams.get("weekStartDate"), null);
-    assert.equal(url.searchParams.get("competencyId"), null);
+    assert.equal(
+      url.searchParams.get("competencyId"),
+      IS_YATIRIM_WEEKLY_COMPETENCY_ID,
+    );
   }
 });
 
@@ -242,6 +249,90 @@ test("normalizeWeeklyDashboardResponse maps additive weekly unvan fields", () =>
   assert.equal(response.selectedUnvan?.experiencedFeelings[0]?.current, 22.5);
   assert.equal(response.selectedUnvan?.participation.days[0]?.value, 4);
   assert.equal(response.selectedUnvan?.table.rows[0]?.experienced, 22.5);
+});
+
+test("normalizeWeeklyDashboardResponse maps weekly recognition questions", () => {
+  const response = normalizeWeeklyDashboardResponse({
+    selectedSegment: {
+      recognitionQuestions: [
+        {
+          id: "manager_recognition",
+          questionId: "c0fc2147-9f0a-4201-b3b3-fa670f0b12e6",
+          questionText:
+            "Bu hafta yöneticim katkımı açık ve net olarak takdir etti.",
+          respondentCount: 179,
+          averageScore: 2.67,
+          positiveRate: 62.9,
+          distribution: {
+            1: {
+              score: 1,
+              label: "Hayır, bu hafta hiç olmadı",
+              respondentCount: 24,
+              percentage: 10.2,
+            },
+            2: {
+              score: 2,
+              label: "Oldu ama net değildi",
+              respondentCount: 63,
+              percentage: 26.8,
+            },
+            3: {
+              score: 3,
+              label: "Evet, en az bir kez",
+              respondentCount: 115,
+              percentage: 48.9,
+            },
+            4: {
+              score: 4,
+              label: "Evet, birden fazla kez",
+              respondentCount: 33,
+              percentage: 14,
+            },
+          },
+        },
+      ],
+    },
+    selectedUnvan: {
+      period: {
+        recognitionQuestions: [
+          {
+            id: "peer_recognition",
+            questionId: "850f6051-89ff-496a-8b83-7586a178754f",
+            questionText:
+              "Bu hafta bir ekip arkadaşımın katkısını açıkça ve spesifik olarak takdir ettim.",
+            respondentCount: 0,
+            averageScore: 0,
+            distribution: {
+              1: { score: 1, label: "Hayır, bu hafta hiç olmadı" },
+              2: { score: 2, label: "Oldu ama spesifik değildi" },
+              3: { score: 3, label: "Evet, en az bir kez" },
+              4: { score: 4, label: "Evet, birden fazla kez" },
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  const managerRecognition = response.selectedSegment.recognitionQuestions[0];
+  assert.equal(managerRecognition?.id, "manager_recognition");
+  assert.equal(managerRecognition?.averageScore, 2.67);
+  assert.equal(managerRecognition?.positiveRate, 62.9);
+  assert.equal(
+    managerRecognition?.distribution["2"]?.label,
+    "Oldu ama net değildi",
+  );
+  assert.equal(managerRecognition?.distribution["4"]?.percentage, 14);
+
+  const peerRecognition = response.selectedUnvan?.recognitionQuestions[0];
+  assert.equal(peerRecognition?.id, "peer_recognition");
+  assert.equal(peerRecognition?.respondentCount, 0);
+  assert.equal(peerRecognition?.averageScore, 0);
+  assert.equal(peerRecognition?.positiveRate, 0);
+  assert.equal(
+    peerRecognition?.distribution["3"]?.label,
+    "Evet, en az bir kez",
+  );
 });
 
 test("normalizeWeeklyDashboardResponse preserves expectation balance signs", () => {

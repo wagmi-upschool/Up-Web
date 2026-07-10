@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   DEFAULT_IS_YATIRIM_WEEK_MODE,
   IS_YATIRIM_WEEKLY_CLIENT,
+  IS_YATIRIM_WEEKLY_COMPETENCY_ID,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
   normalizeIsYatirimWeeklyToken,
@@ -34,6 +35,7 @@ export function buildIsYatirimWeeklyDashboardUrl({
 
   url.searchParams.set("client", IS_YATIRIM_WEEKLY_CLIENT);
   url.searchParams.set("isWeekly", "true");
+  url.searchParams.set("competencyId", IS_YATIRIM_WEEKLY_COMPETENCY_ID);
   url.searchParams.set("segment", normalizeIsYatirimWeeklySegment(segment));
   const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
   if (normalizedUnvan) {

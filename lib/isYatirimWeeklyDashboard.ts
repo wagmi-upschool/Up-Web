@@ -1,4 +1,6 @@
 export const IS_YATIRIM_WEEKLY_CLIENT = "is-yatirim";
+export const IS_YATIRIM_WEEKLY_COMPETENCY_ID =
+  "6fbe460b-6143-4ca9-8bb0-634a12618332";
 export const DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT = "all";
 export const DEFAULT_IS_YATIRIM_WEEK_MODE = "last_week";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_DATE = "2026-05-20";
@@ -103,11 +105,29 @@ export type WeeklyTableRow = {
   trend: string;
 };
 
+export type WeeklyRecognitionDistributionItem = {
+  score: number;
+  label: string;
+  respondentCount: number;
+  percentage: number;
+};
+
+export type WeeklyRecognitionQuestion = {
+  id: string;
+  questionId: string;
+  questionText: string;
+  respondentCount: number;
+  averageScore: number;
+  positiveRate: number;
+  distribution: Record<string, WeeklyRecognitionDistributionItem>;
+};
+
 export type WeeklyDashboardSegmentData = {
   kpis: WeeklyDashboardKpis;
   experiencedFeelings: WeeklyFeelingBarItem[];
   desiredFeelings: WeeklyFeelingBarItem[];
   expectationBalance: WeeklyExpectationBalanceItem[];
+  recognitionQuestions: WeeklyRecognitionQuestion[];
   participation: WeeklyParticipation;
   weeklySeries: WeeklyParticipationSeries[];
   table: {
@@ -607,6 +627,78 @@ function normalizeTableRow(value: unknown, index: number): WeeklyTableRow {
   };
 }
 
+function getDistributionInput(
+  distribution: unknown,
+  score: number,
+): Record<string, any> {
+  if (Array.isArray(distribution)) {
+    return asObject(
+      distribution.find((item) => asNumber(asObject(item).score) === score),
+    );
+  }
+
+  const distributionObject = asObject(distribution);
+  return asObject(distributionObject[String(score)] || distributionObject[score]);
+}
+
+function normalizeRecognitionDistribution(
+  value: unknown,
+): Record<string, WeeklyRecognitionDistributionItem> {
+  return [1, 2, 3, 4].reduce<Record<string, WeeklyRecognitionDistributionItem>>(
+    (distribution, score) => {
+      const input = getDistributionInput(value, score);
+      const normalizedScore = asNumber(input.score, score);
+
+      distribution[String(score)] = {
+        score: normalizedScore || score,
+        label: asString(input.label, `${score}`),
+        respondentCount: asNumber(
+          firstDefined(input.respondentCount, input.count, input.total),
+        ),
+        percentage: asNumber(
+          firstDefined(input.percentage, input.rate, input.percent),
+        ),
+      };
+
+      return distribution;
+    },
+    {},
+  );
+}
+
+function normalizeRecognitionQuestion(
+  value: unknown,
+  index: number,
+): WeeklyRecognitionQuestion {
+  const input = asObject(value);
+  const questionId = asString(input.questionId || input.question_id);
+  const distribution = normalizeRecognitionDistribution(input.distribution);
+  const fallbackPositiveRate =
+    (distribution["3"]?.percentage || 0) + (distribution["4"]?.percentage || 0);
+
+  return {
+    id: asString(input.id || input.key || questionId, `recognition-${index + 1}`),
+    questionId,
+    questionText: asString(
+      input.questionText || input.question_text || input.label || input.title,
+      `Soru ${index + 1}`,
+    ),
+    respondentCount: asNumber(
+      firstDefined(input.respondentCount, input.count, input.total),
+    ),
+    averageScore: asNumber(firstDefined(input.averageScore, input.average)),
+    positiveRate: asNumber(
+      firstDefined(input.positiveRate, input.positivePercentage),
+      fallbackPositiveRate,
+    ),
+    distribution,
+  };
+}
+
+function normalizeRecognitionQuestions(value: unknown) {
+  return asArray(value, normalizeRecognitionQuestion);
+}
+
 function normalizeWeeklyDashboardSegmentData(
   value: unknown,
 ): WeeklyDashboardSegmentData {
@@ -614,6 +706,12 @@ function normalizeWeeklyDashboardSegmentData(
   const kpis = asObject(input.kpis);
   const participation = normalizeParticipation(input.participation);
   const weeklySeries = asArray(input.weeklySeries, normalizeParticipationSeries);
+  const recognitionQuestions = normalizeRecognitionQuestions(
+    input.recognitionQuestions,
+  );
+  const periodRecognitionQuestions = normalizeRecognitionQuestions(
+    asObject(input.period).recognitionQuestions,
+  );
 
   return {
     kpis: {
@@ -627,6 +725,9 @@ function normalizeWeeklyDashboardSegmentData(
     experiencedFeelings: normalizeChartItems(input.experiencedFeelings),
     desiredFeelings: normalizeChartItems(input.desiredFeelings),
     expectationBalance: normalizeExpectationBalance(input.expectationBalance),
+    recognitionQuestions: recognitionQuestions.length
+      ? recognitionQuestions
+      : periodRecognitionQuestions,
     participation,
     weeklySeries: weeklySeries.length ? weeklySeries : participation.weeklySeries,
     table: {

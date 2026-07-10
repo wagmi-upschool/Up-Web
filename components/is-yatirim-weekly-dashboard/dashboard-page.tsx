@@ -56,6 +56,7 @@ import {
   type WeeklyFeelingBarItem,
   type WeeklyKpiMetric,
   type WeeklyParticipationSeries,
+  type WeeklyRecognitionQuestion,
   type WeeklySegmentOption,
   type WeeklyTableRow,
 } from "@/lib/isYatirimWeeklyDashboard";
@@ -159,6 +160,21 @@ function formatDisplayValue(value: number | string, kind: "count" | "percent" | 
 function formatSignedWeeklyPercent(value: number) {
   const formatted = formatWeeklyPercent(value);
   return value > 0 ? `+${formatted}` : formatted;
+}
+
+function formatWeeklyScore(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(value);
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, value));
 }
 
 function createUtcDate(year: number, monthIndex: number, day: number) {
@@ -1272,6 +1288,108 @@ function VerticalComparisonChart({
   );
 }
 
+function RecognitionProgressBar({
+  value,
+  color = "#0057FF",
+}: {
+  value: number;
+  color?: string;
+}) {
+  const width = clampPercent(value);
+
+  return (
+    <div className="h-2.5 overflow-hidden rounded-full bg-[#EFEAE0]">
+      <div
+        className="h-full rounded-full transition-[width] duration-700"
+        style={{ backgroundColor: color, width: `${width}%` }}
+      />
+    </div>
+  );
+}
+
+function RecognitionQuestionCard({
+  question,
+}: {
+  question: WeeklyRecognitionQuestion;
+}) {
+  const distributionRows = ["1", "2", "3", "4"].map(
+    (score) => question.distribution[score],
+  );
+
+  return (
+    <AnalyticsCard>
+      <AnalyticsSubheading dotColor="#0057FF">
+        {question.questionText}
+      </AnalyticsSubheading>
+      <div className="mb-6 flex flex-col gap-4 rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] p-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-[#171717]/45">
+            ORTALAMA SKOR
+          </p>
+          <p className="mt-2 font-righteous text-5xl leading-none text-[#171717]">
+            {formatWeeklyScore(question.averageScore)}
+          </p>
+          <p className="mt-2 font-poppins text-xs font-semibold tracking-[0.16em] text-[#171717]/42">
+            {`${formatWeeklyCount(question.respondentCount)} YANIT`}
+          </p>
+        </div>
+        <div className="sm:text-right">
+          <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-[#171717]/45">
+            3 + 4 POZİTİF
+          </p>
+          <p className="mt-2 font-righteous text-4xl leading-none text-[#00A878]">
+            {formatWeeklyPercent(question.positiveRate)}
+          </p>
+        </div>
+      </div>
+      <div className="space-y-5">
+        {distributionRows.map((item) => (
+          <div key={item.score}>
+            <div className="mb-2 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-poppins text-sm font-semibold text-[#171717]/84">
+                  {item.label}
+                </p>
+                <p className="mt-1 font-poppins text-xs font-semibold tracking-[0.16em] text-[#171717]/42">
+                  {`${formatWeeklyCount(item.respondentCount)} YANIT`}
+                </p>
+              </div>
+              <p className="shrink-0 font-righteous text-3xl leading-none text-[#171717]">
+                {formatWeeklyPercent(item.percentage)}
+              </p>
+            </div>
+            <RecognitionProgressBar
+              color={item.score >= 3 ? "#00A878" : "#0057FF"}
+              value={item.percentage}
+            />
+          </div>
+        ))}
+      </div>
+    </AnalyticsCard>
+  );
+}
+
+function RecognitionQuestionsSection({
+  questions,
+}: {
+  questions: WeeklyRecognitionQuestion[];
+}) {
+  if (!questions.length) {
+    return null;
+  }
+
+  return (
+    <>
+      <AnalyticsSectionHeading>TAKDİR DAĞILIMI</AnalyticsSectionHeading>
+      <section className="grid gap-4 xl:grid-cols-2">
+        {questions.map((question) => (
+          <RecognitionQuestionCard key={question.id} question={question} />
+        ))}
+      </section>
+    </>
+  );
+}
+
 function BalanceTooltip({
   active,
   payload,
@@ -1849,6 +1967,10 @@ export default function IsYatirimWeeklyDashboard({
                 title={`İSTENEN DUYGULAR - ${periodLabel}`}
               />
             </section>
+
+            <RecognitionQuestionsSection
+              questions={displayResponse.selectedSegment.recognitionQuestions}
+            />
 
             <AnalyticsSectionHeading>BEKLENTİ VE KATILIM</AnalyticsSectionHeading>
             <section className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
