@@ -354,7 +354,7 @@ export function IsYatirimHeader({
               width={220}
             />
           </div>
-          <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+          <div className="relative flex flex-wrap items-center gap-3 sm:justify-end">
             {isWeeklyToggleEnabled ? (
               <IsYatirimDashboardViewToggle
                 active="daily"

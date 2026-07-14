@@ -247,8 +247,10 @@ function DateInput({
 
       {isOpen ? (
         <div
-          className={`absolute top-[calc(100%+12px)] z-[80] w-[320px] rounded-[24px] border border-[#171717]/10 bg-[#FFFDF8] p-4 shadow-[0_24px_60px_rgba(23,23,23,0.16)] ${
-            position === "left" ? "left-0" : "right-0"
+          className={`absolute left-0 right-0 top-[calc(100%+12px)] z-[80] w-auto rounded-[24px] border border-[#171717]/10 bg-[#FFFDF8] p-4 shadow-[0_24px_60px_rgba(23,23,23,0.16)] sm:w-[320px] ${
+            position === "left"
+              ? "sm:left-0 sm:right-auto"
+              : "sm:left-auto sm:right-0"
           }`}
         >
           <div className="flex items-center justify-between gap-3">
@@ -491,7 +493,7 @@ export default function IsYatirimDateFilterPicker({
   };
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="static sm:relative" ref={containerRef}>
       <button
         className="inline-flex items-center gap-2 rounded-full border border-[#0057FF]/18 bg-[#EEF4FF] px-4 py-2 font-poppins text-sm font-semibold text-[#0057FF] transition-colors hover:border-[#0057FF]/35"
         onClick={() => setIsOpen((current) => !current)}
@@ -507,7 +509,7 @@ export default function IsYatirimDateFilterPicker({
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+12px)] z-[60] w-[min(92vw,420px)] rounded-[28px] border border-[#171717]/10 bg-[#FFFDF8] p-5 shadow-[0_28px_70px_rgba(23,23,23,0.16)] backdrop-blur-sm">
+        <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-[60] w-auto rounded-[28px] border border-[#171717]/10 bg-[#FFFDF8] p-5 shadow-[0_28px_70px_rgba(23,23,23,0.16)] backdrop-blur-sm sm:left-auto sm:right-0 sm:w-[min(92vw,420px)]">
           <div className="space-y-5">
             <div>
               <p className="font-poppins text-sm font-semibold text-[#171717]">
