@@ -46,6 +46,7 @@ import {
   formatWeeklyCount,
   formatWeeklyPercent,
   formatWeeklyPp,
+  getIsYatirimWeeklyQuestionModel,
   getMondayForIsoDate,
   isIsYatirimExcludedWeeklyStartDate,
   normalizeIsYatirimWeekFilter,
@@ -1015,6 +1016,25 @@ function KpiGrid({ response }: { response: WeeklyDashboardResponse }) {
   );
 }
 
+function ParticipantKpiGrid({ response }: { response: WeeklyDashboardResponse }) {
+  const participant = response.selectedSegment.kpis.participant;
+
+  return (
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <KpiCard
+        color="#0057FF"
+        icon={<Users className="h-6 w-6" />}
+        kind="count"
+        metric={{
+          ...participant,
+          label: participant.label || "Katılımcı",
+        }}
+        positiveDeltaTone="positive"
+      />
+    </section>
+  );
+}
+
 function EmptyInlineState({ children }: { children: string }) {
   return (
     <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-[#171717]/14 bg-[#FFFFFF]/62 p-6 text-center font-poppins text-sm font-semibold uppercase tracking-[0.18em] text-[#171717]/42">
@@ -1374,18 +1394,21 @@ function RecognitionQuestionsSection({
 }: {
   questions: WeeklyRecognitionQuestion[];
 }) {
-  if (!questions.length) {
-    return null;
-  }
-
   return (
     <>
       <AnalyticsSectionHeading>TAKDİR DAĞILIMI</AnalyticsSectionHeading>
-      <section className="grid gap-4 xl:grid-cols-2">
-        {questions.map((question) => (
-          <RecognitionQuestionCard key={question.id} question={question} />
-        ))}
-      </section>
+      {questions.length ? (
+        <section className="grid gap-4 xl:grid-cols-2">
+          {questions.map((question) => (
+            <RecognitionQuestionCard key={question.id} question={question} />
+          ))}
+        </section>
+      ) : (
+        <AnalyticsEmptyState
+          description="Seçili segment veya unvan için bu haftaya ait Likert yanıtı bulunmuyor."
+          title="Henüz Likert yanıtı yok"
+        />
+      )}
     </>
   );
 }
@@ -1868,6 +1891,12 @@ export default function IsYatirimWeeklyDashboard({
   const periodLabel = response
     ? getDisplayPeriodLabel(response.meta.weekFilter, response.meta.periodLabel)
     : getWeekOptionLabel(weekFilter);
+  const questionModel = displayResponse
+    ? getIsYatirimWeeklyQuestionModel({
+        weekFilter: displayResponse.meta.weekFilter,
+        recognitionQuestions: displayResponse.selectedSegment.recognitionQuestions,
+      })
+    : "legacy";
   const comparisonLegendLabels = useMemo(
     () => getComparisonLegendLabels(response),
     [response],
@@ -1948,44 +1977,67 @@ export default function IsYatirimWeeklyDashboard({
           <AnalyticsErrorState message={errorMessage} />
         ) : displayResponse ? (
           <>
-            <KpiGrid response={displayResponse} />
+            {questionModel === "legacy" ? (
+              <>
+                <KpiGrid response={displayResponse} />
 
-            <AnalyticsSectionHeading>DUYGU DAĞILIMI</AnalyticsSectionHeading>
-            <section className="grid gap-4 xl:grid-cols-2">
-              <VerticalComparisonChart
-                currentLabel={comparisonLegendLabels.current}
-                dotColor="#0057FF"
-                items={displayResponse.selectedSegment.experiencedFeelings}
-                previousLabel={comparisonLegendLabels.previous}
-                title={`DENEYİMLENEN DUYGULAR - ${periodLabel}`}
-              />
-              <VerticalComparisonChart
-                currentLabel={comparisonLegendLabels.current}
-                dotColor="#985DF8"
-                items={displayResponse.selectedSegment.desiredFeelings}
-                previousLabel={comparisonLegendLabels.previous}
-                title={`İSTENEN DUYGULAR - ${periodLabel}`}
-              />
-            </section>
+                <AnalyticsSectionHeading>DUYGU DAĞILIMI</AnalyticsSectionHeading>
+                <section className="grid gap-4 xl:grid-cols-2">
+                  <VerticalComparisonChart
+                    currentLabel={comparisonLegendLabels.current}
+                    dotColor="#0057FF"
+                    items={displayResponse.selectedSegment.experiencedFeelings}
+                    previousLabel={comparisonLegendLabels.previous}
+                    title={`DENEYİMLENEN DUYGULAR - ${periodLabel}`}
+                  />
+                  <VerticalComparisonChart
+                    currentLabel={comparisonLegendLabels.current}
+                    dotColor="#985DF8"
+                    items={displayResponse.selectedSegment.desiredFeelings}
+                    previousLabel={comparisonLegendLabels.previous}
+                    title={`İSTENEN DUYGULAR - ${periodLabel}`}
+                  />
+                </section>
 
-            <RecognitionQuestionsSection
-              questions={displayResponse.selectedSegment.recognitionQuestions}
-            />
+                <AnalyticsSectionHeading>BEKLENTİ VE KATILIM</AnalyticsSectionHeading>
+                <section className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
+                  <ExpectationBalanceChart
+                    items={displayResponse.selectedSegment.expectationBalance}
+                    periodLabel={periodLabel}
+                  />
+                  <ParticipationChart
+                    series={participationSeries}
+                    weekFilter={displayResponse.meta.weekFilter}
+                  />
+                </section>
 
-            <AnalyticsSectionHeading>BEKLENTİ VE KATILIM</AnalyticsSectionHeading>
-            <section className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
-              <ExpectationBalanceChart
-                items={displayResponse.selectedSegment.expectationBalance}
-                periodLabel={periodLabel}
-              />
-              <ParticipationChart
-                series={participationSeries}
-                weekFilter={displayResponse.meta.weekFilter}
-              />
-            </section>
+                <AnalyticsSectionHeading>ÖZET</AnalyticsSectionHeading>
+                <WeeklySummaryTable rows={displayResponse.selectedSegment.table.rows} />
+              </>
+            ) : (
+              <>
+                <ParticipantKpiGrid response={displayResponse} />
 
-            <AnalyticsSectionHeading>ÖZET</AnalyticsSectionHeading>
-            <WeeklySummaryTable rows={displayResponse.selectedSegment.table.rows} />
+                {questionModel === "likert" ? (
+                  <RecognitionQuestionsSection
+                    questions={displayResponse.selectedSegment.recognitionQuestions}
+                  />
+                ) : (
+                  <AnalyticsEmptyState
+                    description="Seçilen dönem hem eski duygu sorularını hem yeni takdir sorularını içeriyor. Sonuçlar tek bir metrikte birleştirilmedi."
+                    title="Soru seti bu aralıkta değişti"
+                  />
+                )}
+
+                <AnalyticsSectionHeading>KATILIM</AnalyticsSectionHeading>
+                <section className="grid gap-4">
+                  <ParticipationChart
+                    series={participationSeries}
+                    weekFilter={displayResponse.meta.weekFilter}
+                  />
+                </section>
+              </>
+            )}
           </>
         ) : (
           <AnalyticsEmptyState

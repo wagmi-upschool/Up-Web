@@ -6,6 +6,7 @@ export const DEFAULT_IS_YATIRIM_WEEK_MODE = "last_week";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE = "2026-05-18";
 export const IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES = ["2026-05-25"] as const;
+export const IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK = "2026-07-06";
 
 export const IS_YATIRIM_WEEKLY_ROUTE = "/is-yatirim/weekly-dashboard";
 export const IS_YATIRIM_DAILY_ROUTE = "/is-yatirim/leadership-dashboard";
@@ -88,6 +89,7 @@ export type WeeklyParticipationSeries = {
   label: string;
   weekStartDate?: string;
   days: WeeklyParticipationDay[];
+  recognitionQuestions?: WeeklyRecognitionQuestion[];
 };
 
 export type WeeklyParticipation = {
@@ -121,6 +123,8 @@ export type WeeklyRecognitionQuestion = {
   positiveRate: number;
   distribution: Record<string, WeeklyRecognitionDistributionItem>;
 };
+
+export type IsYatirimWeeklyQuestionModel = "legacy" | "likert" | "mixed";
 
 export type WeeklyDashboardSegmentData = {
   kpis: WeeklyDashboardKpis;
@@ -290,6 +294,83 @@ export function normalizeIsYatirimWeekFilter({
         ? IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE
         : normalizedWeekStartDate,
   };
+}
+
+function getCurrentIsoDate() {
+  const now = new Date();
+  return formatIsoDate(
+    new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())),
+  );
+}
+
+function addDaysToIsoDate(value: string, days: number) {
+  const date = parseIsoDate(value);
+
+  if (!date) {
+    return "";
+  }
+
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatIsoDate(date);
+}
+
+function getIncludedWeekStartsEndingAt(value: string, count: number) {
+  const weekStarts: string[] = [];
+
+  for (
+    let cursor = getMondayForIsoDate(value);
+    cursor && weekStarts.length < count;
+    cursor = addDaysToIsoDate(cursor, -7)
+  ) {
+    if (!isIsYatirimExcludedWeeklyStartDate(cursor)) {
+      weekStarts.unshift(cursor);
+    }
+  }
+
+  return weekStarts;
+}
+
+export function getIsYatirimWeeklyQuestionModel({
+  weekFilter,
+  recognitionQuestions = [],
+  todayIsoDate = getCurrentIsoDate(),
+}: {
+  weekFilter: IsYatirimWeekFilter;
+  recognitionQuestions?: WeeklyRecognitionQuestion[];
+  todayIsoDate?: string;
+}): IsYatirimWeeklyQuestionModel {
+  const currentWeekStart = getMondayForIsoDate(todayIsoDate);
+
+  if (weekFilter.mode === "last_4_weeks") {
+    const selectedWeekStarts = getIncludedWeekStartsEndingAt(currentWeekStart, 4);
+    const hasLegacyWeek = selectedWeekStarts.some(
+      (weekStart) => weekStart < IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK,
+    );
+    const hasLikertWeek = selectedWeekStarts.some(
+      (weekStart) => weekStart >= IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK,
+    );
+
+    if (hasLegacyWeek && hasLikertWeek) {
+      return "mixed";
+    }
+
+    return hasLikertWeek ? "likert" : "legacy";
+  }
+
+  const selectedWeekStart =
+    weekFilter.mode === "week"
+      ? getMondayForIsoDate(weekFilter.weekStartDate || "")
+      : weekFilter.mode === "last_week"
+        ? addDaysToIsoDate(currentWeekStart, -7)
+        : currentWeekStart;
+  const hasLikertResponses = recognitionQuestions.some(
+    (question) => question.respondentCount > 0,
+  );
+
+  return selectedWeekStart >= IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK ||
+    hasLikertResponses
+    ? "likert"
+    : "legacy";
 }
 
 export function applyIsYatirimWeekFilterToSearchParams(
@@ -551,6 +632,7 @@ function normalizeParticipationSeries(value: unknown, index: number): WeeklyPart
     label: asString(input.label || input.name || input.weekLabel, `Hafta ${index + 1}`),
     ...(weekStartDate ? { weekStartDate } : {}),
     days,
+    recognitionQuestions: normalizeRecognitionQuestions(input.recognitionQuestions),
   };
 }
 

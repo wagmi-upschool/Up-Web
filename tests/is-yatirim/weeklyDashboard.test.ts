@@ -3,10 +3,12 @@ import test from "node:test";
 import {
   DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
   IS_YATIRIM_WEEKLY_COMPETENCY_ID,
+  IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK,
   IS_YATIRIM_WEEKLY_PICKER_MIN_DATE,
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_CLIENT,
   WEEKLY_PARTICIPATION_DAYS,
+  getIsYatirimWeeklyQuestionModel,
   getMondayForIsoDate,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
@@ -65,6 +67,62 @@ test("normalizeIsYatirimWeekFilter excludes the holiday week", () => {
       weekStartDate: "2026-05-25",
     }),
     { mode: "last_week" },
+  );
+});
+
+test("weekly question model switches at the H7 cutover even with zero responses", () => {
+  assert.equal(IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK, "2026-07-06");
+  assert.equal(
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: { mode: "week", weekStartDate: "2026-06-29" },
+      todayIsoDate: "2026-07-13",
+    }),
+    "legacy",
+  );
+  assert.equal(
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: { mode: "week", weekStartDate: "2026-07-06" },
+      todayIsoDate: "2026-07-13",
+    }),
+    "likert",
+  );
+});
+
+test("weekly question model honors Likert responses on an older single week", () => {
+  assert.equal(
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: { mode: "week", weekStartDate: "2026-06-29" },
+      recognitionQuestions: [
+        {
+          id: "manager_recognition",
+          questionId: "manager",
+          questionText: "Manager recognition",
+          respondentCount: 1,
+          averageScore: 4,
+          positiveRate: 100,
+          distribution: {},
+        },
+      ],
+      todayIsoDate: "2026-07-13",
+    }),
+    "likert",
+  );
+});
+
+test("weekly question model keeps legacy and Likert weeks separate in ranges", () => {
+  assert.equal(
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: { mode: "last_4_weeks" },
+      todayIsoDate: "2026-07-13",
+    }),
+    "mixed",
+  );
+  assert.equal(
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: { mode: "last_4_weeks" },
+      todayIsoDate: "2026-08-03",
+    }),
+    "likert",
   );
 });
 
@@ -254,6 +312,18 @@ test("normalizeWeeklyDashboardResponse maps additive weekly unvan fields", () =>
 test("normalizeWeeklyDashboardResponse maps weekly recognition questions", () => {
   const response = normalizeWeeklyDashboardResponse({
     selectedSegment: {
+      weeklySeries: [
+        {
+          weekStartDate: "2026-07-06",
+          recognitionQuestions: [
+            {
+              id: "manager_recognition",
+              respondentCount: 4,
+              distribution: {},
+            },
+          ],
+        },
+      ],
       recognitionQuestions: [
         {
           id: "manager_recognition",
@@ -323,6 +393,11 @@ test("normalizeWeeklyDashboardResponse maps weekly recognition questions", () =>
     "Oldu ama net değildi",
   );
   assert.equal(managerRecognition?.distribution["4"]?.percentage, 14);
+  assert.equal(
+    response.selectedSegment.weeklySeries[0]?.recognitionQuestions?.[0]
+      ?.respondentCount,
+    4,
+  );
 
   const peerRecognition = response.selectedUnvan?.recognitionQuestions[0];
   assert.equal(peerRecognition?.id, "peer_recognition");
