@@ -483,7 +483,7 @@ function WeeklyFilterPicker({
     (draftMode === "week" && !normalizedDraftFilter.weekStartDate);
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="static sm:relative" ref={containerRef}>
       <button
         className="inline-flex items-center gap-2 rounded-full border border-[#0057FF]/18 bg-[#EEF4FF] px-4 py-2 font-poppins text-sm font-semibold text-[#0057FF] transition-colors hover:border-[#0057FF]/35"
         onClick={() => setIsOpen((current) => !current)}
@@ -497,7 +497,7 @@ function WeeklyFilterPicker({
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+12px)] z-[60] w-[min(92vw,430px)] overflow-hidden rounded-[24px] border border-[#171717]/10 bg-[#FFFDF8] shadow-[0_24px_60px_rgba(23,23,23,0.16)] backdrop-blur-sm">
+        <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-[60] w-auto overflow-hidden rounded-[24px] border border-[#171717]/10 bg-[#FFFDF8] shadow-[0_24px_60px_rgba(23,23,23,0.16)] backdrop-blur-sm sm:left-auto sm:right-0 sm:w-[min(92vw,430px)]">
           <div className="space-y-2.5 p-4">
             {WEEK_OPTIONS.filter((option) => option.mode !== "week").map((option) => {
               const meta = getWeekOptionMeta(option.mode, draftWeekStartDate);
@@ -709,7 +709,7 @@ function WeeklyHeader({
               width={220}
             />
           </div>
-          <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+          <div className="relative flex flex-wrap items-center gap-3 sm:justify-end">
             <IsYatirimDashboardViewToggle
               active="weekly"
               dailyToken={dailyToken}
