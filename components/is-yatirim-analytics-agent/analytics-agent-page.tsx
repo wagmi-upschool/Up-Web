@@ -897,11 +897,17 @@ export default function IsYatirimAnalyticsAgentPage() {
     return (
       <AnalyticsDashboardPageShell>
         <AnalyticsDashboardHeader
-          brandLabel="İş Yatırım Agent"
+          brandLabel="Talk to Your Culture Data"
           companies={[{ id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" }]}
           dashboardLabel=""
           isUpdating={false}
           onCompanySelect={() => undefined}
+          partnerLogo={{
+            alt: "İş Yatırım",
+            height: 80,
+            src: "/is-yatirim-logo.png",
+            width: 220,
+          }}
           selectedCompany="is-yatirim"
         />
         <AnalyticsDashboardBody>
@@ -939,11 +945,17 @@ export default function IsYatirimAnalyticsAgentPage() {
         }`}
       >
       <AnalyticsDashboardHeader
-        brandLabel="İş Yatırım Agent"
+        brandLabel="Talk to Your Culture Data"
         companies={[{ id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" }]}
         dashboardLabel=""
         isUpdating={false}
         onCompanySelect={() => undefined}
+        partnerLogo={{
+          alt: "İş Yatırım",
+          height: 80,
+          src: "/is-yatirim-logo.png",
+          width: 220,
+        }}
         selectedCompany="is-yatirim"
       />
       <AnalyticsDashboardBody>
@@ -1123,10 +1135,6 @@ export default function IsYatirimAnalyticsAgentPage() {
                     <Send className="h-5 w-5" />
                   </button>
                 )}
-              </div>
-              <div className="mt-3 flex flex-wrap justify-between gap-2 font-poppins text-[10px] uppercase tracking-[0.14em] text-[#171717]/38">
-                <span>Enter gönderir · Shift + Enter yeni satır</span>
-                <span>{requestId ? `İstek ${requestId.slice(0, 8)}` : "Güvenli canlı stream"}</span>
               </div>
             </form>
           </div>

@@ -44,6 +44,7 @@ export function AnalyticsDashboardHeader({
   isUpdating,
   dashboardLabel = "CEO Dashboard",
   brandLabel,
+  partnerLogo,
 }: {
   companies: Array<{ id: string; slug: string; label: string }>;
   selectedCompany: string;
@@ -51,6 +52,12 @@ export function AnalyticsDashboardHeader({
   isUpdating: boolean;
   dashboardLabel?: string;
   brandLabel?: string;
+  partnerLogo?: {
+    alt: string;
+    height: number;
+    src: string;
+    width: number;
+  };
 }) {
   const displayedTabs = companies.map((company) => ({
     ...company,
@@ -63,14 +70,38 @@ export function AnalyticsDashboardHeader({
         <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.08)_42%,rgba(255,255,255,0.18)_100%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         <div className="relative">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-4">
-              <Image
-                alt="UP"
-                className="h-14 w-auto shrink-0 sm:h-16"
-                height={64}
-                src="/up.svg"
-                width={96}
-              />
+            <div
+              className={
+                partnerLogo
+                  ? "flex flex-col gap-5"
+                  : "flex items-start gap-4"
+              }
+            >
+              <div className="flex items-center gap-4">
+                <Image
+                  alt="UP"
+                  className={
+                    partnerLogo
+                      ? "h-10 w-auto shrink-0 sm:h-12"
+                      : "h-14 w-auto shrink-0 sm:h-16"
+                  }
+                  height={64}
+                  src="/up.svg"
+                  width={96}
+                />
+                {partnerLogo ? (
+                  <>
+                    <div className="h-9 w-px bg-[#171717]/10" />
+                    <Image
+                      alt={partnerLogo.alt}
+                      className="h-8 w-auto object-contain sm:h-10"
+                      height={partnerLogo.height}
+                      src={partnerLogo.src}
+                      width={partnerLogo.width}
+                    />
+                  </>
+                ) : null}
+              </div>
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-2 rounded-full bg-[#0057FF]/10 px-3 py-1 font-poppins text-xs font-semibold uppercase tracking-[0.22em] text-[#0057FF]">
                   <Sparkles className="h-3.5 w-3.5" />
