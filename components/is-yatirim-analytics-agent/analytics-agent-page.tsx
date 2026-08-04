@@ -107,8 +107,12 @@ const QUESTION_CATALOG: Array<{
   { category: "comment", prompt: "Son 30 günde 'yönetici' kelimesi kaç kez geçmiş?" },
   { category: "comment", prompt: "En az 5 kez tekrar eden kelimeler hangileri, hangi GMY'lerde yoğunlaşıyor?" },
   { category: "comment", prompt: "Hangi konu başlığı bu ay en çok tekrar etmiş (top 3)?" },
+  { category: "comment", prompt: "Takdir ile ilgili en kısa yorumu getir." },
+  { category: "comment", prompt: "En uzun yorumu getir." },
   { category: "comment", prompt: "En iyi yorumu getir." },
   { category: "comment", prompt: "Bu haftanın en kötü yorumunu getir." },
+  { category: "comment", prompt: "Mobbing ile ilgili risk sinyali var mı?" },
+  { category: "comment", prompt: "Benimle ilgili yorumları getir." },
   { category: "comment", prompt: "GMY Murat Kural'ın ekibinde duygu durumu 2'nin altında olup mobbing ile ilgili konuşan çalışan sayısı kaç?" },
   { category: "comment", prompt: "GMY Pınar Özyüksel'in ekibinde takdir konu başlığı altında en sık geçen kelimeler neler, kaç kez tekrar etmiş?" },
   { category: "comment", prompt: "Tüm GMY'ler arasında duygu durumu en düşük olan ekipte hangi konu başlıkları öne çıkıyor?" },
@@ -880,7 +884,7 @@ export default function IsYatirimAnalyticsAgentPage() {
                     type="button"
                   >
                     <Play className="h-4 w-4 fill-current" />
-                    Full Suite · 43 senaryo
+                    Full Suite · {QUESTION_CATALOG.length} senaryo
                   </button>
                 )}
               </div>
