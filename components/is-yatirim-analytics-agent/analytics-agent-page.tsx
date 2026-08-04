@@ -1,22 +1,25 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { fetchAuthSession } from "aws-amplify/auth";
 import {
   Bot,
   CheckCircle2,
+  ChevronDown,
   Circle,
   CircleStop,
+  Database,
   ListFilter,
   LoaderCircle,
   Play,
   Search,
   Send,
+  SlidersHorizontal,
   Sparkles,
   UserRound,
   X,
 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import MessageRenderer from "@/components/messages/MessageRenderer";
 import {
   AnalyticsCard,
@@ -34,11 +37,12 @@ import {
   type AgentStreamEvent,
 } from "@/lib/isYatirimAgentStream";
 import { isAllowedIsYatirimAgentIdentity } from "@/lib/isYatirimAgentAccess";
+import type { AgentViewMode } from "@/lib/isYatirimAgentMode";
 import {
-  normalizeAgentViewMode,
-  withAgentViewMode,
-  type AgentViewMode,
-} from "@/lib/isYatirimAgentMode";
+  loadSuiteSnapshot,
+  saveSuiteSnapshot,
+} from "@/lib/isYatirimSuiteStorage";
+import { IS_YATIRIM_AGENT_FEATURE_FLAGS } from "@/lib/isYatirimAgentFeatureFlags";
 
 type UiStatus =
   | "idle"
@@ -65,7 +69,70 @@ type SuiteResult = {
   agentDurationMs?: number;
 };
 
+type LiveSuiteMessage = {
+  catalogIndex: number;
+  userMessageId: string;
+  assistantMessageId: string;
+  accumulated: string;
+};
+
 type QuestionCategory = "daily" | "weekly" | "combined" | "comment";
+type SuiteMode = "catalog" | "parameterized";
+
+type PersistedSuitePreferences = {
+  mode: SuiteMode;
+  questionIndex: number;
+  startDate: string;
+  endDate: string;
+  scores: number[];
+};
+
+const SUITE_PREFERENCES_KEY = "is-yatirim-agent:suite-preferences:v2";
+const DEFAULT_PARAMETERIZED_QUESTION_INDEX = 23;
+
+function dateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function defaultParameterizedRange() {
+  const end = new Date();
+  end.setDate(end.getDate() - 1);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 2);
+  return { start: dateInputValue(start), end: dateInputValue(end) };
+}
+
+function datesInRange(startValue: string, endValue: string) {
+  const start = new Date(`${startValue}T00:00:00Z`);
+  const end = new Date(`${endValue}T00:00:00Z`);
+  if (
+    !startValue ||
+    !endValue ||
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    start > end
+  ) {
+    return [];
+  }
+  const dates: Date[] = [];
+  const cursor = new Date(start);
+  while (cursor <= end && dates.length < 31) {
+    dates.push(new Date(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function parameterizedPrompt(
+  basePrompt: string,
+  dateLabel: string,
+  moodScore: number,
+) {
+  return `${dateLabel} ve ruh hali ${moodScore} filtresiyle "${basePrompt}" sorusunu yanıtla. Sorudaki göreli tarih ve ruh hali ifadeleri yerine bu parametreleri kullan.`;
+}
 
 const QUESTION_CATALOG: Array<{
   category: QuestionCategory;
@@ -159,10 +226,11 @@ function streamErrorMessage(status: number, payload: unknown) {
 }
 
 export default function IsYatirimAnalyticsAgentPage() {
-  const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = normalizeAgentViewMode(searchParams.get("mode"));
+  const proModeAvailable = searchParams.get("mode") === "pro";
+  const [mode, setMode] = useState<AgentViewMode>(() =>
+    proModeAvailable ? "pro" : "simple",
+  );
   const [accessStatus, setAccessStatus] = useState<AccessStatus>("checking");
   const [input, setInput] = useState("");
   const [questionFilter, setQuestionFilter] = useState<
@@ -170,10 +238,30 @@ export default function IsYatirimAnalyticsAgentPage() {
   >("all");
   const [questionSearch, setQuestionSearch] = useState("");
   const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [suiteMode, setSuiteMode] = useState<SuiteMode>("catalog");
+  const [parameterizedQuestionIndex, setParameterizedQuestionIndex] = useState(
+    DEFAULT_PARAMETERIZED_QUESTION_INDEX,
+  );
+  const [parameterizedStartDate, setParameterizedStartDate] = useState(
+    () => defaultParameterizedRange().start,
+  );
+  const [parameterizedEndDate, setParameterizedEndDate] = useState(
+    () => defaultParameterizedRange().end,
+  );
+  const [parameterizedScores, setParameterizedScores] = useState<number[]>([
+    1, 2, 3, 4,
+  ]);
+  const [parameterizedConfigOpen, setParameterizedConfigOpen] = useState(true);
+  const [suitePreferencesHydrated, setSuitePreferencesHydrated] =
+    useState(false);
+  const [suiteStorageReady, setSuiteStorageReady] = useState(false);
   const [suiteResults, setSuiteResults] = useState<Record<number, SuiteResult>>(
     {},
   );
   const [suiteRunning, setSuiteRunning] = useState(false);
+  const [viewingSuiteResultIndex, setViewingSuiteResultIndex] =
+    useState<number>();
+  const [liveSuiteIndex, setLiveSuiteIndex] = useState<number>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<UiStatus>("idle");
   const [error, setError] = useState("");
@@ -191,21 +279,186 @@ export default function IsYatirimAnalyticsAgentPage() {
   const runningRef = useRef(false);
   const suiteAbortRef = useRef<AbortController | null>(null);
   const suiteStopRef = useRef(false);
+  const viewingSuiteResultRef = useRef<number>();
+  const liveSuiteMessageRef = useRef<LiveSuiteMessage>();
+  const suiteStorageReadyKeyRef = useRef<string>();
+  const suiteSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   const isRunning = status === "connecting" || status === "streaming";
+  const questionsFeatureAvailable =
+    mode === "pro" ||
+    IS_YATIRIM_AGENT_FEATURE_FLAGS.simpleExampleQuestions;
+  const parameterizedBaseQuestion =
+    QUESTION_CATALOG[parameterizedQuestionIndex] ??
+    QUESTION_CATALOG[DEFAULT_PARAMETERIZED_QUESTION_INDEX];
+  const parameterizedQuestions = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat("tr-TR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    return datesInRange(parameterizedStartDate, parameterizedEndDate).flatMap(
+      (date) => {
+        const dateLabel = `${formatter.format(date)} tarihinde`;
+        return parameterizedScores.map((score) => ({
+          category: parameterizedBaseQuestion.category,
+          prompt: parameterizedPrompt(
+            parameterizedBaseQuestion.prompt,
+            dateLabel,
+            score,
+          ),
+        }));
+      },
+    );
+  }, [
+    parameterizedBaseQuestion,
+    parameterizedEndDate,
+    parameterizedScores,
+    parameterizedStartDate,
+  ]);
+  const activeSuiteQuestions =
+    suiteMode === "catalog" ? QUESTION_CATALOG : parameterizedQuestions;
+  const panelQuestions = mode === "pro" ? activeSuiteQuestions : QUESTION_CATALOG;
+  const suiteStorageKey = useMemo(
+    () =>
+      suiteMode === "catalog"
+        ? "catalog:v2"
+        : [
+            "parameterized:v2",
+            parameterizedQuestionIndex,
+            parameterizedStartDate,
+            parameterizedEndDate,
+            [...parameterizedScores].sort().join(","),
+          ].join(":"),
+    [
+      parameterizedEndDate,
+      parameterizedQuestionIndex,
+      parameterizedScores,
+      parameterizedStartDate,
+      suiteMode,
+    ],
+  );
 
   useEffect(() => {
-    const rawMode = searchParams.get("mode");
-    if (rawMode === "simple" || rawMode === "pro") return;
-    const query = withAgentViewMode(searchParams, "simple");
-    router.replace(`${pathname}?${query}`, { scroll: false });
-  }, [pathname, router, searchParams]);
+    try {
+      const rawPreferences = window.localStorage.getItem(SUITE_PREFERENCES_KEY);
+      if (rawPreferences) {
+        const preferences = JSON.parse(
+          rawPreferences,
+        ) as Partial<PersistedSuitePreferences>;
+        if (preferences.mode === "catalog" || preferences.mode === "parameterized") {
+          setSuiteMode(preferences.mode);
+        }
+        if (
+          Number.isInteger(preferences.questionIndex) &&
+          Number(preferences.questionIndex) >= 0 &&
+          Number(preferences.questionIndex) < QUESTION_CATALOG.length
+        ) {
+          setParameterizedQuestionIndex(Number(preferences.questionIndex));
+        }
+        if (typeof preferences.startDate === "string") {
+          setParameterizedStartDate(preferences.startDate);
+        }
+        if (typeof preferences.endDate === "string") {
+          setParameterizedEndDate(preferences.endDate);
+        }
+        if (Array.isArray(preferences.scores)) {
+          const scores = preferences.scores.filter(
+            (score): score is number =>
+              typeof score === "number" && [1, 2, 3, 4].includes(score),
+          );
+          if (scores.length > 0) {
+            setParameterizedScores(Array.from(new Set(scores)).sort());
+          }
+        }
+      }
+    } catch {
+      // Corrupted preferences fall back to safe defaults.
+    } finally {
+      setSuitePreferencesHydrated(true);
+    }
+  }, []);
 
-  const setMode = (nextMode: AgentViewMode) => {
-    const query = withAgentViewMode(searchParams, nextMode);
-    router.replace(`${pathname}?${query}`, { scroll: false });
-  };
+  useEffect(() => {
+    if (!suitePreferencesHydrated) return;
+    try {
+      window.localStorage.setItem(
+        SUITE_PREFERENCES_KEY,
+        JSON.stringify({
+          mode: suiteMode,
+          questionIndex: parameterizedQuestionIndex,
+          startDate: parameterizedStartDate,
+          endDate: parameterizedEndDate,
+          scores: parameterizedScores,
+        } satisfies PersistedSuitePreferences),
+      );
+    } catch {
+      // The suite remains usable when browser preference storage is unavailable.
+    }
+  }, [
+    parameterizedEndDate,
+    parameterizedQuestionIndex,
+    parameterizedScores,
+    parameterizedStartDate,
+    suiteMode,
+    suitePreferencesHydrated,
+  ]);
+
+  useEffect(() => {
+    if (!suitePreferencesHydrated) return;
+    let active = true;
+    suiteStorageReadyKeyRef.current = undefined;
+    setSuiteStorageReady(false);
+    setSuiteResults({});
+    viewingSuiteResultRef.current = undefined;
+    liveSuiteMessageRef.current = undefined;
+    setViewingSuiteResultIndex(undefined);
+    setLiveSuiteIndex(undefined);
+
+    void loadSuiteSnapshot<Record<number, SuiteResult>>(suiteStorageKey)
+      .then((snapshot) => {
+        if (!active) return;
+        const completedResults = Object.fromEntries(
+          Object.entries(snapshot ?? {}).filter(
+            ([, result]) => result.status === "passed" || result.status === "failed",
+          ),
+        ) as Record<number, SuiteResult>;
+        suiteStorageReadyKeyRef.current = suiteStorageKey;
+        setSuiteResults(completedResults);
+        setSuiteStorageReady(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        suiteStorageReadyKeyRef.current = suiteStorageKey;
+        setSuiteStorageReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [suitePreferencesHydrated, suiteStorageKey]);
+
+  useEffect(() => {
+    if (suiteStorageReadyKeyRef.current !== suiteStorageKey) return;
+    if (Object.values(suiteResults).some((result) => result.status === "running")) {
+      return;
+    }
+    const completedResults = Object.fromEntries(
+      Object.entries(suiteResults).filter(
+        ([, result]) => result.status === "passed" || result.status === "failed",
+      ),
+    ) as Record<number, SuiteResult>;
+    suiteSaveQueueRef.current = suiteSaveQueueRef.current
+      .catch(() => undefined)
+      .then(() => saveSuiteSnapshot(suiteStorageKey, completedResults));
+  }, [suiteResults, suiteStorageKey]);
+
+  useEffect(() => {
+    setMode(proModeAvailable ? "pro" : "simple");
+  }, [proModeAvailable]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -276,7 +529,7 @@ export default function IsYatirimAnalyticsAgentPage() {
   };
 
   const invokeSuiteQuestion = async (catalogIndex: number) => {
-    const question = QUESTION_CATALOG[catalogIndex];
+    const question = activeSuiteQuestions[catalogIndex];
     const controller = new AbortController();
     suiteAbortRef.current = controller;
     const startedAt = performance.now();
@@ -285,8 +538,14 @@ export default function IsYatirimAnalyticsAgentPage() {
     let accumulated = "";
     let sequence = 0;
     let firstTokenSeen = false;
+    liveSuiteMessageRef.current = {
+      catalogIndex,
+      userMessageId,
+      assistantMessageId,
+      accumulated,
+    };
+    setLiveSuiteIndex(catalogIndex);
 
-    setQuestionsOpen(false);
     setError("");
     setStatus("connecting");
     setTraceEntries([]);
@@ -295,10 +554,12 @@ export default function IsYatirimAnalyticsAgentPage() {
     setRequestDurationMs(undefined);
     setHttpStatus(undefined);
     setTerminalEvent(undefined);
-    setMessages([
-      { id: userMessageId, role: "user", content: question.prompt },
-      { id: assistantMessageId, role: "assistant", content: "" },
-    ]);
+    if (viewingSuiteResultRef.current === undefined) {
+      setMessages([
+        { id: userMessageId, role: "user", content: question.prompt },
+        { id: assistantMessageId, role: "assistant", content: "" },
+      ]);
+    }
     setSuiteResults((current) => ({
       ...current,
       [catalogIndex]: { status: "running" },
@@ -350,18 +611,33 @@ export default function IsYatirimAnalyticsAgentPage() {
                 setFirstTokenMs(elapsedMs);
               }
               accumulated += streamEvent.content;
-              updateAssistant(assistantMessageId, accumulated);
+              if (liveSuiteMessageRef.current?.catalogIndex === catalogIndex) {
+                liveSuiteMessageRef.current.accumulated = accumulated;
+              }
+              if (viewingSuiteResultRef.current === undefined) {
+                updateAssistant(assistantMessageId, accumulated);
+              }
               setStatus("streaming");
               break;
             case "done":
               accumulated = streamEvent.response || accumulated;
-              updateAssistant(assistantMessageId, accumulated);
+              if (liveSuiteMessageRef.current?.catalogIndex === catalogIndex) {
+                liveSuiteMessageRef.current.accumulated = accumulated;
+              }
+              if (viewingSuiteResultRef.current === undefined) {
+                updateAssistant(assistantMessageId, accumulated);
+              }
               setTerminalEvent(streamEvent);
               setRequestDurationMs(elapsedMs);
               setStatus("complete");
               break;
             case "error":
-              updateAssistant(assistantMessageId, streamEvent.message);
+              if (liveSuiteMessageRef.current?.catalogIndex === catalogIndex) {
+                liveSuiteMessageRef.current.accumulated = streamEvent.message;
+              }
+              if (viewingSuiteResultRef.current === undefined) {
+                updateAssistant(assistantMessageId, streamEvent.message);
+              }
               setRequestDurationMs(elapsedMs);
               setStatus("error");
               break;
@@ -389,7 +665,12 @@ export default function IsYatirimAnalyticsAgentPage() {
         : caught instanceof Error
           ? caught.message
           : "Senaryo tamamlanamadı.";
-      updateAssistant(assistantMessageId, message);
+      if (liveSuiteMessageRef.current?.catalogIndex === catalogIndex) {
+        liveSuiteMessageRef.current.accumulated = message;
+      }
+      if (viewingSuiteResultRef.current === undefined) {
+        updateAssistant(assistantMessageId, message);
+      }
       setRequestDurationMs(Math.round(performance.now() - startedAt));
       setStatus(wasStopped ? "cancelled" : "error");
       setSuiteResults((current) => ({
@@ -406,7 +687,10 @@ export default function IsYatirimAnalyticsAgentPage() {
   };
 
   const runSingleSuiteQuestion = async (catalogIndex: number) => {
-    if (suiteRunning) return;
+    if (suiteRunning || !suiteStorageReady) return;
+    if (suiteMode === "parameterized") setParameterizedConfigOpen(false);
+    viewingSuiteResultRef.current = undefined;
+    setViewingSuiteResultIndex(undefined);
     suiteStopRef.current = false;
     setSuiteRunning(true);
     try {
@@ -417,15 +701,18 @@ export default function IsYatirimAnalyticsAgentPage() {
   };
 
   const runFullSuite = async () => {
-    if (suiteRunning) return;
+    if (suiteRunning || !suiteStorageReady) return;
+    if (suiteMode === "parameterized") setParameterizedConfigOpen(false);
+    viewingSuiteResultRef.current = undefined;
+    setViewingSuiteResultIndex(undefined);
     suiteStopRef.current = false;
     setSuiteResults({});
     setSuiteRunning(true);
     try {
-      for (let index = 0; index < QUESTION_CATALOG.length; index += 1) {
+      for (let index = 0; index < activeSuiteQuestions.length; index += 1) {
         if (suiteStopRef.current) break;
         await invokeSuiteQuestion(index);
-        if (!suiteStopRef.current && index < QUESTION_CATALOG.length - 1) {
+        if (!suiteStopRef.current && index < activeSuiteQuestions.length - 1) {
           await new Promise((resolve) => window.setTimeout(resolve, 5_000));
         }
       }
@@ -440,25 +727,53 @@ export default function IsYatirimAnalyticsAgentPage() {
   };
 
   const showSuiteResponse = (catalogIndex: number) => {
-    const question = QUESTION_CATALOG[catalogIndex];
+    const question = activeSuiteQuestions[catalogIndex];
     const result = suiteResults[catalogIndex];
     if (!question || !result || result.status === "running") return;
 
     const response =
       result.response ?? result.error ?? "Bu senaryo için yanıt içeriği bulunamadı.";
+    viewingSuiteResultRef.current = catalogIndex;
+    setViewingSuiteResultIndex(catalogIndex);
     setMessages([
       { id: crypto.randomUUID(), role: "user", content: question.prompt },
       { id: crypto.randomUUID(), role: "assistant", content: response },
     ]);
-    setStatus(result.status === "passed" ? "complete" : "error");
+    if (!suiteRunning) {
+      setStatus(result.status === "passed" ? "complete" : "error");
+    }
     setError("");
     setQuestionsOpen(false);
+  };
+
+  const returnToLiveSuite = () => {
+    const live = liveSuiteMessageRef.current;
+    if (!live) return;
+    const question = activeSuiteQuestions[live.catalogIndex];
+    if (!question) return;
+    viewingSuiteResultRef.current = undefined;
+    setViewingSuiteResultIndex(undefined);
+    setMessages([
+      { id: live.userMessageId, role: "user", content: question.prompt },
+      {
+        id: live.assistantMessageId,
+        role: "assistant",
+        content: live.accumulated,
+      },
+    ]);
+    setStatus(suiteRunning ? "streaming" : "complete");
+  };
+
+  const selectExampleQuestion = (prompt: string) => {
+    setInput(prompt);
+    setQuestionsOpen(false);
+    window.requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
     const message = input.trim();
-    if (!message || runningRef.current) return;
+    if (!message || runningRef.current || suiteRunning) return;
 
     const controller = new AbortController();
     runningRef.current = true;
@@ -618,6 +933,11 @@ export default function IsYatirimAnalyticsAgentPage() {
 
   return (
     <AnalyticsDashboardPageShell>
+      <div
+        className={`transition-[padding] duration-300 ease-out ${
+          questionsOpen ? "xl:pr-[520px]" : ""
+        }`}
+      >
       <AnalyticsDashboardHeader
         brandLabel="İş Yatırım Agent"
         companies={[{ id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" }]}
@@ -643,24 +963,38 @@ export default function IsYatirimAnalyticsAgentPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 self-start sm:justify-end">
-                {mode === "pro" ? (
+                {viewingSuiteResultIndex !== undefined &&
+                liveSuiteIndex !== undefined &&
+                viewingSuiteResultIndex !== liveSuiteIndex ? (
                   <button
-                    className="inline-flex h-[58px] items-center gap-2 rounded-2xl border border-[#171717]/8 bg-white/75 px-4 font-poppins text-xs font-semibold text-[#171717]/65 transition-colors hover:border-[#0057FF]/25 hover:text-[#0057FF]"
-                    onClick={() => setQuestionsOpen(true)}
+                    className="inline-flex h-[58px] items-center gap-2 rounded-2xl border border-[#00A890]/20 bg-[#00A890]/8 px-4 font-poppins text-xs font-semibold text-[#007D6B] transition-colors hover:bg-[#00A890]/12"
+                    onClick={returnToLiveSuite}
                     type="button"
                   >
-                    <ListFilter className="h-4 w-4" />
-                    Test Suite
+                    <LoaderCircle className={`h-4 w-4 ${suiteRunning ? "animate-spin" : ""}`} />
+                    {suiteRunning ? "Canlı suite’e dön" : "Son case’e dön"}
                   </button>
                 ) : null}
-                <AnalyticsSegmentedToggle
-                  onChange={(value) => setMode(normalizeAgentViewMode(value))}
-                  options={[
-                    { value: "simple", label: "Simple" },
-                    { value: "pro", label: "Pro" },
-                  ]}
-                  value={mode}
-                />
+                {questionsFeatureAvailable ? (
+                <button
+                  className="inline-flex h-[58px] items-center gap-2 rounded-2xl border border-[#171717]/8 bg-white/75 px-4 font-poppins text-xs font-semibold text-[#171717]/65 transition-colors hover:border-[#0057FF]/25 hover:text-[#0057FF]"
+                  onClick={() => setQuestionsOpen(true)}
+                  type="button"
+                >
+                  <ListFilter className="h-4 w-4" />
+                  {mode === "pro" ? "Test Suite" : "Örnek Sorular"}
+                </button>
+                ) : null}
+                {proModeAvailable ? (
+                  <AnalyticsSegmentedToggle
+                    onChange={(value) => setMode(value as AgentViewMode)}
+                    options={[
+                      { value: "simple", label: "Simple" },
+                      { value: "pro", label: "Pro" },
+                    ]}
+                    value={mode}
+                  />
+                ) : null}
                 <div className="flex items-center gap-2 rounded-full border border-[#171717]/10 bg-[#F8F2E7] px-3 py-2 font-poppins text-xs font-semibold text-[#171717]/65">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -686,15 +1020,17 @@ export default function IsYatirimAnalyticsAgentPage() {
                       ? "Test Suite panelinden doğrulanmış senaryoları çalıştırın veya kendi analitik sorunuzu yazın."
                       : "Analitik sorunuzu yazın; yanıt canlı olarak görüntülensin."}
                   </p>
-                  {mode === "pro" ? (
-                    <button
-                      className="mt-7 inline-flex items-center gap-2 rounded-2xl bg-[#171717] px-5 py-3 font-poppins text-xs font-semibold text-white transition-transform hover:-translate-y-0.5"
-                      onClick={() => setQuestionsOpen(true)}
-                      type="button"
-                    >
-                      <ListFilter className="h-4 w-4" />
-                      Test Suite’i aç
-                    </button>
+                  {questionsFeatureAvailable ? (
+                  <button
+                    className="mt-7 inline-flex items-center gap-2 rounded-2xl bg-[#171717] px-5 py-3 font-poppins text-xs font-semibold text-white transition-transform hover:-translate-y-0.5"
+                    onClick={() => setQuestionsOpen(true)}
+                    type="button"
+                  >
+                    <ListFilter className="h-4 w-4" />
+                    {mode === "pro"
+                      ? "Test Suite’i aç"
+                      : "Örnek soruları görüntüle"}
+                  </button>
                   ) : null}
                 </div>
               ) : (
@@ -755,7 +1091,7 @@ export default function IsYatirimAnalyticsAgentPage() {
                 <textarea
                   aria-label="Analitik sorunuzu yazın"
                   className="max-h-40 min-h-12 flex-1 resize-none bg-transparent px-2 py-3 font-poppins text-sm text-[#171717] outline-none placeholder:text-[#171717]/38"
-                  disabled={isRunning}
+                  disabled={isRunning || suiteRunning}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
@@ -764,6 +1100,7 @@ export default function IsYatirimAnalyticsAgentPage() {
                     }
                   }}
                   placeholder="Örn. Bu haftanın en belirgin çalışan deneyimi sinyalleri neler?"
+                  ref={inputRef}
                   rows={1}
                   value={input}
                 />
@@ -780,7 +1117,7 @@ export default function IsYatirimAnalyticsAgentPage() {
                   <button
                     aria-label="Soruyu gönder"
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0057FF] text-white transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!input.trim()}
+                    disabled={!input.trim() || suiteRunning}
                     type="submit"
                   >
                     <Send className="h-5 w-5" />
@@ -807,16 +1144,17 @@ export default function IsYatirimAnalyticsAgentPage() {
           />
         ) : null}
       </AnalyticsDashboardBody>
+      </div>
 
-      {mode === "pro" && questionsOpen ? (
-        <div className="fixed inset-0 z-[100]">
+      {questionsOpen && questionsFeatureAvailable ? (
+        <div className="pointer-events-none fixed inset-0 z-[100]">
           <button
             aria-label="Hazır sorular panelini kapat"
-            className="absolute inset-0 bg-[#171717]/30 backdrop-blur-[2px]"
+            className="pointer-events-auto absolute inset-0 bg-[#171717]/30 backdrop-blur-[2px] xl:hidden"
             onClick={() => setQuestionsOpen(false)}
             type="button"
           />
-          <aside className="absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col border-l border-[#171717]/10 bg-[#F8F2E7] shadow-[-28px_0_80px_rgba(23,23,23,0.18)]">
+          <aside className="pointer-events-auto absolute inset-y-0 right-0 flex w-full max-w-[520px] flex-col border-l border-[#171717]/10 bg-[#F8F2E7] shadow-[-28px_0_80px_rgba(23,23,23,0.18)]">
             <div className="border-b border-[#171717]/10 bg-white/70 px-5 py-5 backdrop-blur-xl sm:px-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -824,10 +1162,12 @@ export default function IsYatirimAnalyticsAgentPage() {
                     İş Yatırım Agent
                   </p>
                   <h2 className="mt-1 font-righteous text-3xl text-[#171717]">
-                    Test Suite
+                    {mode === "pro" ? "Test Suite" : "Örnek Sorular"}
                   </h2>
                   <p className="mt-1 font-poppins text-xs text-[#171717]/50">
-                    Canlı AgentCore kabul kataloğu
+                    {mode === "pro"
+                      ? "Canlı AgentCore kabul kataloğu"
+                      : "Bir soruyu seçerek sohbet alanına aktarın"}
                   </p>
                 </div>
                 <button
@@ -840,12 +1180,177 @@ export default function IsYatirimAnalyticsAgentPage() {
                 </button>
               </div>
 
+              {mode === "pro" ? (
+                <>
+              <div className="mt-5 grid grid-cols-2 rounded-2xl border border-[#171717]/8 bg-[#F3EAD7] p-1.5">
+                {([
+                  ["catalog", "Standart"],
+                  ["parameterized", "Parametrik"],
+                ] as const).map(([value, label]) => (
+                  <button
+                    className={`rounded-xl px-3 py-2.5 font-poppins text-[11px] font-semibold transition-colors ${
+                      suiteMode === value
+                        ? "bg-[#171717] text-white shadow-sm"
+                        : "text-[#171717]/50 hover:bg-white"
+                    }`}
+                    disabled={suiteRunning}
+                    key={value}
+                    onClick={() => {
+                      setSuiteMode(value);
+                      if (value === "parameterized") {
+                        setParameterizedConfigOpen(true);
+                      }
+                    }}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {suiteMode === "parameterized" ? (
+                <button
+                  className="mt-4 flex h-11 w-full items-center gap-2 rounded-2xl border border-[#0057FF]/12 bg-[#0057FF]/5 px-4 font-poppins text-[11px] font-semibold text-[#171717]/65"
+                  onClick={() => setParameterizedConfigOpen((current) => !current)}
+                  type="button"
+                >
+                  <SlidersHorizontal className="h-4 w-4 text-[#0057FF]" />
+                  Parametreler
+                  <span className="ml-auto font-mono text-[10px] text-[#0057FF]">
+                    {parameterizedQuestions.length} case
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${parameterizedConfigOpen ? "rotate-180" : ""}`} />
+                </button>
+              ) : null}
+
+              {suiteMode === "parameterized" && parameterizedConfigOpen ? (
+                <div className="mt-4 space-y-3 rounded-[20px] border border-[#0057FF]/12 bg-[#0057FF]/5 p-4">
+                  <label className="block">
+                    <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                      Baz soru · tüm katalog
+                    </span>
+                    <select
+                      className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-poppins text-[11px] text-[#171717] outline-none focus:border-[#0057FF]/30"
+                      disabled={suiteRunning}
+                      onChange={(event) =>
+                        setParameterizedQuestionIndex(Number(event.target.value))
+                      }
+                      value={parameterizedQuestionIndex}
+                    >
+                      {(
+                        ["daily", "weekly", "combined", "comment"] as const
+                      ).map((category) => (
+                        <optgroup
+                          key={category}
+                          label={QUESTION_CATEGORY_LABELS[category]}
+                        >
+                          {QUESTION_CATALOG.map((question, index) =>
+                            question.category === category ? (
+                              <option key={question.prompt} value={index}>
+                                {String(index + 1).padStart(2, "0")} · {question.prompt}
+                              </option>
+                            ) : null,
+                          )}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="rounded-xl border border-[#0057FF]/10 bg-white/80 px-3 py-2.5">
+                    <p className="font-poppins text-[9px] font-semibold uppercase tracking-[0.14em] text-[#0057FF]">
+                      Seçili kabul sorusu
+                    </p>
+                    <p className="mt-1 font-poppins text-[10px] leading-4 text-[#171717]/58">
+                      {parameterizedBaseQuestion.prompt}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label>
+                      <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                        Başlangıç
+                      </span>
+                      <input
+                        className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-mono text-[10px] text-[#171717] outline-none focus:border-[#0057FF]/30"
+                        disabled={suiteRunning}
+                        onChange={(event) => setParameterizedStartDate(event.target.value)}
+                        type="date"
+                        value={parameterizedStartDate}
+                      />
+                    </label>
+                    <label>
+                      <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                        Bitiş
+                      </span>
+                      <input
+                        className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-mono text-[10px] text-[#171717] outline-none focus:border-[#0057FF]/30"
+                        disabled={suiteRunning}
+                        onChange={(event) => setParameterizedEndDate(event.target.value)}
+                        type="date"
+                        value={parameterizedEndDate}
+                      />
+                    </label>
+                  </div>
+
+                  <div>
+                    <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                      Mood score spectrum
+                    </span>
+                    <div className="mt-1.5 grid grid-cols-4 gap-2">
+                      {[1, 2, 3, 4].map((score) => {
+                        const selected = parameterizedScores.includes(score);
+                        return (
+                          <button
+                            className={`h-9 rounded-xl font-mono text-xs font-semibold transition-colors ${
+                              selected
+                                ? "bg-[#0057FF] text-white"
+                                : "border border-[#171717]/10 bg-white text-[#171717]/40"
+                            }`}
+                            disabled={suiteRunning}
+                            key={score}
+                            onClick={() =>
+                              setParameterizedScores((current) =>
+                                selected
+                                  ? current.length === 1
+                                    ? current
+                                    : current.filter((value) => value !== score)
+                                  : [...current, score].sort(),
+                              )
+                            }
+                            type="button"
+                          >
+                            {score}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 rounded-xl bg-white/80 px-3 py-2 font-poppins text-[10px] text-[#171717]/50">
+                    <div className="flex justify-between">
+                      <span>En fazla 31 günlük aralık</span>
+                      <strong className="text-[#0057FF]">
+                        {parameterizedQuestions.length} senaryo
+                      </strong>
+                    </div>
+                    <div className="flex items-center gap-1.5 border-t border-[#171717]/6 pt-2 text-[#007D6B]">
+                      <Database className="h-3.5 w-3.5" />
+                      <span>
+                        {suiteStorageReady
+                          ? "Cevaplar bu cihazda kalıcı saklanıyor"
+                          : "Kayıtlı cevaplar yükleniyor"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="mt-5">
                 <div className="flex items-center justify-between font-mono text-[10px] text-[#171717]/50">
                   <span>
                     {Object.values(suiteResults).filter(
                       (result) => result.status === "passed" || result.status === "failed",
-                    ).length} / {QUESTION_CATALOG.length}
+                    ).length} / {activeSuiteQuestions.length}
                   </span>
                   <span>
                     {Object.values(suiteResults).filter(
@@ -862,11 +1367,17 @@ export default function IsYatirimAnalyticsAgentPage() {
                           (result) =>
                             result.status === "passed" || result.status === "failed",
                         ).length /
-                          QUESTION_CATALOG.length) *
+                          Math.max(activeSuiteQuestions.length, 1)) *
                         100
                       }%`,
                     }}
                   />
+                </div>
+                <div className="mt-2 flex items-center gap-1.5 font-poppins text-[9px] text-[#007D6B]">
+                  <Database className="h-3 w-3" />
+                  {suiteStorageReady
+                    ? "Tamamlanan cevaplar refresh sonrası korunur"
+                    : "Kayıtlı cevaplar yükleniyor"}
                 </div>
                 {suiteRunning ? (
                   <button
@@ -880,16 +1391,21 @@ export default function IsYatirimAnalyticsAgentPage() {
                 ) : (
                   <button
                     className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#171717] font-poppins text-xs font-semibold text-white transition-transform hover:-translate-y-0.5"
+                    disabled={
+                      activeSuiteQuestions.length === 0 || !suiteStorageReady
+                    }
                     onClick={() => void runFullSuite()}
                     type="button"
                   >
                     <Play className="h-4 w-4 fill-current" />
-                    Full Suite · {QUESTION_CATALOG.length} senaryo
+                    Full Suite · {activeSuiteQuestions.length} senaryo
                   </button>
                 )}
               </div>
+                </>
+              ) : null}
 
-              <div className="relative mt-5">
+              <div className={`relative ${mode === "pro" ? "mt-5" : "mt-6"}`}>
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#171717]/35" />
                 <input
                   aria-label="Hazır sorularda ara"
@@ -901,6 +1417,7 @@ export default function IsYatirimAnalyticsAgentPage() {
                 />
               </div>
 
+              {mode === "simple" || suiteMode === "catalog" ? (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {QUESTION_FILTERS.map((filter) => (
                   <button
@@ -917,10 +1434,19 @@ export default function IsYatirimAnalyticsAgentPage() {
                   </button>
                 ))}
               </div>
+              ) : null}
             </div>
 
             <div className="flex-1 space-y-2 overflow-y-auto p-4 sm:p-5">
-              {QUESTION_CATALOG.map((question, catalogIndex) => ({
+              <div className="sticky top-0 z-10 flex items-center justify-between bg-[#F8F2E7]/95 pb-2 backdrop-blur-sm">
+                <p className="font-poppins text-[9px] font-semibold uppercase tracking-[0.18em] text-[#171717]/45">
+                  {mode === "pro" ? "Case sonuçları" : "Soru kataloğu"}
+                </p>
+                <span className="font-mono text-[9px] text-[#171717]/35">
+                  {panelQuestions.length} soru
+                </span>
+              </div>
+              {panelQuestions.map((question, catalogIndex) => ({
                 question,
                 catalogIndex,
               })).filter(({ question }) => {
@@ -932,10 +1458,21 @@ export default function IsYatirimAnalyticsAgentPage() {
                 return (
                 <button
                   className="group flex w-full gap-3 rounded-[20px] border border-[#171717]/8 bg-white/80 p-4 text-left transition-all hover:-translate-x-1 hover:border-[#0057FF]/25 hover:shadow-md disabled:cursor-wait disabled:hover:translate-x-0"
-                  disabled={suiteRunning && result?.status !== "passed" && result?.status !== "failed"}
+                  disabled={
+                    mode === "pro" &&
+                    (!suiteStorageReady ||
+                      (suiteRunning &&
+                        result?.status !== "passed" &&
+                        result?.status !== "failed"))
+                  }
                   key={`${question.category}-${question.prompt}`}
                   onClick={() => {
-                    if (result?.status === "passed" || result?.status === "failed") {
+                    if (mode === "simple") {
+                      selectExampleQuestion(question.prompt);
+                    } else if (
+                      result?.status === "passed" ||
+                      result?.status === "failed"
+                    ) {
                       showSuiteResponse(catalogIndex);
                     } else {
                       void runSingleSuiteQuestion(catalogIndex);
@@ -946,23 +1483,35 @@ export default function IsYatirimAnalyticsAgentPage() {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0057FF]/8 font-mono text-[10px] font-semibold text-[#0057FF]">
                     {String(catalogIndex + 1).padStart(2, "0")}
                   </span>
-                  <span className="min-w-0">
+                  <span className="min-w-0 flex-1">
                     <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#0057FF]/65">
                       {QUESTION_CATEGORY_LABELS[question.category]}
                     </span>
                     <span className="mt-1 block font-poppins text-xs font-medium leading-5 text-[#171717]/70 group-hover:text-[#171717]">
                       {question.prompt}
                     </span>
-                    {result?.error ? (
-                      <span className="mt-1 block truncate font-poppins text-[10px] text-[#FC7700]">
+                    {mode === "pro" && result?.error ? (
+                      <span className="mt-2 block line-clamp-2 font-poppins text-[10px] leading-4 text-[#FC7700]">
                         {result.error}
                       </span>
-                    ) : result?.durationMs ? (
-                      <span className="mt-1 block font-mono text-[9px] text-[#171717]/35">
+                    ) : null}
+                    {mode === "pro" && result?.response ? (
+                      <span className="mt-2 block line-clamp-3 border-l-2 border-[#00A890]/25 pl-2 font-poppins text-[10px] leading-4 text-[#171717]/52">
+                        {result.response}
+                      </span>
+                    ) : null}
+                    {mode === "pro" && result?.durationMs ? (
+                      <span className="mt-2 flex items-center gap-2 font-mono text-[9px] text-[#171717]/35">
                         {result.durationMs} ms
+                        {result.status !== "running" ? (
+                          <span className="font-poppins font-semibold text-[#0057FF]">
+                            · Tam cevabı aç
+                          </span>
+                        ) : null}
                       </span>
                     ) : null}
                   </span>
+                  {mode === "pro" ? (
                   <span className="ml-auto mt-1 shrink-0">
                     {result?.status === "running" ? (
                       <LoaderCircle className="h-4 w-4 animate-spin text-[#0057FF]" />
@@ -974,6 +1523,14 @@ export default function IsYatirimAnalyticsAgentPage() {
                       <Circle className="h-4 w-4 text-[#171717]/20" />
                     )}
                   </span>
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="ml-auto mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#0057FF]/12 bg-[#0057FF]/6 text-[#0057FF] transition-colors group-hover:bg-[#0057FF] group-hover:text-white"
+                    >
+                      <Send className="h-4 w-4" />
+                    </span>
+                  )}
                 </button>
                 );
               })}

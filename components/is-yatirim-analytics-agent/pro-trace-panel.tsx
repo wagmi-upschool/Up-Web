@@ -36,17 +36,6 @@ const STEP_LABELS: Array<[keyof AgentObservability["steps"], string, string]> = 
   ["runtimeOverheadMs", "Runtime overhead", "#64748B"],
 ];
 
-function eventLabel(event: AgentStreamEvent) {
-  switch (event.type) {
-    case "meta": return "Correlation metadata";
-    case "status": return "AgentCore başladı";
-    case "delta": return `Token parçası · ${event.content.length} karakter`;
-    case "heartbeat": return "Heartbeat";
-    case "done": return "Final yanıt ve trace";
-    case "error": return `${event.code} hatası`;
-  }
-}
-
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -108,6 +97,38 @@ export default function ProTracePanel({
     1,
     observability?.totalDurationMs ?? requestDurationMs ?? 1,
   );
+  const streamStart = entries[0];
+  const streamEnd = [...entries]
+    .reverse()
+    .find((entry) => entry.event.type === "done" || entry.event.type === "error");
+  const timelineEntries = streamStart
+    ? [
+        {
+          key: "start",
+          label: "Stream başladı",
+          elapsedMs: streamStart.elapsedMs,
+          detail: `#${streamStart.sequence} · start`,
+          tone: "bg-[#0057FF]",
+        },
+        ...(streamEnd && streamEnd.sequence !== streamStart.sequence
+          ? [
+              {
+                key: "end",
+                label:
+                  streamEnd.event.type === "error"
+                    ? "Stream hatayla sonlandı"
+                    : "Stream tamamlandı",
+                elapsedMs: streamEnd.elapsedMs,
+                detail: `#${streamEnd.sequence} · ${streamEnd.event.type}`,
+                tone:
+                  streamEnd.event.type === "error"
+                    ? "bg-[#FC7700]"
+                    : "bg-[#00A890]",
+              },
+            ]
+          : []),
+      ]
+    : [];
 
   return (
     <div className="mt-6 space-y-6">
@@ -137,23 +158,34 @@ export default function ProTracePanel({
       <div className="grid gap-6 xl:grid-cols-2">
         <AnalyticsCard>
           <AnalyticsSubheading dotColor="#00A890">Event timeline</AnalyticsSubheading>
-          {entries.length ? (
-            <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
-              {entries.map((entry, index) => (
-                <div className="flex items-start gap-3 rounded-2xl border border-[#171717]/7 bg-white/65 px-4 py-3" key={`${entry.sequence}-${entry.elapsedMs}-${index}`}>
-                  <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${entry.event.type === "error" ? "bg-[#FC7700]" : entry.event.type === "done" ? "bg-[#00A890]" : "bg-[#0057FF]"}`} />
+          {timelineEntries.length ? (
+            <div className="space-y-2">
+              {timelineEntries.map((entry) => (
+                <div
+                  className="flex items-start gap-3 rounded-2xl border border-[#171717]/7 bg-white/65 px-4 py-3"
+                  key={entry.key}
+                >
+                  <span
+                    className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${entry.tone}`}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between gap-3">
-                      <p className="truncate font-poppins text-xs font-semibold text-[#171717]">{eventLabel(entry.event)}</p>
+                      <p className="truncate font-poppins text-xs font-semibold text-[#171717]">
+                        {entry.label}
+                      </p>
                       <span className="shrink-0 font-mono text-[10px] text-[#171717]/45">+{entry.elapsedMs} ms</span>
                     </div>
-                    <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-[#171717]/38">#{entry.sequence} · {entry.event.type}</p>
+                    <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-[#171717]/38">
+                      {entry.detail}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="font-poppins text-sm text-[#171717]/50">Bir mesaj gönderildiğinde event’ler geliş sırasıyla burada görünür.</p>
+            <p className="font-poppins text-sm text-[#171717]/50">
+              Bir mesaj gönderildiğinde stream başlangıcı ve bitişi burada görünür.
+            </p>
           )}
         </AnalyticsCard>
 
