@@ -897,7 +897,6 @@ export default function IsYatirimAnalyticsAgentPage() {
     return (
       <AnalyticsDashboardPageShell>
         <AnalyticsDashboardHeader
-          brandLabel="Talk to Your Culture Data"
           companies={[{ id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" }]}
           dashboardLabel=""
           isUpdating={false}
@@ -909,6 +908,7 @@ export default function IsYatirimAnalyticsAgentPage() {
             width: 220,
           }}
           selectedCompany="is-yatirim"
+          showBrandTitle={false}
         />
         <AnalyticsDashboardBody>
           <AnalyticsCard className="py-20">
@@ -945,7 +945,6 @@ export default function IsYatirimAnalyticsAgentPage() {
         }`}
       >
       <AnalyticsDashboardHeader
-        brandLabel="Talk to Your Culture Data"
         companies={[{ id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" }]}
         dashboardLabel=""
         isUpdating={false}
@@ -957,6 +956,7 @@ export default function IsYatirimAnalyticsAgentPage() {
           width: 220,
         }}
         selectedCompany="is-yatirim"
+        showBrandTitle={false}
       />
       <AnalyticsDashboardBody>
         <AnalyticsSectionHeading>Yapay zekâ destekli analiz</AnalyticsSectionHeading>
@@ -967,7 +967,7 @@ export default function IsYatirimAnalyticsAgentPage() {
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-[#0057FF]" />
                   <h1 className="font-righteous text-2xl text-[#171717] sm:text-3xl">
-                    İş Yatırım Agent
+                    Pulse Agent
                   </h1>
                 </div>
                 <p className="mt-2 font-poppins text-sm text-[#171717]/60">
@@ -1167,7 +1167,7 @@ export default function IsYatirimAnalyticsAgentPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-poppins text-[10px] font-semibold uppercase tracking-[0.2em] text-[#0057FF]">
-                    İş Yatırım Agent
+                    Pulse Agent
                   </p>
                   <h2 className="mt-1 font-righteous text-3xl text-[#171717]">
                     {mode === "pro" ? "Test Suite" : "Örnek Sorular"}

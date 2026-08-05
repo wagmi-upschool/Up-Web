@@ -45,6 +45,7 @@ export function AnalyticsDashboardHeader({
   dashboardLabel = "CEO Dashboard",
   brandLabel,
   partnerLogo,
+  showBrandTitle = true,
 }: {
   companies: Array<{ id: string; slug: string; label: string }>;
   selectedCompany: string;
@@ -52,6 +53,7 @@ export function AnalyticsDashboardHeader({
   isUpdating: boolean;
   dashboardLabel?: string;
   brandLabel?: string;
+  showBrandTitle?: boolean;
   partnerLogo?: {
     alt: string;
     height: number;
@@ -107,28 +109,30 @@ export function AnalyticsDashboardHeader({
                   <Sparkles className="h-3.5 w-3.5" />
                   UP Pulse
                 </div>
-                <div>
-                  <div className="flex flex-col gap-1 md:flex-row md:items-end md:gap-6">
-                    {brandLabel ? (
-                      <p className="font-righteous text-[2rem] leading-none text-[#171717] sm:text-[3rem] lg:text-[3.6rem]">
-                        {brandLabel}
-                      </p>
-                    ) : (
-                      <Image
-                        src="/eczacibasi.png"
-                        alt="Eczacıbaşı"
-                        width={400}
-                        height={120}
-                        className="h-[2.7rem] w-auto sm:h-[4.35rem] lg:h-[4.95rem]"
-                      />
-                    )}
-                    {dashboardLabel ? (
-                      <p className="pb-1 font-righteous text-[1.22rem] leading-none tracking-[0.06em] text-[#171717] [text-shadow:0.55px_0_0_currentColor,-0.55px_0_0_currentColor] sm:text-[1.85rem] lg:pb-2 lg:text-[2.45rem]">
-                        {dashboardLabel}
-                      </p>
-                    ) : null}
+                {showBrandTitle ? (
+                  <div>
+                    <div className="flex flex-col gap-1 md:flex-row md:items-end md:gap-6">
+                      {brandLabel ? (
+                        <p className="font-righteous text-[2rem] leading-none text-[#171717] sm:text-[3rem] lg:text-[3.6rem]">
+                          {brandLabel}
+                        </p>
+                      ) : (
+                        <Image
+                          src="/eczacibasi.png"
+                          alt="Eczacıbaşı"
+                          width={400}
+                          height={120}
+                          className="h-[2.7rem] w-auto sm:h-[4.35rem] lg:h-[4.95rem]"
+                        />
+                      )}
+                      {dashboardLabel ? (
+                        <p className="pb-1 font-righteous text-[1.22rem] leading-none tracking-[0.06em] text-[#171717] [text-shadow:0.55px_0_0_currentColor,-0.55px_0_0_currentColor] sm:text-[1.85rem] lg:pb-2 lg:text-[2.45rem]">
+                          {dashboardLabel}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
             </div>
             {isUpdating ? (
