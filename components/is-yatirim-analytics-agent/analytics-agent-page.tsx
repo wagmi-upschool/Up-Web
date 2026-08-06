@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Circle,
   CircleStop,
+  Copy,
   Database,
   ListFilter,
   LoaderCircle,
@@ -32,6 +33,7 @@ import {
 import ProTracePanel, {
   type AgentTraceEntry,
 } from "@/components/is-yatirim-analytics-agent/pro-trace-panel";
+import DbExplorer from "@/components/is-yatirim-analytics-agent/db-explorer";
 import {
   consumeAgentNdjsonStream,
   type AgentStreamEvent,
@@ -43,6 +45,7 @@ import {
   saveSuiteSnapshot,
 } from "@/lib/isYatirimSuiteStorage";
 import { IS_YATIRIM_AGENT_FEATURE_FLAGS } from "@/lib/isYatirimAgentFeatureFlags";
+import type { AgentDbSuiteSelection } from "@/lib/isYatirimAgentDb";
 
 type UiStatus =
   | "idle"
@@ -78,6 +81,12 @@ type LiveSuiteMessage = {
 
 type QuestionCategory = "daily" | "weekly" | "combined" | "comment";
 type SuiteMode = "catalog" | "parameterized";
+type ProWorkspace = "agent" | "database";
+type SuiteQuestion = {
+  category: QuestionCategory;
+  prompt: string;
+  dbFilter?: AgentDbSuiteSelection["filter"];
+};
 
 type PersistedSuitePreferences = {
   mode: SuiteMode;
@@ -88,7 +97,7 @@ type PersistedSuitePreferences = {
 };
 
 const SUITE_PREFERENCES_KEY = "is-yatirim-agent:suite-preferences:v2";
-const DEFAULT_PARAMETERIZED_QUESTION_INDEX = 23;
+const DEFAULT_PARAMETERIZED_QUESTION_INDEX = 31;
 
 function dateInputValue(date: Date) {
   const year = date.getFullYear();
@@ -134,57 +143,233 @@ function parameterizedPrompt(
   return `${dateLabel} ve ruh hali ${moodScore} filtresiyle "${basePrompt}" sorusunu yanıtla. Sorudaki göreli tarih ve ruh hali ifadeleri yerine bu parametreleri kullan.`;
 }
 
-const QUESTION_CATALOG: Array<{
-  category: QuestionCategory;
-  prompt: string;
-}> = [
+const QUESTION_CATALOG: SuiteQuestion[] = [
   { category: "daily", prompt: "Bugünkü genel ruh hali nasıl?" },
   { category: "daily", prompt: "En güncel ankette katılım oranı nedir?" },
-  { category: "daily", prompt: "17 Temmuz 2026 tarihinde mood dağılımı nasıldı?" },
-  { category: "daily", prompt: "6–19 Temmuz 2026 arasında ruh hali nasıl değişti?" },
+  {
+    category: "daily",
+    prompt: "17 Temmuz 2026 tarihinde mood dağılımı nasıldı?",
+  },
+  {
+    category: "daily",
+    prompt: "6–19 Temmuz 2026 arasında ruh hali nasıl değişti?",
+  },
   { category: "daily", prompt: "Düşük ruh hali oranı nedir?" },
   { category: "daily", prompt: "Mood skoru önceki güne göre arttı mı?" },
-  { category: "daily", prompt: "En sık tekrarlanan aggregate kelimeler neler?" },
+  {
+    category: "daily",
+    prompt: "En sık tekrarlanan aggregate kelimeler neler?",
+  },
   { category: "daily", prompt: "Yönetim segmentinin son günlük sonucu nasıl?" },
-  { category: "daily", prompt: "İç Sistemler segmentinin bu haftaki günlük trendini göster." },
-  { category: "daily", prompt: "Segmentler arasında mood karşılaştırması yap." },
+  {
+    category: "daily",
+    prompt: "İç Sistemler segmentinin bu haftaki günlük trendini göster.",
+  },
+  {
+    category: "daily",
+    prompt: "Segmentler arasında mood karşılaştırması yap.",
+  },
+  {
+    category: "daily",
+    prompt:
+      "Son 3 günün ortalama duygu durumuna baktığımızda en düşük ortalamaya sahip ekip hangisi?",
+  },
+  {
+    category: "daily",
+    prompt: "Son 5 iş gününde ortalama mood'u en düşük GMY ekibi hangisi?",
+  },
+  {
+    category: "daily",
+    prompt:
+      "Günlük ankette son bir haftada en yüksek katılım oranı hangi ekipte?",
+  },
+  {
+    category: "daily",
+    prompt: "Son 1 ay katılım oranı en yüksek ekip hangi GMY?",
+  },
+  {
+    category: "daily",
+    prompt:
+      "Geçtiğimiz hafta günlük ankette ortalama duygu durumu en düşük olan kıdem grubu hangisi?",
+  },
+  {
+    category: "daily",
+    prompt: "Son 30 günde ortalama mood'u en yüksek yaş grubu hangisi?",
+  },
   { category: "weekly", prompt: "Geçen haftanın pulse sonucu nasıldı?" },
-  { category: "weekly", prompt: "Geçen haftanın katılımı önceki haftaya göre değişti mi?" },
+  {
+    category: "weekly",
+    prompt: "Geçen haftanın katılımı önceki haftaya göre değişti mi?",
+  },
   { category: "weekly", prompt: "Son dört haftalık katılım trendi nedir?" },
   { category: "weekly", prompt: "Son dört haftada hangi temalar öne çıktı?" },
-  { category: "weekly", prompt: "Geçen hafta çalışanların en çok deneyimlediği tema hangisiydi?" },
-  { category: "weekly", prompt: "Geçen hafta en çok deneyimlenmek istenen tema neydi?" },
-  { category: "weekly", prompt: "Geçen hafta beklenti ile deneyim arasındaki en büyük fark hangisiydi?" },
-  { category: "weekly", prompt: "Geçen haftanın takdir göstergesi önceki haftaya göre nasıl değişti?" },
+  {
+    category: "weekly",
+    prompt: "Geçen hafta çalışanların en çok deneyimlediği tema hangisiydi?",
+  },
+  {
+    category: "weekly",
+    prompt: "Geçen hafta en çok deneyimlenmek istenen tema neydi?",
+  },
+  {
+    category: "weekly",
+    prompt:
+      "Geçen hafta beklenti ile deneyim arasındaki en büyük fark hangisiydi?",
+  },
+  {
+    category: "weekly",
+    prompt:
+      "Geçen haftanın takdir göstergesi önceki haftaya göre nasıl değişti?",
+  },
+  {
+    category: "weekly",
+    prompt:
+      "Geçen haftaki haftalık ankette en düşük takdir gören ekip hangi GMY?",
+  },
+  {
+    category: "weekly",
+    prompt: "Geçen hafta yöneticisinden en az takdir gören GMY ekibi hangisi?",
+  },
   { category: "weekly", prompt: "13 Temmuz 2026 haftasının sonucunu özetle." },
-  { category: "weekly", prompt: "Yönetim segmentinin geçen haftaki pulse sonucunu yorumla." },
-  { category: "combined", prompt: "Günlük mood ile geçen haftaki pulse sonucunu karşılaştır." },
-  { category: "combined", prompt: "Katılım düşerken haftalık beklenti farklarında değişiklik olmuş mu?" },
-  { category: "combined", prompt: "Son günlük ruh hali ile son dört haftalık pulse trendi uyumlu mu?" },
-  { category: "comment", prompt: "Dün ruh hali 1 olanların tüm yorumlarını paylaş." },
-  { category: "comment", prompt: "GMY Burak Kınalılar'ın ekibinde duygu durumu 2'nin altında olan çalışanların konuştuğu konu başlıkları nedir?" },
-  { category: "comment", prompt: "GMY Evren Arslan'a bağlı çalışanların en çok bahsettiği kelimeler neler?" },
-  { category: "comment", prompt: "GMY Fatih Mehmet Yılmaz'ın ekibinde son 1 ayda mobbing ile ilgili kaç yorum var?" },
-  { category: "comment", prompt: "Duygu durumu 3'ün altında olan tüm çalışanların en sık kullandığı 10 kelime nedir?" },
-  { category: "comment", prompt: "Duygu durumu 1-2 arasında olan çalışanlar hangi konulardan şikayetçi?" },
-  { category: "comment", prompt: "Skoru 4 ve üzeri olan çalışanların hangi konularda takdir ifade ettiğini gösterir misin?" },
-  { category: "comment", prompt: "Mobbing konu başlığı altında geçen yorumların hangi departmanlarda yoğunlaştığını göster." },
-  { category: "comment", prompt: "Takdir ile ilgili yorumların GMY bazında dağılımı nedir?" },
-  { category: "comment", prompt: "Tükenmişlik ile ilgili en çok geçen kelimeler hangileri?" },
-  { category: "comment", prompt: "Son 30 günde 'yönetici' kelimesi kaç kez geçmiş?" },
-  { category: "comment", prompt: "En az 5 kez tekrar eden kelimeler hangileri, hangi GMY'lerde yoğunlaşıyor?" },
-  { category: "comment", prompt: "Hangi konu başlığı bu ay en çok tekrar etmiş (top 3)?" },
+  {
+    category: "weekly",
+    prompt: "Yönetim segmentinin geçen haftaki pulse sonucunu yorumla.",
+  },
+  {
+    category: "combined",
+    prompt: "Günlük mood ile geçen haftaki pulse sonucunu karşılaştır.",
+  },
+  {
+    category: "combined",
+    prompt:
+      "Katılım düşerken haftalık beklenti farklarında değişiklik olmuş mu?",
+  },
+  {
+    category: "combined",
+    prompt: "Son günlük ruh hali ile son dört haftalık pulse trendi uyumlu mu?",
+  },
+  {
+    category: "comment",
+    prompt: "Dün ruh hali 1 olanların tüm yorumlarını paylaş.",
+  },
+  {
+    category: "comment",
+    prompt:
+      "GMY Burak Kınalılar'ın ekibinde duygu durumu 2'nin altında olan çalışanların konuştuğu konu başlıkları nedir?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "GMY Evren Arslan'a bağlı çalışanların en çok bahsettiği kelimeler neler?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "GMY Fatih Mehmet Yılmaz'ın ekibinde son 1 ayda mobbing ile ilgili kaç yorum var?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Duygu durumu 3'ün altında olan tüm çalışanların en sık kullandığı 10 kelime nedir?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Duygu durumu 1-2 arasında olan çalışanlar hangi konulardan şikayetçi?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Skoru 4 ve üzeri olan çalışanların hangi konularda takdir ifade ettiğini gösterir misin?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Mobbing konu başlığı altında geçen yorumların hangi departmanlarda yoğunlaştığını göster.",
+  },
+  {
+    category: "comment",
+    prompt: "Takdir ile ilgili yorumların GMY bazında dağılımı nedir?",
+  },
+  {
+    category: "comment",
+    prompt: "Tükenmişlik ile ilgili en çok geçen kelimeler hangileri?",
+  },
+  {
+    category: "comment",
+    prompt: "Son 30 günde 'yönetici' kelimesi kaç kez geçmiş?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "En az 5 kez tekrar eden kelimeler hangileri, hangi GMY'lerde yoğunlaşıyor?",
+  },
+  {
+    category: "comment",
+    prompt: "Hangi konu başlığı bu ay en çok tekrar etmiş (top 3)?",
+  },
   { category: "comment", prompt: "Takdir ile ilgili en kısa yorumu getir." },
   { category: "comment", prompt: "En uzun yorumu getir." },
   { category: "comment", prompt: "En iyi yorumu getir." },
   { category: "comment", prompt: "Bu haftanın en kötü yorumunu getir." },
+  { category: "comment", prompt: "Müdürlerden gelen en kötü yorum hangisi?" },
+  { category: "comment", prompt: "Uzmanlardan gelen en kötü yorum hangisi?" },
+  {
+    category: "comment",
+    prompt: "Son iki haftada mobbing ya da benzeri bir konuda yorum gelmiş mi?",
+  },
   { category: "comment", prompt: "Mobbing ile ilgili risk sinyali var mı?" },
   { category: "comment", prompt: "Benimle ilgili yorumları getir." },
-  { category: "comment", prompt: "GMY Murat Kural'ın ekibinde duygu durumu 2'nin altında olup mobbing ile ilgili konuşan çalışan sayısı kaç?" },
-  { category: "comment", prompt: "GMY Pınar Özyüksel'in ekibinde takdir konu başlığı altında en sık geçen kelimeler neler, kaç kez tekrar etmiş?" },
-  { category: "comment", prompt: "Tüm GMY'ler arasında duygu durumu en düşük olan ekipte hangi konu başlıkları öne çıkıyor?" },
-  { category: "comment", prompt: "Son 2 haftada GMY Serhat Devecioğlu'nun ekibinde duygu durumu düşüşü yaşayan çalışanların konu başlıkları neler?" },
-  { category: "comment", prompt: "Bu çeyrekte mobbing konu başlığının GMY bazında trendi nasıl değişmiş?" },
+  {
+    category: "comment",
+    prompt:
+      "GMY Murat Kural'ın ekibinde duygu durumu 2'nin altında olup mobbing ile ilgili konuşan çalışan sayısı kaç?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "GMY Pınar Özyüksel'in ekibinde takdir konu başlığı altında en sık geçen kelimeler neler, kaç kez tekrar etmiş?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Tüm GMY'ler arasında duygu durumu en düşük olan ekipte hangi konu başlıkları öne çıkıyor?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Son 2 haftada GMY Serhat Devecioğlu'nun ekibinde duygu durumu düşüşü yaşayan çalışanların konu başlıkları neler?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Bu çeyrekte mobbing konu başlığının GMY bazında trendi nasıl değişmiş?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Geçtiğimiz 30 günde bir yöneticinin yanlış davranışını gösteren yorum var mı?",
+  },
+  {
+    category: "comment",
+    prompt: "Son 30 günde hakaret ile ilgili yorum gelmiş mi?",
+  },
+  { category: "comment", prompt: "Dün gelen en kötü yorum hangisi?" },
+  { category: "comment", prompt: "Son 30 günde gelen en kötü yorum hangisi?" },
+  {
+    category: "comment",
+    prompt: "Son bir ayda baskı ya da benzeri bir konuda yorum gelmiş mi?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Geçen hafta müdür unvanındaki çalışanlardan gelen en kötü yorum hangisi?",
+  },
+  {
+    category: "comment",
+    prompt:
+      "Geçen hafta uzman unvanındaki çalışanlardan gelen en kötü yorum hangisi?",
+  },
 ];
 
 const QUESTION_FILTERS: Array<{
@@ -220,7 +405,8 @@ function streamErrorMessage(status: number, payload: unknown) {
     const message = record.error?.message || record.message;
     if (typeof message === "string") return message;
   }
-  if (status === 401) return "Oturum doğrulanamadı. Lütfen yeniden giriş yapın.";
+  if (status === 401)
+    return "Oturum doğrulanamadı. Lütfen yeniden giriş yapın.";
   if (status === 403) return "Bu analitik asistana erişim yetkiniz bulunmuyor.";
   return "Analitik asistan isteği başlatılamadı.";
 }
@@ -231,6 +417,9 @@ export default function IsYatirimAnalyticsAgentPage() {
   const [mode, setMode] = useState<AgentViewMode>(() =>
     proModeAvailable ? "pro" : "simple",
   );
+  const [proWorkspace, setProWorkspace] = useState<ProWorkspace>("agent");
+  const [dbSuiteSelection, setDbSuiteSelection] =
+    useState<AgentDbSuiteSelection>();
   const [accessStatus, setAccessStatus] = useState<AccessStatus>("checking");
   const [input, setInput] = useState("");
   const [questionFilter, setQuestionFilter] = useState<
@@ -263,6 +452,7 @@ export default function IsYatirimAnalyticsAgentPage() {
     useState<number>();
   const [liveSuiteIndex, setLiveSuiteIndex] = useState<number>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [status, setStatus] = useState<UiStatus>("idle");
   const [error, setError] = useState("");
   const [conversationId, setConversationId] = useState<string>();
@@ -272,9 +462,8 @@ export default function IsYatirimAnalyticsAgentPage() {
   const [firstTokenMs, setFirstTokenMs] = useState<number>();
   const [requestDurationMs, setRequestDurationMs] = useState<number>();
   const [httpStatus, setHttpStatus] = useState<number>();
-  const [terminalEvent, setTerminalEvent] = useState<
-    Extract<AgentStreamEvent, { type: "done" }>
-  >();
+  const [terminalEvent, setTerminalEvent] =
+    useState<Extract<AgentStreamEvent, { type: "done" }>>();
   const abortRef = useRef<AbortController | null>(null);
   const runningRef = useRef(false);
   const suiteAbortRef = useRef<AbortController | null>(null);
@@ -288,8 +477,7 @@ export default function IsYatirimAnalyticsAgentPage() {
 
   const isRunning = status === "connecting" || status === "streaming";
   const questionsFeatureAvailable =
-    mode === "pro" ||
-    IS_YATIRIM_AGENT_FEATURE_FLAGS.simpleExampleQuestions;
+    mode === "pro" || IS_YATIRIM_AGENT_FEATURE_FLAGS.simpleExampleQuestions;
   const parameterizedBaseQuestion =
     QUESTION_CATALOG[parameterizedQuestionIndex] ??
     QUESTION_CATALOG[DEFAULT_PARAMETERIZED_QUESTION_INDEX];
@@ -302,6 +490,7 @@ export default function IsYatirimAnalyticsAgentPage() {
     });
     return datesInRange(parameterizedStartDate, parameterizedEndDate).flatMap(
       (date) => {
+        const dateValue = dateInputValue(date);
         const dateLabel = `${formatter.format(date)} tarihinde`;
         return parameterizedScores.map((score) => ({
           category: parameterizedBaseQuestion.category,
@@ -310,6 +499,11 @@ export default function IsYatirimAnalyticsAgentPage() {
             dateLabel,
             score,
           ),
+          dbFilter: {
+            startDate: dateValue,
+            endDate: dateValue,
+            moodScores: [score],
+          },
         }));
       },
     );
@@ -321,7 +515,8 @@ export default function IsYatirimAnalyticsAgentPage() {
   ]);
   const activeSuiteQuestions =
     suiteMode === "catalog" ? QUESTION_CATALOG : parameterizedQuestions;
-  const panelQuestions = mode === "pro" ? activeSuiteQuestions : QUESTION_CATALOG;
+  const panelQuestions =
+    mode === "pro" ? activeSuiteQuestions : QUESTION_CATALOG;
   const suiteStorageKey = useMemo(
     () =>
       suiteMode === "catalog"
@@ -349,7 +544,10 @@ export default function IsYatirimAnalyticsAgentPage() {
         const preferences = JSON.parse(
           rawPreferences,
         ) as Partial<PersistedSuitePreferences>;
-        if (preferences.mode === "catalog" || preferences.mode === "parameterized") {
+        if (
+          preferences.mode === "catalog" ||
+          preferences.mode === "parameterized"
+        ) {
           setSuiteMode(preferences.mode);
         }
         if (
@@ -423,7 +621,8 @@ export default function IsYatirimAnalyticsAgentPage() {
         if (!active) return;
         const completedResults = Object.fromEntries(
           Object.entries(snapshot ?? {}).filter(
-            ([, result]) => result.status === "passed" || result.status === "failed",
+            ([, result]) =>
+              result.status === "passed" || result.status === "failed",
           ),
         ) as Record<number, SuiteResult>;
         suiteStorageReadyKeyRef.current = suiteStorageKey;
@@ -443,12 +642,15 @@ export default function IsYatirimAnalyticsAgentPage() {
 
   useEffect(() => {
     if (suiteStorageReadyKeyRef.current !== suiteStorageKey) return;
-    if (Object.values(suiteResults).some((result) => result.status === "running")) {
+    if (
+      Object.values(suiteResults).some((result) => result.status === "running")
+    ) {
       return;
     }
     const completedResults = Object.fromEntries(
       Object.entries(suiteResults).filter(
-        ([, result]) => result.status === "passed" || result.status === "failed",
+        ([, result]) =>
+          result.status === "passed" || result.status === "failed",
       ),
     ) as Record<number, SuiteResult>;
     suiteSaveQueueRef.current = suiteSaveQueueRef.current
@@ -475,7 +677,10 @@ export default function IsYatirimAnalyticsAgentPage() {
   );
 
   useEffect(() => {
-    if (mode === "simple") setQuestionsOpen(false);
+    if (mode === "simple") {
+      setQuestionsOpen(false);
+      setProWorkspace("agent");
+    }
   }, [mode]);
 
   useEffect(() => {
@@ -732,7 +937,9 @@ export default function IsYatirimAnalyticsAgentPage() {
     if (!question || !result || result.status === "running") return;
 
     const response =
-      result.response ?? result.error ?? "Bu senaryo için yanıt içeriği bulunamadı.";
+      result.response ??
+      result.error ??
+      "Bu senaryo için yanıt içeriği bulunamadı.";
     viewingSuiteResultRef.current = catalogIndex;
     setViewingSuiteResultIndex(catalogIndex);
     setMessages([
@@ -743,7 +950,13 @@ export default function IsYatirimAnalyticsAgentPage() {
       setStatus(result.status === "passed" ? "complete" : "error");
     }
     setError("");
-    setQuestionsOpen(false);
+    setDbSuiteSelection({
+      id: `${suiteStorageKey}:${catalogIndex}`,
+      prompt: question.prompt,
+      response,
+      filter: question.dbFilter,
+    });
+    setProWorkspace("database");
   };
 
   const returnToLiveSuite = () => {
@@ -762,6 +975,7 @@ export default function IsYatirimAnalyticsAgentPage() {
       },
     ]);
     setStatus(suiteRunning ? "streaming" : "complete");
+    setProWorkspace("agent");
   };
 
   const selectExampleQuestion = (prompt: string) => {
@@ -893,11 +1107,29 @@ export default function IsYatirimAnalyticsAgentPage() {
     }
   };
 
+  const copyAssistantOutput = async (message: ChatMessage) => {
+    if (!message.content) return;
+
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      window.setTimeout(() => {
+        setCopiedMessageId((current) =>
+          current === message.id ? undefined : current,
+        );
+      }, 2000);
+    } catch {
+      setError("Yanıt panoya kopyalanamadı.");
+    }
+  };
+
   if (accessStatus !== "allowed") {
     return (
       <AnalyticsDashboardPageShell>
         <AnalyticsDashboardHeader
-          companies={[{ id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" }]}
+          companies={[
+            { id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" },
+          ]}
           dashboardLabel=""
           isUpdating={false}
           onCompanySelect={() => undefined}
@@ -944,214 +1176,283 @@ export default function IsYatirimAnalyticsAgentPage() {
           questionsOpen ? "xl:pr-[520px]" : ""
         }`}
       >
-      <AnalyticsDashboardHeader
-        companies={[{ id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" }]}
-        dashboardLabel=""
-        isUpdating={false}
-        onCompanySelect={() => undefined}
-        partnerLogo={{
-          alt: "İş Yatırım",
-          height: 80,
-          src: "/is-yatirim-logo.png",
-          width: 220,
-        }}
-        selectedCompany="is-yatirim"
-        showBrandTitle={false}
-      />
-      <AnalyticsDashboardBody>
-        <AnalyticsSectionHeading>Yapay zekâ destekli analiz</AnalyticsSectionHeading>
-        <AnalyticsCard className="min-h-[680px]">
-          <div className="flex min-h-[630px] flex-col">
-            <div className="flex flex-col gap-3 border-b border-[#171717]/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-[#0057FF]" />
-                  <h1 className="font-righteous text-2xl text-[#171717] sm:text-3xl">
-                    Pulse Agent
-                  </h1>
-                </div>
-                <p className="mt-2 font-poppins text-sm text-[#171717]/60">
-                  Günlük, haftalık ve yorum analizlerini doğal dille sorgulayın.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 self-start sm:justify-end">
-                {viewingSuiteResultIndex !== undefined &&
-                liveSuiteIndex !== undefined &&
-                viewingSuiteResultIndex !== liveSuiteIndex ? (
-                  <button
-                    className="inline-flex h-[58px] items-center gap-2 rounded-2xl border border-[#00A890]/20 bg-[#00A890]/8 px-4 font-poppins text-xs font-semibold text-[#007D6B] transition-colors hover:bg-[#00A890]/12"
-                    onClick={returnToLiveSuite}
-                    type="button"
-                  >
-                    <LoaderCircle className={`h-4 w-4 ${suiteRunning ? "animate-spin" : ""}`} />
-                    {suiteRunning ? "Canlı suite’e dön" : "Son case’e dön"}
-                  </button>
-                ) : null}
-                {questionsFeatureAvailable ? (
-                <button
-                  className="inline-flex h-[58px] items-center gap-2 rounded-2xl border border-[#171717]/8 bg-white/75 px-4 font-poppins text-xs font-semibold text-[#171717]/65 transition-colors hover:border-[#0057FF]/25 hover:text-[#0057FF]"
-                  onClick={() => setQuestionsOpen(true)}
-                  type="button"
-                >
-                  <ListFilter className="h-4 w-4" />
-                  {mode === "pro" ? "Test Suite" : "Örnek Sorular"}
-                </button>
-                ) : null}
-                {proModeAvailable ? (
-                  <AnalyticsSegmentedToggle
-                    onChange={(value) => setMode(value as AgentViewMode)}
-                    options={[
-                      { value: "simple", label: "Simple" },
-                      { value: "pro", label: "Pro" },
-                    ]}
-                    value={mode}
-                  />
-                ) : null}
-                <div className="flex items-center gap-2 rounded-full border border-[#171717]/10 bg-[#F8F2E7] px-3 py-2 font-poppins text-xs font-semibold text-[#171717]/65">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${
-                      isRunning ? "animate-pulse bg-[#0057FF]" : status === "error" ? "bg-[#FC7700]" : "bg-[#00A890]"
-                    }`}
-                  />
-                  {STATUS_LABELS[status]}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-5 overflow-y-auto py-6">
-              {messages.length === 0 ? (
-                <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center py-12 text-center">
-                  <div className="mb-5 rounded-[28px] bg-[#0057FF]/10 p-5 text-[#0057FF]">
-                    <Bot className="h-9 w-9" />
+        <AnalyticsDashboardHeader
+          companies={[
+            { id: "is-yatirim", slug: "is-yatirim", label: "İş Yatırım" },
+          ]}
+          dashboardLabel=""
+          isUpdating={false}
+          onCompanySelect={() => undefined}
+          partnerLogo={{
+            alt: "İş Yatırım",
+            height: 80,
+            src: "/is-yatirim-logo.png",
+            width: 220,
+          }}
+          selectedCompany="is-yatirim"
+          showBrandTitle={false}
+        />
+        <AnalyticsDashboardBody>
+          <AnalyticsSectionHeading>
+            Yapay zekâ destekli analiz
+          </AnalyticsSectionHeading>
+          <AnalyticsCard className="min-h-[680px]">
+            <div className="flex min-h-[630px] flex-col">
+              <div className="flex flex-col gap-3 border-b border-[#171717]/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    {mode === "pro" && proWorkspace === "database" ? (
+                      <Database className="h-5 w-5 text-[#0057FF]" />
+                    ) : (
+                      <Sparkles className="h-5 w-5 text-[#0057FF]" />
+                    )}
+                    <h1 className="font-righteous text-2xl text-[#171717] sm:text-3xl">
+                      {mode === "pro" && proWorkspace === "database"
+                        ? "DB Explorer"
+                        : "Pulse Agent"}
+                    </h1>
                   </div>
-                  <h2 className="font-righteous text-3xl text-[#171717]">
-                    Veriyi birlikte yorumlayalım
-                  </h2>
-                  <p className="mt-3 max-w-lg font-poppins text-sm leading-6 text-[#171717]/60">
-                    {mode === "pro"
-                      ? "Test Suite panelinden doğrulanmış senaryoları çalıştırın veya kendi analitik sorunuzu yazın."
-                      : "Analitik sorunuzu yazın; yanıt canlı olarak görüntülensin."}
+                  <p className="mt-2 font-poppins text-sm text-[#171717]/60">
+                    {mode === "pro" && proWorkspace === "database"
+                      ? "Browser-local FeedbackSurvey kayıtlarını filtreleyip suite cevaplarını doğrulayın."
+                      : "Günlük, haftalık ve yorum analizlerini doğal dille sorgulayın."}
                   </p>
-                  {questionsFeatureAvailable ? (
-                  <button
-                    className="mt-7 inline-flex items-center gap-2 rounded-2xl bg-[#171717] px-5 py-3 font-poppins text-xs font-semibold text-white transition-transform hover:-translate-y-0.5"
-                    onClick={() => setQuestionsOpen(true)}
-                    type="button"
-                  >
-                    <ListFilter className="h-4 w-4" />
-                    {mode === "pro"
-                      ? "Test Suite’i aç"
-                      : "Örnek soruları görüntüle"}
-                  </button>
-                  ) : null}
                 </div>
-              ) : (
-                messages.map((message) => (
-                  <div
-                    className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                    key={message.id}
-                  >
-                    {message.role === "assistant" ? (
-                      <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#0057FF]/10 text-[#0057FF]">
-                        <Bot className="h-4 w-4" />
-                      </span>
-                    ) : null}
-                    <div
-                      className={`max-w-[85%] rounded-[24px] px-5 py-4 shadow-sm sm:max-w-[72%] ${
-                        message.role === "user"
-                          ? "bg-[#171717] text-white"
-                          : "border border-[#171717]/8 bg-[#F8F2E7] text-[#171717]"
-                      }`}
+                <div className="flex flex-wrap items-center gap-2 self-start sm:justify-end">
+                  {viewingSuiteResultIndex !== undefined &&
+                  liveSuiteIndex !== undefined &&
+                  viewingSuiteResultIndex !== liveSuiteIndex ? (
+                    <button
+                      className="inline-flex h-[58px] items-center gap-2 rounded-2xl border border-[#00A890]/20 bg-[#00A890]/8 px-4 font-poppins text-xs font-semibold text-[#007D6B] transition-colors hover:bg-[#00A890]/12"
+                      onClick={returnToLiveSuite}
+                      type="button"
                     >
-                      {message.content ? (
-                        <MessageRenderer
-                          content={message.content}
-                          role={message.role === "user" ? "user" : "assistant"}
-                          sender={message.role === "user" ? "user" : "ai"}
-                        />
+                      <LoaderCircle
+                        className={`h-4 w-4 ${suiteRunning ? "animate-spin" : ""}`}
+                      />
+                      {suiteRunning ? "Canlı suite’e dön" : "Son case’e dön"}
+                    </button>
+                  ) : null}
+                  {mode === "pro" ? (
+                    <AnalyticsSegmentedToggle
+                      onChange={(value) =>
+                        setProWorkspace(value as ProWorkspace)
+                      }
+                      options={[
+                        { value: "agent", label: "Agent" },
+                        { value: "database", label: "DB" },
+                      ]}
+                      value={proWorkspace}
+                    />
+                  ) : null}
+                  {questionsFeatureAvailable ? (
+                    <button
+                      className="inline-flex h-[58px] items-center gap-2 rounded-2xl border border-[#171717]/8 bg-white/75 px-4 font-poppins text-xs font-semibold text-[#171717]/65 transition-colors hover:border-[#0057FF]/25 hover:text-[#0057FF]"
+                      onClick={() => setQuestionsOpen(true)}
+                      type="button"
+                    >
+                      <ListFilter className="h-4 w-4" />
+                      {mode === "pro" ? "Test Suite" : "Örnek Sorular"}
+                    </button>
+                  ) : null}
+                  {proModeAvailable ? (
+                    <AnalyticsSegmentedToggle
+                      onChange={(value) => setMode(value as AgentViewMode)}
+                      options={[
+                        { value: "simple", label: "Simple" },
+                        { value: "pro", label: "Pro" },
+                      ]}
+                      value={mode}
+                    />
+                  ) : null}
+                  <div className="flex items-center gap-2 rounded-full border border-[#171717]/10 bg-[#F8F2E7] px-3 py-2 font-poppins text-xs font-semibold text-[#171717]/65">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        isRunning
+                          ? "animate-pulse bg-[#0057FF]"
+                          : status === "error"
+                            ? "bg-[#FC7700]"
+                            : "bg-[#00A890]"
+                      }`}
+                    />
+                    {STATUS_LABELS[status]}
+                  </div>
+                </div>
+              </div>
+
+              {mode === "pro" && proWorkspace === "database" ? (
+                <DbExplorer suiteSelection={dbSuiteSelection} />
+              ) : (
+                <>
+                  <div className="flex-1 space-y-5 overflow-y-auto py-6">
+                    {messages.length === 0 ? (
+                      <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center py-12 text-center">
+                        <div className="mb-5 rounded-[28px] bg-[#0057FF]/10 p-5 text-[#0057FF]">
+                          <Bot className="h-9 w-9" />
+                        </div>
+                        <h2 className="font-righteous text-3xl text-[#171717]">
+                          Veriyi birlikte yorumlayalım
+                        </h2>
+                        <p className="mt-3 max-w-lg font-poppins text-sm leading-6 text-[#171717]/60">
+                          {mode === "pro"
+                            ? "Test Suite panelinden doğrulanmış senaryoları çalıştırın veya kendi analitik sorunuzu yazın."
+                            : "Analitik sorunuzu yazın; yanıt canlı olarak görüntülensin."}
+                        </p>
+                        {questionsFeatureAvailable ? (
+                          <button
+                            className="mt-7 inline-flex items-center gap-2 rounded-2xl bg-[#171717] px-5 py-3 font-poppins text-xs font-semibold text-white transition-transform hover:-translate-y-0.5"
+                            onClick={() => setQuestionsOpen(true)}
+                            type="button"
+                          >
+                            <ListFilter className="h-4 w-4" />
+                            {mode === "pro"
+                              ? "Test Suite’i aç"
+                              : "Örnek soruları görüntüle"}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      messages.map((message) => (
+                        <div
+                          className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                          key={message.id}
+                        >
+                          {message.role === "assistant" ? (
+                            <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#0057FF]/10 text-[#0057FF]">
+                              <Bot className="h-4 w-4" />
+                            </span>
+                          ) : null}
+                          <div
+                            className={`max-w-[85%] rounded-[24px] px-5 py-4 shadow-sm sm:max-w-[72%] ${
+                              message.role === "user"
+                                ? "bg-[#171717] text-white"
+                                : "border border-[#171717]/8 bg-[#F8F2E7] text-[#171717]"
+                            }`}
+                          >
+                            {message.content ? (
+                              <>
+                                <MessageRenderer
+                                  content={message.content}
+                                  role={
+                                    message.role === "user"
+                                      ? "user"
+                                      : "assistant"
+                                  }
+                                  sender={
+                                    message.role === "user" ? "user" : "ai"
+                                  }
+                                />
+                                {message.role === "assistant" ? (
+                                  <div className="mt-3 flex justify-end border-t border-[#171717]/8 pt-2">
+                                    <button
+                                      aria-label="Yanıtı kopyala"
+                                      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-poppins text-xs font-medium text-[#171717]/55 transition-colors hover:bg-white/70 hover:text-[#171717]"
+                                      onClick={() =>
+                                        void copyAssistantOutput(message)
+                                      }
+                                      title="Yanıtı kopyala"
+                                      type="button"
+                                    >
+                                      {copiedMessageId === message.id ? (
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                      ) : (
+                                        <Copy className="h-3.5 w-3.5" />
+                                      )}
+                                      {copiedMessageId === message.id
+                                        ? "Kopyalandı"
+                                        : "Kopyala"}
+                                    </button>
+                                  </div>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 py-1">
+                                {[0, 1, 2].map((dot) => (
+                                  <i
+                                    className="h-2 w-2 animate-bounce rounded-full bg-[#0057FF]/60"
+                                    key={dot}
+                                    style={{ animationDelay: `${dot * 120}ms` }}
+                                  />
+                                ))}
+                              </span>
+                            )}
+                          </div>
+                          {message.role === "user" ? (
+                            <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#171717] text-white">
+                              <UserRound className="h-4 w-4" />
+                            </span>
+                          ) : null}
+                        </div>
+                      ))
+                    )}
+                    <div ref={endRef} />
+                  </div>
+
+                  {error ? (
+                    <div className="mb-4 rounded-2xl border border-[#FC7700]/25 bg-[#FC7700]/10 px-4 py-3 font-poppins text-sm text-[#8B4700]">
+                      {error}
+                    </div>
+                  ) : null}
+
+                  <form
+                    className="border-t border-[#171717]/10 pt-5"
+                    onSubmit={submit}
+                  >
+                    <div className="flex items-end gap-3 rounded-[26px] border border-[#171717]/10 bg-white/80 p-3 shadow-[0_14px_36px_rgba(23,23,23,0.07)] focus-within:border-[#0057FF]/30">
+                      <textarea
+                        aria-label="Analitik sorunuzu yazın"
+                        className="max-h-40 min-h-12 flex-1 resize-none bg-transparent px-2 py-3 font-poppins text-sm text-[#171717] outline-none placeholder:text-[#171717]/38"
+                        disabled={isRunning || suiteRunning}
+                        onChange={(event) => setInput(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            void submit();
+                          }
+                        }}
+                        placeholder="Örn. Bu haftanın en belirgin çalışan deneyimi sinyalleri neler?"
+                        ref={inputRef}
+                        rows={1}
+                        value={input}
+                      />
+                      {isRunning ? (
+                        <button
+                          aria-label="Yanıtı durdur"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FC7700] text-white transition-transform hover:scale-105"
+                          onClick={cancel}
+                          type="button"
+                        >
+                          <CircleStop className="h-5 w-5" />
+                        </button>
                       ) : (
-                        <span className="inline-flex items-center gap-1 py-1">
-                          {[0, 1, 2].map((dot) => (
-                            <i
-                              className="h-2 w-2 animate-bounce rounded-full bg-[#0057FF]/60"
-                              key={dot}
-                              style={{ animationDelay: `${dot * 120}ms` }}
-                            />
-                          ))}
-                        </span>
+                        <button
+                          aria-label="Soruyu gönder"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0057FF] text-white transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={!input.trim() || suiteRunning}
+                          type="submit"
+                        >
+                          <Send className="h-5 w-5" />
+                        </button>
                       )}
                     </div>
-                    {message.role === "user" ? (
-                      <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#171717] text-white">
-                        <UserRound className="h-4 w-4" />
-                      </span>
-                    ) : null}
-                  </div>
-                ))
+                  </form>
+                </>
               )}
-              <div ref={endRef} />
             </div>
-
-            {error ? (
-              <div className="mb-4 rounded-2xl border border-[#FC7700]/25 bg-[#FC7700]/10 px-4 py-3 font-poppins text-sm text-[#8B4700]">
-                {error}
-              </div>
-            ) : null}
-
-            <form className="border-t border-[#171717]/10 pt-5" onSubmit={submit}>
-              <div className="flex items-end gap-3 rounded-[26px] border border-[#171717]/10 bg-white/80 p-3 shadow-[0_14px_36px_rgba(23,23,23,0.07)] focus-within:border-[#0057FF]/30">
-                <textarea
-                  aria-label="Analitik sorunuzu yazın"
-                  className="max-h-40 min-h-12 flex-1 resize-none bg-transparent px-2 py-3 font-poppins text-sm text-[#171717] outline-none placeholder:text-[#171717]/38"
-                  disabled={isRunning || suiteRunning}
-                  onChange={(event) => setInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void submit();
-                    }
-                  }}
-                  placeholder="Örn. Bu haftanın en belirgin çalışan deneyimi sinyalleri neler?"
-                  ref={inputRef}
-                  rows={1}
-                  value={input}
-                />
-                {isRunning ? (
-                  <button
-                    aria-label="Yanıtı durdur"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FC7700] text-white transition-transform hover:scale-105"
-                    onClick={cancel}
-                    type="button"
-                  >
-                    <CircleStop className="h-5 w-5" />
-                  </button>
-                ) : (
-                  <button
-                    aria-label="Soruyu gönder"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0057FF] text-white transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!input.trim() || suiteRunning}
-                    type="submit"
-                  >
-                    <Send className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        </AnalyticsCard>
-        {mode === "pro" ? (
-          <ProTracePanel
-            conversationId={conversationId}
-            entries={traceEntries}
-            firstTokenMs={firstTokenMs}
-            headerLatencyMs={headerLatencyMs}
-            httpStatus={httpStatus}
-            requestDurationMs={requestDurationMs}
-            requestId={requestId}
-            terminalEvent={terminalEvent}
-          />
-        ) : null}
-      </AnalyticsDashboardBody>
+          </AnalyticsCard>
+          {mode === "pro" && proWorkspace === "agent" ? (
+            <ProTracePanel
+              conversationId={conversationId}
+              entries={traceEntries}
+              firstTokenMs={firstTokenMs}
+              headerLatencyMs={headerLatencyMs}
+              httpStatus={httpStatus}
+              requestDurationMs={requestDurationMs}
+              requestId={requestId}
+              terminalEvent={terminalEvent}
+            />
+          ) : null}
+        </AnalyticsDashboardBody>
       </div>
 
       {questionsOpen && questionsFeatureAvailable ? (
@@ -1190,226 +1491,252 @@ export default function IsYatirimAnalyticsAgentPage() {
 
               {mode === "pro" ? (
                 <>
-              <div className="mt-5 grid grid-cols-2 rounded-2xl border border-[#171717]/8 bg-[#F3EAD7] p-1.5">
-                {([
-                  ["catalog", "Standart"],
-                  ["parameterized", "Parametrik"],
-                ] as const).map(([value, label]) => (
-                  <button
-                    className={`rounded-xl px-3 py-2.5 font-poppins text-[11px] font-semibold transition-colors ${
-                      suiteMode === value
-                        ? "bg-[#171717] text-white shadow-sm"
-                        : "text-[#171717]/50 hover:bg-white"
-                    }`}
-                    disabled={suiteRunning}
-                    key={value}
-                    onClick={() => {
-                      setSuiteMode(value);
-                      if (value === "parameterized") {
-                        setParameterizedConfigOpen(true);
-                      }
-                    }}
-                    type="button"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+                  <div className="mt-5 grid grid-cols-2 rounded-2xl border border-[#171717]/8 bg-[#F3EAD7] p-1.5">
+                    {(
+                      [
+                        ["catalog", "Standart"],
+                        ["parameterized", "Parametrik"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        className={`rounded-xl px-3 py-2.5 font-poppins text-[11px] font-semibold transition-colors ${
+                          suiteMode === value
+                            ? "bg-[#171717] text-white shadow-sm"
+                            : "text-[#171717]/50 hover:bg-white"
+                        }`}
+                        disabled={suiteRunning}
+                        key={value}
+                        onClick={() => {
+                          setSuiteMode(value);
+                          if (value === "parameterized") {
+                            setParameterizedConfigOpen(true);
+                          }
+                        }}
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-              {suiteMode === "parameterized" ? (
-                <button
-                  className="mt-4 flex h-11 w-full items-center gap-2 rounded-2xl border border-[#0057FF]/12 bg-[#0057FF]/5 px-4 font-poppins text-[11px] font-semibold text-[#171717]/65"
-                  onClick={() => setParameterizedConfigOpen((current) => !current)}
-                  type="button"
-                >
-                  <SlidersHorizontal className="h-4 w-4 text-[#0057FF]" />
-                  Parametreler
-                  <span className="ml-auto font-mono text-[10px] text-[#0057FF]">
-                    {parameterizedQuestions.length} case
-                  </span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${parameterizedConfigOpen ? "rotate-180" : ""}`} />
-                </button>
-              ) : null}
-
-              {suiteMode === "parameterized" && parameterizedConfigOpen ? (
-                <div className="mt-4 space-y-3 rounded-[20px] border border-[#0057FF]/12 bg-[#0057FF]/5 p-4">
-                  <label className="block">
-                    <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
-                      Baz soru · tüm katalog
-                    </span>
-                    <select
-                      className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-poppins text-[11px] text-[#171717] outline-none focus:border-[#0057FF]/30"
-                      disabled={suiteRunning}
-                      onChange={(event) =>
-                        setParameterizedQuestionIndex(Number(event.target.value))
+                  {suiteMode === "parameterized" ? (
+                    <button
+                      className="mt-4 flex h-11 w-full items-center gap-2 rounded-2xl border border-[#0057FF]/12 bg-[#0057FF]/5 px-4 font-poppins text-[11px] font-semibold text-[#171717]/65"
+                      onClick={() =>
+                        setParameterizedConfigOpen((current) => !current)
                       }
-                      value={parameterizedQuestionIndex}
+                      type="button"
                     >
-                      {(
-                        ["daily", "weekly", "combined", "comment"] as const
-                      ).map((category) => (
-                        <optgroup
-                          key={category}
-                          label={QUESTION_CATEGORY_LABELS[category]}
+                      <SlidersHorizontal className="h-4 w-4 text-[#0057FF]" />
+                      Parametreler
+                      <span className="ml-auto font-mono text-[10px] text-[#0057FF]">
+                        {parameterizedQuestions.length} case
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${parameterizedConfigOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                  ) : null}
+
+                  {suiteMode === "parameterized" && parameterizedConfigOpen ? (
+                    <div className="mt-4 space-y-3 rounded-[20px] border border-[#0057FF]/12 bg-[#0057FF]/5 p-4">
+                      <label className="block">
+                        <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                          Baz soru · tüm katalog
+                        </span>
+                        <select
+                          className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-poppins text-[11px] text-[#171717] outline-none focus:border-[#0057FF]/30"
+                          disabled={suiteRunning}
+                          onChange={(event) =>
+                            setParameterizedQuestionIndex(
+                              Number(event.target.value),
+                            )
+                          }
+                          value={parameterizedQuestionIndex}
                         >
-                          {QUESTION_CATALOG.map((question, index) =>
-                            question.category === category ? (
-                              <option key={question.prompt} value={index}>
-                                {String(index + 1).padStart(2, "0")} · {question.prompt}
-                              </option>
-                            ) : null,
-                          )}
-                        </optgroup>
-                      ))}
-                    </select>
-                  </label>
+                          {(
+                            ["daily", "weekly", "combined", "comment"] as const
+                          ).map((category) => (
+                            <optgroup
+                              key={category}
+                              label={QUESTION_CATEGORY_LABELS[category]}
+                            >
+                              {QUESTION_CATALOG.map((question, index) =>
+                                question.category === category ? (
+                                  <option key={question.prompt} value={index}>
+                                    {String(index + 1).padStart(2, "0")} ·{" "}
+                                    {question.prompt}
+                                  </option>
+                                ) : null,
+                              )}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </label>
 
-                  <div className="rounded-xl border border-[#0057FF]/10 bg-white/80 px-3 py-2.5">
-                    <p className="font-poppins text-[9px] font-semibold uppercase tracking-[0.14em] text-[#0057FF]">
-                      Seçili kabul sorusu
-                    </p>
-                    <p className="mt-1 font-poppins text-[10px] leading-4 text-[#171717]/58">
-                      {parameterizedBaseQuestion.prompt}
-                    </p>
-                  </div>
+                      <div className="rounded-xl border border-[#0057FF]/10 bg-white/80 px-3 py-2.5">
+                        <p className="font-poppins text-[9px] font-semibold uppercase tracking-[0.14em] text-[#0057FF]">
+                          Seçili kabul sorusu
+                        </p>
+                        <p className="mt-1 font-poppins text-[10px] leading-4 text-[#171717]/58">
+                          {parameterizedBaseQuestion.prompt}
+                        </p>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <label>
-                      <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
-                        Başlangıç
-                      </span>
-                      <input
-                        className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-mono text-[10px] text-[#171717] outline-none focus:border-[#0057FF]/30"
-                        disabled={suiteRunning}
-                        onChange={(event) => setParameterizedStartDate(event.target.value)}
-                        type="date"
-                        value={parameterizedStartDate}
-                      />
-                    </label>
-                    <label>
-                      <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
-                        Bitiş
-                      </span>
-                      <input
-                        className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-mono text-[10px] text-[#171717] outline-none focus:border-[#0057FF]/30"
-                        disabled={suiteRunning}
-                        onChange={(event) => setParameterizedEndDate(event.target.value)}
-                        type="date"
-                        value={parameterizedEndDate}
-                      />
-                    </label>
-                  </div>
-
-                  <div>
-                    <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
-                      Mood score spectrum
-                    </span>
-                    <div className="mt-1.5 grid grid-cols-4 gap-2">
-                      {[1, 2, 3, 4].map((score) => {
-                        const selected = parameterizedScores.includes(score);
-                        return (
-                          <button
-                            className={`h-9 rounded-xl font-mono text-xs font-semibold transition-colors ${
-                              selected
-                                ? "bg-[#0057FF] text-white"
-                                : "border border-[#171717]/10 bg-white text-[#171717]/40"
-                            }`}
+                      <div className="grid grid-cols-2 gap-2">
+                        <label>
+                          <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                            Başlangıç
+                          </span>
+                          <input
+                            className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-mono text-[10px] text-[#171717] outline-none focus:border-[#0057FF]/30"
                             disabled={suiteRunning}
-                            key={score}
-                            onClick={() =>
-                              setParameterizedScores((current) =>
-                                selected
-                                  ? current.length === 1
-                                    ? current
-                                    : current.filter((value) => value !== score)
-                                  : [...current, score].sort(),
-                              )
+                            onChange={(event) =>
+                              setParameterizedStartDate(event.target.value)
                             }
-                            type="button"
-                          >
-                            {score}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                            type="date"
+                            value={parameterizedStartDate}
+                          />
+                        </label>
+                        <label>
+                          <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                            Bitiş
+                          </span>
+                          <input
+                            className="mt-1.5 h-10 w-full rounded-xl border border-[#171717]/10 bg-white px-3 font-mono text-[10px] text-[#171717] outline-none focus:border-[#0057FF]/30"
+                            disabled={suiteRunning}
+                            onChange={(event) =>
+                              setParameterizedEndDate(event.target.value)
+                            }
+                            type="date"
+                            value={parameterizedEndDate}
+                          />
+                        </label>
+                      </div>
 
-                  <div className="space-y-2 rounded-xl bg-white/80 px-3 py-2 font-poppins text-[10px] text-[#171717]/50">
-                    <div className="flex justify-between">
-                      <span>En fazla 31 günlük aralık</span>
-                      <strong className="text-[#0057FF]">
-                        {parameterizedQuestions.length} senaryo
-                      </strong>
+                      <div>
+                        <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#171717]/45">
+                          Mood score spectrum
+                        </span>
+                        <div className="mt-1.5 grid grid-cols-4 gap-2">
+                          {[1, 2, 3, 4].map((score) => {
+                            const selected =
+                              parameterizedScores.includes(score);
+                            return (
+                              <button
+                                className={`h-9 rounded-xl font-mono text-xs font-semibold transition-colors ${
+                                  selected
+                                    ? "bg-[#0057FF] text-white"
+                                    : "border border-[#171717]/10 bg-white text-[#171717]/40"
+                                }`}
+                                disabled={suiteRunning}
+                                key={score}
+                                onClick={() =>
+                                  setParameterizedScores((current) =>
+                                    selected
+                                      ? current.length === 1
+                                        ? current
+                                        : current.filter(
+                                            (value) => value !== score,
+                                          )
+                                      : [...current, score].sort(),
+                                  )
+                                }
+                                type="button"
+                              >
+                                {score}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 rounded-xl bg-white/80 px-3 py-2 font-poppins text-[10px] text-[#171717]/50">
+                        <div className="flex justify-between">
+                          <span>En fazla 31 günlük aralık</span>
+                          <strong className="text-[#0057FF]">
+                            {parameterizedQuestions.length} senaryo
+                          </strong>
+                        </div>
+                        <div className="flex items-center gap-1.5 border-t border-[#171717]/6 pt-2 text-[#007D6B]">
+                          <Database className="h-3.5 w-3.5" />
+                          <span>
+                            {suiteStorageReady
+                              ? "Cevaplar bu cihazda kalıcı saklanıyor"
+                              : "Kayıtlı cevaplar yükleniyor"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 border-t border-[#171717]/6 pt-2 text-[#007D6B]">
-                      <Database className="h-3.5 w-3.5" />
+                  ) : null}
+
+                  <div className="mt-5">
+                    <div className="flex items-center justify-between font-mono text-[10px] text-[#171717]/50">
                       <span>
-                        {suiteStorageReady
-                          ? "Cevaplar bu cihazda kalıcı saklanıyor"
-                          : "Kayıtlı cevaplar yükleniyor"}
+                        {
+                          Object.values(suiteResults).filter(
+                            (result) =>
+                              result.status === "passed" ||
+                              result.status === "failed",
+                          ).length
+                        }{" "}
+                        / {activeSuiteQuestions.length}
+                      </span>
+                      <span>
+                        {
+                          Object.values(suiteResults).filter(
+                            (result) => result.status === "passed",
+                          ).length
+                        }{" "}
+                        passed
                       </span>
                     </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#171717]/8">
+                      <div
+                        className="h-full rounded-full bg-[#00A890] transition-[width] duration-300"
+                        style={{
+                          width: `${
+                            (Object.values(suiteResults).filter(
+                              (result) =>
+                                result.status === "passed" ||
+                                result.status === "failed",
+                            ).length /
+                              Math.max(activeSuiteQuestions.length, 1)) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 font-poppins text-[9px] text-[#007D6B]">
+                      <Database className="h-3 w-3" />
+                      {suiteStorageReady
+                        ? "Tamamlanan cevaplar refresh sonrası korunur"
+                        : "Kayıtlı cevaplar yükleniyor"}
+                    </div>
+                    {suiteRunning ? (
+                      <button
+                        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#FC7700]/30 bg-[#FC7700]/10 font-poppins text-xs font-semibold text-[#A14D00]"
+                        onClick={stopSuite}
+                        type="button"
+                      >
+                        <CircleStop className="h-4 w-4" />
+                        Suite’i durdur
+                      </button>
+                    ) : (
+                      <button
+                        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#171717] font-poppins text-xs font-semibold text-white transition-transform hover:-translate-y-0.5"
+                        disabled={
+                          activeSuiteQuestions.length === 0 ||
+                          !suiteStorageReady
+                        }
+                        onClick={() => void runFullSuite()}
+                        type="button"
+                      >
+                        <Play className="h-4 w-4 fill-current" />
+                        Full Suite · {activeSuiteQuestions.length} senaryo
+                      </button>
+                    )}
                   </div>
-                </div>
-              ) : null}
-
-              <div className="mt-5">
-                <div className="flex items-center justify-between font-mono text-[10px] text-[#171717]/50">
-                  <span>
-                    {Object.values(suiteResults).filter(
-                      (result) => result.status === "passed" || result.status === "failed",
-                    ).length} / {activeSuiteQuestions.length}
-                  </span>
-                  <span>
-                    {Object.values(suiteResults).filter(
-                      (result) => result.status === "passed",
-                    ).length} passed
-                  </span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#171717]/8">
-                  <div
-                    className="h-full rounded-full bg-[#00A890] transition-[width] duration-300"
-                    style={{
-                      width: `${
-                        (Object.values(suiteResults).filter(
-                          (result) =>
-                            result.status === "passed" || result.status === "failed",
-                        ).length /
-                          Math.max(activeSuiteQuestions.length, 1)) *
-                        100
-                      }%`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2 flex items-center gap-1.5 font-poppins text-[9px] text-[#007D6B]">
-                  <Database className="h-3 w-3" />
-                  {suiteStorageReady
-                    ? "Tamamlanan cevaplar refresh sonrası korunur"
-                    : "Kayıtlı cevaplar yükleniyor"}
-                </div>
-                {suiteRunning ? (
-                  <button
-                    className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#FC7700]/30 bg-[#FC7700]/10 font-poppins text-xs font-semibold text-[#A14D00]"
-                    onClick={stopSuite}
-                    type="button"
-                  >
-                    <CircleStop className="h-4 w-4" />
-                    Suite’i durdur
-                  </button>
-                ) : (
-                  <button
-                    className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#171717] font-poppins text-xs font-semibold text-white transition-transform hover:-translate-y-0.5"
-                    disabled={
-                      activeSuiteQuestions.length === 0 || !suiteStorageReady
-                    }
-                    onClick={() => void runFullSuite()}
-                    type="button"
-                  >
-                    <Play className="h-4 w-4 fill-current" />
-                    Full Suite · {activeSuiteQuestions.length} senaryo
-                  </button>
-                )}
-              </div>
                 </>
               ) : null}
 
@@ -1426,22 +1753,22 @@ export default function IsYatirimAnalyticsAgentPage() {
               </div>
 
               {mode === "simple" || suiteMode === "catalog" ? (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {QUESTION_FILTERS.map((filter) => (
-                  <button
-                    className={`shrink-0 rounded-full px-3.5 py-2 font-poppins text-[10px] font-semibold transition-colors ${
-                      questionFilter === filter.value
-                        ? "bg-[#171717] text-white"
-                        : "border border-[#171717]/10 bg-white text-[#171717]/55 hover:text-[#0057FF]"
-                    }`}
-                    key={filter.value}
-                    onClick={() => setQuestionFilter(filter.value)}
-                    type="button"
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {QUESTION_FILTERS.map((filter) => (
+                    <button
+                      className={`shrink-0 rounded-full px-3.5 py-2 font-poppins text-[10px] font-semibold transition-colors ${
+                        questionFilter === filter.value
+                          ? "bg-[#171717] text-white"
+                          : "border border-[#171717]/10 bg-white text-[#171717]/55 hover:text-[#0057FF]"
+                      }`}
+                      key={filter.value}
+                      onClick={() => setQuestionFilter(filter.value)}
+                      type="button"
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
               ) : null}
             </div>
 
@@ -1454,94 +1781,101 @@ export default function IsYatirimAnalyticsAgentPage() {
                   {panelQuestions.length} soru
                 </span>
               </div>
-              {panelQuestions.map((question, catalogIndex) => ({
-                question,
-                catalogIndex,
-              })).filter(({ question }) => {
-                const categoryMatches = questionFilter === "all" || question.category === questionFilter;
-                const searchMatches = question.prompt.toLocaleLowerCase("tr-TR").includes(questionSearch.trim().toLocaleLowerCase("tr-TR"));
-                return categoryMatches && searchMatches;
-              }).map(({ question, catalogIndex }) => {
-                const result = suiteResults[catalogIndex];
-                return (
-                <button
-                  className="group flex w-full gap-3 rounded-[20px] border border-[#171717]/8 bg-white/80 p-4 text-left transition-all hover:-translate-x-1 hover:border-[#0057FF]/25 hover:shadow-md disabled:cursor-wait disabled:hover:translate-x-0"
-                  disabled={
-                    mode === "pro" &&
-                    (!suiteStorageReady ||
-                      (suiteRunning &&
-                        result?.status !== "passed" &&
-                        result?.status !== "failed"))
-                  }
-                  key={`${question.category}-${question.prompt}`}
-                  onClick={() => {
-                    if (mode === "simple") {
-                      selectExampleQuestion(question.prompt);
-                    } else if (
-                      result?.status === "passed" ||
-                      result?.status === "failed"
-                    ) {
-                      showSuiteResponse(catalogIndex);
-                    } else {
-                      void runSingleSuiteQuestion(catalogIndex);
-                    }
-                  }}
-                  type="button"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0057FF]/8 font-mono text-[10px] font-semibold text-[#0057FF]">
-                    {String(catalogIndex + 1).padStart(2, "0")}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#0057FF]/65">
-                      {QUESTION_CATEGORY_LABELS[question.category]}
-                    </span>
-                    <span className="mt-1 block font-poppins text-xs font-medium leading-5 text-[#171717]/70 group-hover:text-[#171717]">
-                      {question.prompt}
-                    </span>
-                    {mode === "pro" && result?.error ? (
-                      <span className="mt-2 block line-clamp-2 font-poppins text-[10px] leading-4 text-[#FC7700]">
-                        {result.error}
+              {panelQuestions
+                .map((question, catalogIndex) => ({
+                  question,
+                  catalogIndex,
+                }))
+                .filter(({ question }) => {
+                  const categoryMatches =
+                    questionFilter === "all" ||
+                    question.category === questionFilter;
+                  const searchMatches = question.prompt
+                    .toLocaleLowerCase("tr-TR")
+                    .includes(questionSearch.trim().toLocaleLowerCase("tr-TR"));
+                  return categoryMatches && searchMatches;
+                })
+                .map(({ question, catalogIndex }) => {
+                  const result = suiteResults[catalogIndex];
+                  return (
+                    <button
+                      className="group flex w-full gap-3 rounded-[20px] border border-[#171717]/8 bg-white/80 p-4 text-left transition-all hover:-translate-x-1 hover:border-[#0057FF]/25 hover:shadow-md disabled:cursor-wait disabled:hover:translate-x-0"
+                      disabled={
+                        mode === "pro" &&
+                        (!suiteStorageReady ||
+                          (suiteRunning &&
+                            result?.status !== "passed" &&
+                            result?.status !== "failed"))
+                      }
+                      key={`${question.category}-${question.prompt}`}
+                      onClick={() => {
+                        if (mode === "simple") {
+                          selectExampleQuestion(question.prompt);
+                        } else if (
+                          result?.status === "passed" ||
+                          result?.status === "failed"
+                        ) {
+                          showSuiteResponse(catalogIndex);
+                        } else {
+                          void runSingleSuiteQuestion(catalogIndex);
+                        }
+                      }}
+                      type="button"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0057FF]/8 font-mono text-[10px] font-semibold text-[#0057FF]">
+                        {String(catalogIndex + 1).padStart(2, "0")}
                       </span>
-                    ) : null}
-                    {mode === "pro" && result?.response ? (
-                      <span className="mt-2 block line-clamp-3 border-l-2 border-[#00A890]/25 pl-2 font-poppins text-[10px] leading-4 text-[#171717]/52">
-                        {result.response}
-                      </span>
-                    ) : null}
-                    {mode === "pro" && result?.durationMs ? (
-                      <span className="mt-2 flex items-center gap-2 font-mono text-[9px] text-[#171717]/35">
-                        {result.durationMs} ms
-                        {result.status !== "running" ? (
-                          <span className="font-poppins font-semibold text-[#0057FF]">
-                            · Tam cevabı aç
+                      <span className="min-w-0 flex-1">
+                        <span className="font-poppins text-[9px] font-semibold uppercase tracking-[0.15em] text-[#0057FF]/65">
+                          {QUESTION_CATEGORY_LABELS[question.category]}
+                        </span>
+                        <span className="mt-1 block font-poppins text-xs font-medium leading-5 text-[#171717]/70 group-hover:text-[#171717]">
+                          {question.prompt}
+                        </span>
+                        {mode === "pro" && result?.error ? (
+                          <span className="mt-2 block line-clamp-2 font-poppins text-[10px] leading-4 text-[#FC7700]">
+                            {result.error}
+                          </span>
+                        ) : null}
+                        {mode === "pro" && result?.response ? (
+                          <span className="mt-2 block line-clamp-3 border-l-2 border-[#00A890]/25 pl-2 font-poppins text-[10px] leading-4 text-[#171717]/52">
+                            {result.response}
+                          </span>
+                        ) : null}
+                        {mode === "pro" && result?.durationMs ? (
+                          <span className="mt-2 flex items-center gap-2 font-mono text-[9px] text-[#171717]/35">
+                            {result.durationMs} ms
+                            {result.status !== "running" ? (
+                              <span className="font-poppins font-semibold text-[#0057FF]">
+                                · Tam cevabı aç
+                              </span>
+                            ) : null}
                           </span>
                         ) : null}
                       </span>
-                    ) : null}
-                  </span>
-                  {mode === "pro" ? (
-                  <span className="ml-auto mt-1 shrink-0">
-                    {result?.status === "running" ? (
-                      <LoaderCircle className="h-4 w-4 animate-spin text-[#0057FF]" />
-                    ) : result?.status === "passed" ? (
-                      <CheckCircle2 className="h-4 w-4 text-[#00A890]" />
-                    ) : result?.status === "failed" ? (
-                      <X className="h-4 w-4 text-[#FC7700]" />
-                    ) : (
-                      <Circle className="h-4 w-4 text-[#171717]/20" />
-                    )}
-                  </span>
-                  ) : (
-                    <span
-                      aria-hidden="true"
-                      className="ml-auto mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#0057FF]/12 bg-[#0057FF]/6 text-[#0057FF] transition-colors group-hover:bg-[#0057FF] group-hover:text-white"
-                    >
-                      <Send className="h-4 w-4" />
-                    </span>
-                  )}
-                </button>
-                );
-              })}
+                      {mode === "pro" ? (
+                        <span className="ml-auto mt-1 shrink-0">
+                          {result?.status === "running" ? (
+                            <LoaderCircle className="h-4 w-4 animate-spin text-[#0057FF]" />
+                          ) : result?.status === "passed" ? (
+                            <CheckCircle2 className="h-4 w-4 text-[#00A890]" />
+                          ) : result?.status === "failed" ? (
+                            <X className="h-4 w-4 text-[#FC7700]" />
+                          ) : (
+                            <Circle className="h-4 w-4 text-[#171717]/20" />
+                          )}
+                        </span>
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className="ml-auto mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#0057FF]/12 bg-[#0057FF]/6 text-[#0057FF] transition-colors group-hover:bg-[#0057FF] group-hover:text-white"
+                        >
+                          <Send className="h-4 w-4" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
             </div>
           </aside>
         </div>

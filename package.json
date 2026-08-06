@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:quiz-config": "tsx --test tests/api/quiz/quizConfig.test.ts",
-    "test:is-yatirim-agent": "tsx --test tests/is-yatirim/analyticsAgentAccess.test.ts tests/is-yatirim/analyticsAgentMode.test.ts tests/is-yatirim/analyticsAgentStream.test.ts tests/api/is-yatirim/analyticsAgentRoute.test.ts",
+    "test:is-yatirim-agent": "tsx --test tests/is-yatirim/analyticsAgentAccess.test.ts tests/is-yatirim/analyticsAgentDb.test.ts tests/is-yatirim/analyticsAgentMode.test.ts tests/is-yatirim/analyticsAgentStream.test.ts tests/api/is-yatirim/analyticsAgentRoute.test.ts",
     "amplify:deploy": "npx ampx sandbox",
     "amplify:generate": "npx ampx generate graphql-client-code --format typescript --model-introspection --out ./src/graphql/"
   },

@@ -46,6 +46,7 @@ import {
   formatWeeklyCount,
   formatWeeklyPercent,
   formatWeeklyPp,
+  getLimitedWeeklyFreeTextResponses,
   getIsYatirimWeeklyQuestionModel,
   getMondayForIsoDate,
   isIsYatirimExcludedWeeklyStartDate,
@@ -55,6 +56,8 @@ import {
   type WeeklyDashboardResponse,
   type WeeklyExpectationBalanceItem,
   type WeeklyFeelingBarItem,
+  type WeeklyFreeTextQuestion,
+  type WeeklyFreeTextResponseLimit,
   type WeeklyKpiMetric,
   type WeeklyParticipationSeries,
   type WeeklyRecognitionQuestion,
@@ -91,6 +94,14 @@ const CURRENT_BAR_COLOR = "#0057FF";
 const PREVIOUS_BAR_COLOR = "#A9C2FF";
 const GAP_COLOR = "#B03A3A";
 const SURPLUS_COLOR = "#145AF2";
+const FREE_TEXT_LIMITS: WeeklyFreeTextResponseLimit[] = [10, 20, 30, 40];
+const FREE_TEXT_COLORS = [
+  { background: "#F1F5FF", border: "#A9C2FF", text: "#2456D8" },
+  { background: "#FFF4EA", border: "#F6C79E", text: "#D7651E" },
+  { background: "#F5F0FF", border: "#CDB8FF", text: "#8257E6" },
+  { background: "#EEF8F3", border: "#B9DECB", text: "#45966C" },
+  { background: "#EEF9FA", border: "#B7DFE3", text: "#367E87" },
+] as const;
 
 const SHORT_TURKISH_MONTHS = [
   "Oca",
@@ -138,7 +149,10 @@ type WeekDisplay = {
   isExcluded: boolean;
 };
 
-function formatDisplayValue(value: number | string, kind: "count" | "percent" | "pp" | "text") {
+function formatDisplayValue(
+  value: number | string,
+  kind: "count" | "percent" | "pp" | "text",
+) {
   if (typeof value === "string") {
     return value || "-";
   }
@@ -280,12 +294,18 @@ function getPreviousSurveyWeekStart(weekStart: Date) {
   return addUtcDays(getUtcMonday(weekStart), -7);
 }
 
-function getDisplayPeriodLabel(weekFilter: IsYatirimWeekFilter, fallback?: string) {
+function getDisplayPeriodLabel(
+  weekFilter: IsYatirimWeekFilter,
+  fallback?: string,
+) {
   if (weekFilter.mode === "last_4_weeks") {
     return fallback || getWeekOptionLabel(weekFilter);
   }
 
-  const weekStart = getWeekStartForMode(weekFilter.mode, weekFilter.weekStartDate);
+  const weekStart = getWeekStartForMode(
+    weekFilter.mode,
+    weekFilter.weekStartDate,
+  );
   const display = getWeekDisplay(weekStart);
 
   return `${display.weekCode} · ${display.rangeLabel}`;
@@ -305,11 +325,15 @@ function formatWeekRange(startDate: Date, includeYear = false) {
   return includeYear ? `${range} ${endDate.getUTCFullYear()}` : range;
 }
 
-function getWeekDisplay(startDate: Date, todayDate = getTodayUtcDate()): WeekDisplay {
+function getWeekDisplay(
+  startDate: Date,
+  todayDate = getTodayUtcDate(),
+): WeekDisplay {
   const currentWeekStart = getUtcMonday(todayDate);
   const lastWeekStart = addUtcDays(currentWeekStart, -7);
   const minimumDate =
-    parseUtcIsoDate(IS_YATIRIM_WEEKLY_PICKER_MIN_DATE) || createUtcDate(2026, 4, 20);
+    parseUtcIsoDate(IS_YATIRIM_WEEKLY_PICKER_MIN_DATE) ||
+    createUtcDate(2026, 4, 20);
   const endDate = addUtcDays(startDate, 6);
 
   return {
@@ -334,7 +358,9 @@ function getWeekStartForMode(mode: IsYatirimWeekMode, weekStartDate?: string) {
   }
 
   if (mode === "week" && weekStartDate) {
-    return parseUtcIsoDate(getMondayForIsoDate(weekStartDate)) || currentWeekStart;
+    return (
+      parseUtcIsoDate(getMondayForIsoDate(weekStartDate)) || currentWeekStart
+    );
   }
 
   return currentWeekStart;
@@ -391,14 +417,25 @@ function WeeklyFilterPicker({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [draftMode, setDraftMode] = useState<IsYatirimWeekMode>(weekFilter.mode);
+  const [draftMode, setDraftMode] = useState<IsYatirimWeekMode>(
+    weekFilter.mode,
+  );
   const [draftWeekStartDate, setDraftWeekStartDate] = useState(
     weekFilter.weekStartDate || "",
   );
-  const [isWeekListOpen, setIsWeekListOpen] = useState(weekFilter.mode === "week");
+  const [isWeekListOpen, setIsWeekListOpen] = useState(
+    weekFilter.mode === "week",
+  );
   const [visibleMonth, setVisibleMonth] = useState(() => {
-    const selectedWeek = getWeekStartForMode(weekFilter.mode, weekFilter.weekStartDate);
-    return createUtcDate(selectedWeek.getUTCFullYear(), selectedWeek.getUTCMonth(), 1);
+    const selectedWeek = getWeekStartForMode(
+      weekFilter.mode,
+      weekFilter.weekStartDate,
+    );
+    return createUtcDate(
+      selectedWeek.getUTCFullYear(),
+      selectedWeek.getUTCMonth(),
+      1,
+    );
   });
 
   useEffect(() => {
@@ -409,9 +446,16 @@ function WeeklyFilterPicker({
     setDraftMode(weekFilter.mode);
     setDraftWeekStartDate(weekFilter.weekStartDate || "");
     setIsWeekListOpen(weekFilter.mode === "week");
-    const selectedWeek = getWeekStartForMode(weekFilter.mode, weekFilter.weekStartDate);
+    const selectedWeek = getWeekStartForMode(
+      weekFilter.mode,
+      weekFilter.weekStartDate,
+    );
     setVisibleMonth(
-      createUtcDate(selectedWeek.getUTCFullYear(), selectedWeek.getUTCMonth(), 1),
+      createUtcDate(
+        selectedWeek.getUTCFullYear(),
+        selectedWeek.getUTCMonth(),
+        1,
+      ),
     );
   }, [isOpen, weekFilter.mode, weekFilter.weekStartDate]);
 
@@ -453,7 +497,11 @@ function WeeklyFilterPicker({
     const firstWeekStart = getUtcMonday(firstDayOfMonth);
     const rows: WeekDisplay[] = [];
 
-    for (let cursor = firstWeekStart; cursor <= lastDayOfMonth; cursor = addUtcDays(cursor, 7)) {
+    for (
+      let cursor = firstWeekStart;
+      cursor <= lastDayOfMonth;
+      cursor = addUtcDays(cursor, 7)
+    ) {
       if (cursor.getUTCMonth() === visibleMonth.getUTCMonth()) {
         const week = getWeekDisplay(cursor);
 
@@ -466,7 +514,8 @@ function WeeklyFilterPicker({
     return rows;
   }, [visibleMonth]);
   const minimumSelectableDate =
-    parseUtcIsoDate(IS_YATIRIM_WEEKLY_PICKER_MIN_DATE) || createUtcDate(2026, 4, 20);
+    parseUtcIsoDate(IS_YATIRIM_WEEKLY_PICKER_MIN_DATE) ||
+    createUtcDate(2026, 4, 20);
   const minimumSelectableMonth = createUtcDate(
     minimumSelectableDate.getUTCFullYear(),
     minimumSelectableDate.getUTCMonth(),
@@ -474,7 +523,8 @@ function WeeklyFilterPicker({
   );
   const isPreviousMonthDisabled =
     visibleMonth.getUTCFullYear() < minimumSelectableMonth.getUTCFullYear() ||
-    (visibleMonth.getUTCFullYear() === minimumSelectableMonth.getUTCFullYear() &&
+    (visibleMonth.getUTCFullYear() ===
+      minimumSelectableMonth.getUTCFullYear() &&
       visibleMonth.getUTCMonth() <= minimumSelectableMonth.getUTCMonth());
   const isApplyDisabled =
     isUpdating ||
@@ -499,35 +549,39 @@ function WeeklyFilterPicker({
       {isOpen ? (
         <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-[60] w-auto overflow-hidden rounded-[24px] border border-[#171717]/10 bg-[#FFFDF8] shadow-[0_24px_60px_rgba(23,23,23,0.16)] backdrop-blur-sm sm:left-auto sm:right-0 sm:w-[min(92vw,430px)]">
           <div className="space-y-2.5 p-4">
-            {WEEK_OPTIONS.filter((option) => option.mode !== "week").map((option) => {
-              const meta = getWeekOptionMeta(option.mode, draftWeekStartDate);
-              const isActive = draftMode === option.mode;
+            {WEEK_OPTIONS.filter((option) => option.mode !== "week").map(
+              (option) => {
+                const meta = getWeekOptionMeta(option.mode, draftWeekStartDate);
+                const isActive = draftMode === option.mode;
 
-              return (
-                <button
-                  className={`flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left font-poppins transition-colors ${
-                    isActive
-                      ? "border-[#0057FF] bg-[#2D58F3] text-white shadow-[0_18px_32px_rgba(0,87,255,0.24)]"
-                      : "border-[#171717]/10 bg-white text-[#171717] hover:border-[#0057FF]/22"
-                  }`}
-                  key={option.mode}
-                  onClick={() => {
-                    setDraftMode(option.mode);
-                    setIsWeekListOpen(false);
-                  }}
-                  type="button"
-                >
-                  <span className="text-sm font-semibold sm:text-base">{option.label}</span>
-                  <span
-                    className={`text-xs font-semibold sm:text-sm ${
-                      isActive ? "text-white/74" : "text-[#171717]/62"
+                return (
+                  <button
+                    className={`flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left font-poppins transition-colors ${
+                      isActive
+                        ? "border-[#0057FF] bg-[#2D58F3] text-white shadow-[0_18px_32px_rgba(0,87,255,0.24)]"
+                        : "border-[#171717]/10 bg-white text-[#171717] hover:border-[#0057FF]/22"
                     }`}
+                    key={option.mode}
+                    onClick={() => {
+                      setDraftMode(option.mode);
+                      setIsWeekListOpen(false);
+                    }}
+                    type="button"
                   >
-                    {meta.detail}
-                  </span>
-                </button>
-              );
-            })}
+                    <span className="text-sm font-semibold sm:text-base">
+                      {option.label}
+                    </span>
+                    <span
+                      className={`text-xs font-semibold sm:text-sm ${
+                        isActive ? "text-white/74" : "text-[#171717]/62"
+                      }`}
+                    >
+                      {meta.detail}
+                    </span>
+                  </button>
+                );
+              },
+            )}
           </div>
 
           <div className="mx-4 border-t border-[#D8CDBA]" />
@@ -563,7 +617,9 @@ function WeeklyFilterPicker({
                         : "text-[#171717]/58 hover:text-[#171717]"
                     }`}
                     disabled={isPreviousMonthDisabled}
-                    onClick={() => setVisibleMonth((current) => addUtcMonths(current, -1))}
+                    onClick={() =>
+                      setVisibleMonth((current) => addUtcMonths(current, -1))
+                    }
                     type="button"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -574,7 +630,9 @@ function WeeklyFilterPicker({
                   </p>
                   <button
                     className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#171717]/10 bg-[#F7F1E8] text-[#171717]/58 transition-colors hover:text-[#171717]"
-                    onClick={() => setVisibleMonth((current) => addUtcMonths(current, 1))}
+                    onClick={() =>
+                      setVisibleMonth((current) => addUtcMonths(current, 1))
+                    }
                     type="button"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -584,7 +642,8 @@ function WeeklyFilterPicker({
                 <div className="mt-4 space-y-1.5">
                   {weekRows.map((week) => {
                     const isSelected =
-                      draftMode === "week" && draftWeekStartDate === week.isoStart;
+                      draftMode === "week" &&
+                      draftWeekStartDate === week.isoStart;
                     const isDisabled = week.isFuture || week.isBeforeMinimum;
 
                     return (
@@ -916,7 +975,10 @@ function KpiCard({
 
   return (
     <AnalyticsCard>
-      <div className="mb-4 h-1 rounded-full" style={{ backgroundColor: color }} />
+      <div
+        className="mb-4 h-1 rounded-full"
+        style={{ backgroundColor: color }}
+      />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="font-poppins text-xs font-semibold uppercase tracking-[0.24em] text-[#171717]/55">
@@ -1016,7 +1078,11 @@ function KpiGrid({ response }: { response: WeeklyDashboardResponse }) {
   );
 }
 
-function ParticipantKpiGrid({ response }: { response: WeeklyDashboardResponse }) {
+function ParticipantKpiGrid({
+  response,
+}: {
+  response: WeeklyDashboardResponse;
+}) {
   const participant = response.selectedSegment.kpis.participant;
 
   return (
@@ -1150,7 +1216,10 @@ function getPreviousWeekLegendLabel(currentLabel: string) {
   }
 
   const previousWeekNumber = Math.max(Number(match[1]) - 1, 0);
-  const paddedWeekNumber = `${previousWeekNumber}`.padStart(match[1].length, "0");
+  const paddedWeekNumber = `${previousWeekNumber}`.padStart(
+    match[1].length,
+    "0",
+  );
 
   return `H${paddedWeekNumber}`;
 }
@@ -1225,7 +1294,11 @@ function VerticalComparisonChart({
               data={chartData}
               margin={{ bottom: 2, left: 6, right: 24, top: 34 }}
             >
-              <CartesianGrid stroke="#171717" strokeOpacity={0.08} vertical={false} />
+              <CartesianGrid
+                stroke="#171717"
+                strokeOpacity={0.08}
+                vertical={false}
+              />
               <XAxis
                 axisLine={{ stroke: "#171717", strokeOpacity: 0.12 }}
                 dataKey="label"
@@ -1246,7 +1319,10 @@ function VerticalComparisonChart({
                 tickFormatter={(value: number) => `${value}%`}
                 tickLine={false}
               />
-              <Tooltip content={<ComparisonTooltip />} cursor={{ fill: "#171717", opacity: 0.04 }} />
+              <Tooltip
+                content={<ComparisonTooltip />}
+                cursor={{ fill: "#171717", opacity: 0.04 }}
+              />
               <Legend
                 align="right"
                 height={28}
@@ -1275,7 +1351,9 @@ function VerticalComparisonChart({
                     fontFamily="var(--font-poppins)"
                     fontSize={12}
                     fontWeight={700}
-                    formatter={(value: unknown) => formatWeeklyPercent(Number(value) || 0)}
+                    formatter={(value: unknown) =>
+                      formatWeeklyPercent(Number(value) || 0)
+                    }
                     position="top"
                   />
                 </Bar>
@@ -1294,7 +1372,9 @@ function VerticalComparisonChart({
                   fontFamily="var(--font-poppins)"
                   fontSize={12}
                   fontWeight={700}
-                  formatter={(value: unknown) => formatWeeklyPercent(Number(value) || 0)}
+                  formatter={(value: unknown) =>
+                    formatWeeklyPercent(Number(value) || 0)
+                  }
                   position="top"
                 />
               </Bar>
@@ -1413,6 +1493,140 @@ function RecognitionQuestionsSection({
   );
 }
 
+function FreeTextLimitControl({
+  limit,
+  onLimitChange,
+}: {
+  limit: WeeklyFreeTextResponseLimit;
+  onLimitChange: (limit: WeeklyFreeTextResponseLimit) => void;
+}) {
+  return (
+    <div
+      aria-label="Gösterilecek yanıt sayısı"
+      className="flex w-fit rounded-full border border-[#171717]/10 bg-white/70 p-1 shadow-sm"
+      role="group"
+    >
+      {FREE_TEXT_LIMITS.map((option) => {
+        const isActive = option === limit;
+
+        return (
+          <button
+            aria-pressed={isActive}
+            className={`rounded-full px-3 py-2 font-poppins text-xs font-semibold transition-colors sm:px-4 ${
+              isActive
+                ? "bg-[#0057FF] text-white shadow-sm"
+                : "text-[#171717]/55 hover:bg-white hover:text-[#171717]"
+            }`}
+            key={option}
+            onClick={() => onLimitChange(option)}
+            type="button"
+          >
+            {`Top ${option}`}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function FreeTextQuestionCard({
+  question,
+  limit,
+  colorIndex,
+}: {
+  question: WeeklyFreeTextQuestion;
+  limit: WeeklyFreeTextResponseLimit;
+  colorIndex: number;
+}) {
+  const responses = getLimitedWeeklyFreeTextResponses(
+    question.responses,
+    limit,
+  );
+
+  return (
+    <AnalyticsCard>
+      <AnalyticsSubheading
+        dotColor={FREE_TEXT_COLORS[colorIndex % FREE_TEXT_COLORS.length].text}
+      >
+        {question.questionText}
+      </AnalyticsSubheading>
+      <p className="mb-5 font-poppins text-xs font-semibold uppercase tracking-[0.16em] text-[#171717]/42">
+        {`${formatWeeklyCount(question.respondentCount)} yanıt · ${formatWeeklyCount(
+          question.uniqueAnswerCount,
+        )} benzersiz cevap`}
+      </p>
+      {responses.length ? (
+        <div className="flex flex-wrap items-start gap-2.5">
+          {responses.map((response, index) => {
+            const colors = FREE_TEXT_COLORS[index % FREE_TEXT_COLORS.length];
+
+            return (
+              <div
+                className="max-w-full rounded-[26px] border px-4 py-2.5 font-poppins text-sm font-semibold leading-6 shadow-[0_1px_0_rgba(23,23,23,0.02)]"
+                key={`${response.text}-${index}`}
+                style={{
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.text,
+                }}
+              >
+                <span className="whitespace-normal break-words">
+                  {response.text}
+                </span>
+                <span className="ml-2 inline-block align-baseline text-[11px] font-bold opacity-75">
+                  {response.count}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyInlineState>Henüz yanıt yok</EmptyInlineState>
+      )}
+    </AnalyticsCard>
+  );
+}
+
+function FreeTextQuestionsSection({
+  questions,
+  limit,
+  onLimitChange,
+}: {
+  questions: WeeklyFreeTextQuestion[];
+  limit: WeeklyFreeTextResponseLimit;
+  onLimitChange: (limit: WeeklyFreeTextResponseLimit) => void;
+}) {
+  return (
+    <>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <AnalyticsSectionHeading>
+            SERBEST METİN YANITLARI
+          </AnalyticsSectionHeading>
+        </div>
+        <FreeTextLimitControl limit={limit} onLimitChange={onLimitChange} />
+      </div>
+      {questions.length ? (
+        <section className="grid gap-4">
+          {questions.map((question, index) => (
+            <FreeTextQuestionCard
+              colorIndex={index}
+              key={question.questionId}
+              limit={limit}
+              question={question}
+            />
+          ))}
+        </section>
+      ) : (
+        <AnalyticsEmptyState
+          description="Seçili segment veya unvan için bu döneme ait serbest metin yanıtı bulunmuyor."
+          title="Henüz yanıt yok"
+        />
+      )}
+    </>
+  );
+}
+
 function BalanceTooltip({
   active,
   payload,
@@ -1427,7 +1641,8 @@ function BalanceTooltip({
   }
 
   const item = payload[0].payload;
-  const tone = item.value > 0 ? "açık" : item.value < 0 ? "deneyimlenen fazla" : "dengede";
+  const tone =
+    item.value > 0 ? "açık" : item.value < 0 ? "deneyimlenen fazla" : "dengede";
 
   return (
     <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
@@ -1507,8 +1722,15 @@ function ExpectationBalanceChart({
       {items.length ? (
         <div className="h-[380px]">
           <ResponsiveContainer height="100%" width="100%">
-            <BarChart data={items} margin={{ bottom: 8, left: 10, right: 18, top: 34 }}>
-              <CartesianGrid stroke="#171717" strokeOpacity={0.08} vertical={false} />
+            <BarChart
+              data={items}
+              margin={{ bottom: 8, left: 10, right: 18, top: 34 }}
+            >
+              <CartesianGrid
+                stroke="#171717"
+                strokeOpacity={0.08}
+                vertical={false}
+              />
               <XAxis
                 axisLine={{ stroke: "#171717", strokeOpacity: 0.12 }}
                 dataKey="label"
@@ -1535,7 +1757,10 @@ function ExpectationBalanceChart({
                 width={52}
               />
               <ReferenceLine stroke="#171717" strokeOpacity={0.22} y={0} />
-              <Tooltip content={<BalanceTooltip />} cursor={{ fill: "#171717", opacity: 0.04 }} />
+              <Tooltip
+                content={<BalanceTooltip />}
+                cursor={{ fill: "#171717", opacity: 0.04 }}
+              />
               <Bar dataKey="value" name="Denge" radius={[10, 10, 10, 10]}>
                 {items.map((item) => (
                   <Cell
@@ -1667,7 +1892,9 @@ function ParticipationChart({
 
     if (weekFilter.mode === "last_4_weeks") {
       series.forEach((item) => {
-        const weekStart = item.weekStartDate ? parseUtcIsoDate(item.weekStartDate) : null;
+        const weekStart = item.weekStartDate
+          ? parseUtcIsoDate(item.weekStartDate)
+          : null;
 
         if (weekStart) {
           starts.set(item.id, weekStart);
@@ -1680,7 +1907,9 @@ function ParticipationChart({
 
   return (
     <AnalyticsCard>
-      <AnalyticsSubheading dotColor="#0057FF">GÜNLÜK KATILIM</AnalyticsSubheading>
+      <AnalyticsSubheading dotColor="#0057FF">
+        GÜNLÜK KATILIM
+      </AnalyticsSubheading>
       {series.length ? (
         <div className="h-[360px]">
           <ResponsiveContainer height="100%" width="100%">
@@ -1690,7 +1919,11 @@ function ParticipationChart({
               data={chartData}
               margin={{ bottom: 8, left: 8, right: 28, top: 28 }}
             >
-              <CartesianGrid stroke="#171717" strokeOpacity={0.08} vertical={false} />
+              <CartesianGrid
+                stroke="#171717"
+                strokeOpacity={0.08}
+                vertical={false}
+              />
               <XAxis
                 axisLine={{ stroke: "#171717", strokeOpacity: 0.12 }}
                 dataKey="day"
@@ -1733,7 +1966,8 @@ function ParticipationChart({
                 }}
               />
               {series.map((item, index) => {
-                const color = PARTICIPATION_COLORS[index % PARTICIPATION_COLORS.length];
+                const color =
+                  PARTICIPATION_COLORS[index % PARTICIPATION_COLORS.length];
                 return (
                   <Bar
                     dataKey={item.id}
@@ -1747,7 +1981,10 @@ function ParticipationChart({
                     }
                     radius={[8, 8, 0, 0]}
                   >
-                    <LabelList content={renderParticipationValueLabel} dataKey={item.id} />
+                    <LabelList
+                      content={renderParticipationValueLabel}
+                      dataKey={item.id}
+                    />
                   </Bar>
                 );
               })}
@@ -1764,7 +2001,9 @@ function ParticipationChart({
 function WeeklySummaryTable({ rows }: { rows: WeeklyTableRow[] }) {
   return (
     <AnalyticsCard>
-      <AnalyticsSubheading dotColor="#AD7A00">HAFTALIK DEĞİŞİM ÖZETİ</AnalyticsSubheading>
+      <AnalyticsSubheading dotColor="#AD7A00">
+        HAFTALIK DEĞİŞİM ÖZETİ
+      </AnalyticsSubheading>
       {rows.length ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse font-poppins text-sm">
@@ -1861,6 +2100,8 @@ export default function IsYatirimWeeklyDashboard({
   onUnvanSelect,
   onWeekFilterChange,
 }: WeeklyDashboardProps) {
+  const [freeTextLimit, setFreeTextLimit] =
+    useState<WeeklyFreeTextResponseLimit>(10);
   const activeSegment =
     selectedSegment || response?.meta.selectedSegmentId || "all";
   const activeUnvan = selectedUnvan;
@@ -1892,9 +2133,11 @@ export default function IsYatirimWeeklyDashboard({
     ? getDisplayPeriodLabel(response.meta.weekFilter, response.meta.periodLabel)
     : getWeekOptionLabel(weekFilter);
   const questionModel = displayResponse
-    ? getIsYatirimWeeklyQuestionModel({
+    ? displayResponse.meta.questionModel ||
+      getIsYatirimWeeklyQuestionModel({
         weekFilter: displayResponse.meta.weekFilter,
-        recognitionQuestions: displayResponse.selectedSegment.recognitionQuestions,
+        recognitionQuestions:
+          displayResponse.selectedSegment.recognitionQuestions,
       })
     : "legacy";
   const comparisonLegendLabels = useMemo(
@@ -1916,22 +2159,18 @@ export default function IsYatirimWeeklyDashboard({
         label: activeResponse.meta.periodLabel || "Seçili dönem",
         days: activeResponse.selectedSegment.participation.days,
       };
-      const previousSeries =
-        previousDisplayResponse?.selectedSegment.participation.days.length
-          ? [
-              {
-                id: "previous",
-                label:
-                  previousDisplayResponse.meta.periodLabel || "Önceki dönem",
-                days: previousDisplayResponse.selectedSegment.participation.days,
-              },
-            ]
-          : [];
+      const previousSeries = previousDisplayResponse?.selectedSegment
+        .participation.days.length
+        ? [
+            {
+              id: "previous",
+              label: previousDisplayResponse.meta.periodLabel || "Önceki dönem",
+              days: previousDisplayResponse.selectedSegment.participation.days,
+            },
+          ]
+        : [];
 
-      return [
-        ...previousSeries,
-        currentSeries,
-      ];
+      return [...previousSeries, currentSeries];
     }
 
     return activeResponse.selectedSegment.participation.weeklySeries.length
@@ -1981,7 +2220,9 @@ export default function IsYatirimWeeklyDashboard({
               <>
                 <KpiGrid response={displayResponse} />
 
-                <AnalyticsSectionHeading>DUYGU DAĞILIMI</AnalyticsSectionHeading>
+                <AnalyticsSectionHeading>
+                  DUYGU DAĞILIMI
+                </AnalyticsSectionHeading>
                 <section className="grid gap-4 xl:grid-cols-2">
                   <VerticalComparisonChart
                     currentLabel={comparisonLegendLabels.current}
@@ -1999,7 +2240,9 @@ export default function IsYatirimWeeklyDashboard({
                   />
                 </section>
 
-                <AnalyticsSectionHeading>BEKLENTİ VE KATILIM</AnalyticsSectionHeading>
+                <AnalyticsSectionHeading>
+                  BEKLENTİ VE KATILIM
+                </AnalyticsSectionHeading>
                 <section className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
                   <ExpectationBalanceChart
                     items={displayResponse.selectedSegment.expectationBalance}
@@ -2012,7 +2255,9 @@ export default function IsYatirimWeeklyDashboard({
                 </section>
 
                 <AnalyticsSectionHeading>ÖZET</AnalyticsSectionHeading>
-                <WeeklySummaryTable rows={displayResponse.selectedSegment.table.rows} />
+                <WeeklySummaryTable
+                  rows={displayResponse.selectedSegment.table.rows}
+                />
               </>
             ) : (
               <>
@@ -2020,7 +2265,17 @@ export default function IsYatirimWeeklyDashboard({
 
                 {questionModel === "likert" ? (
                   <RecognitionQuestionsSection
-                    questions={displayResponse.selectedSegment.recognitionQuestions}
+                    questions={
+                      displayResponse.selectedSegment.recognitionQuestions
+                    }
+                  />
+                ) : questionModel === "free_text" ? (
+                  <FreeTextQuestionsSection
+                    limit={freeTextLimit}
+                    onLimitChange={setFreeTextLimit}
+                    questions={
+                      displayResponse.selectedSegment.freeTextQuestions
+                    }
                   />
                 ) : (
                   <AnalyticsEmptyState

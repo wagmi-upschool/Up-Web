@@ -5,8 +5,11 @@ export const DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT = "all";
 export const DEFAULT_IS_YATIRIM_WEEK_MODE = "last_week";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE = "2026-05-18";
-export const IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES = ["2026-05-25"] as const;
+export const IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES = [
+  "2026-05-25",
+] as const;
 export const IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK = "2026-07-06";
+export const IS_YATIRIM_WEEKLY_FREE_TEXT_CUTOVER_WEEK = "2026-08-03";
 
 export const IS_YATIRIM_WEEKLY_ROUTE = "/is-yatirim/weekly-dashboard";
 export const IS_YATIRIM_DAILY_ROUTE = "/is-yatirim/leadership-dashboard";
@@ -124,7 +127,36 @@ export type WeeklyRecognitionQuestion = {
   distribution: Record<string, WeeklyRecognitionDistributionItem>;
 };
 
-export type IsYatirimWeeklyQuestionModel = "legacy" | "likert" | "mixed";
+export type WeeklyFreeTextResponse = {
+  text: string;
+  count: number;
+};
+
+export const WEEKLY_FREE_TEXT_RESPONSE_LIMITS = [10, 20, 30, 40] as const;
+
+export type WeeklyFreeTextResponseLimit =
+  (typeof WEEKLY_FREE_TEXT_RESPONSE_LIMITS)[number];
+
+export function getLimitedWeeklyFreeTextResponses(
+  responses: WeeklyFreeTextResponse[],
+  limit: WeeklyFreeTextResponseLimit,
+) {
+  return responses.slice(0, limit);
+}
+
+export type WeeklyFreeTextQuestion = {
+  questionId: string;
+  questionText: string;
+  respondentCount: number;
+  uniqueAnswerCount: number;
+  responses: WeeklyFreeTextResponse[];
+};
+
+export type IsYatirimWeeklyQuestionModel =
+  | "legacy"
+  | "likert"
+  | "free_text"
+  | "mixed";
 
 export type WeeklyDashboardSegmentData = {
   kpis: WeeklyDashboardKpis;
@@ -132,6 +164,7 @@ export type WeeklyDashboardSegmentData = {
   desiredFeelings: WeeklyFeelingBarItem[];
   expectationBalance: WeeklyExpectationBalanceItem[];
   recognitionQuestions: WeeklyRecognitionQuestion[];
+  freeTextQuestions: WeeklyFreeTextQuestion[];
   participation: WeeklyParticipation;
   weeklySeries: WeeklyParticipationSeries[];
   table: {
@@ -150,6 +183,7 @@ export type WeeklyDashboardResponse = {
     selectedSegmentId: string;
     selectedUnvanId?: string | null;
     generatedAt: string;
+    questionModel?: IsYatirimWeeklyQuestionModel;
   };
   selectedSegment: WeeklyDashboardSegmentData;
   selectedUnvan?: WeeklyDashboardSegmentData | null;
@@ -158,7 +192,9 @@ export type WeeklyDashboardResponse = {
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function asObject(value: unknown): Record<string, any> {
-  return value && typeof value === "object" ? (value as Record<string, any>) : {};
+  return value && typeof value === "object"
+    ? (value as Record<string, any>)
+    : {};
 }
 
 function asString(value: unknown, fallback = "") {
@@ -171,7 +207,9 @@ function asNumber(value: unknown, fallback = 0) {
   }
 
   if (typeof value === "string") {
-    const normalized = Number(value.replace("%", "").replace("pp", "").replace(",", "."));
+    const normalized = Number(
+      value.replace("%", "").replace("pp", "").replace(",", "."),
+    );
     return Number.isFinite(normalized) ? normalized : fallback;
   }
 
@@ -186,7 +224,10 @@ function asNullableNumber(value: unknown) {
   return asNumber(value);
 }
 
-function asArray<T>(value: unknown, mapper: (item: unknown, index: number) => T): T[] {
+function asArray<T>(
+  value: unknown,
+  mapper: (item: unknown, index: number) => T,
+): T[] {
   return Array.isArray(value) ? value.map(mapper) : [];
 }
 
@@ -232,18 +273,25 @@ export function getMondayForIsoDate(value: string) {
   return formatIsoDate(date);
 }
 
-export function normalizeIsYatirimWeeklySegment(value: string | null | undefined) {
+export function normalizeIsYatirimWeeklySegment(
+  value: string | null | undefined,
+) {
   const segment = value?.trim();
   return segment || DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT;
 }
 
-export function normalizeIsYatirimWeeklyToken(value: string | null | undefined) {
+export function normalizeIsYatirimWeeklyToken(
+  value: string | null | undefined,
+) {
   return value?.trim() || "";
 }
 
-export function isIsYatirimExcludedWeeklyStartDate(value: string | null | undefined) {
+export function isIsYatirimExcludedWeeklyStartDate(
+  value: string | null | undefined,
+) {
   return IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES.includes(
-    (value || "") as (typeof IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES)[number],
+    (value ||
+      "") as (typeof IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES)[number],
   );
 }
 
@@ -277,7 +325,9 @@ export function normalizeIsYatirimWeekFilter({
     return { mode };
   }
 
-  const normalizedWeekStartDate = getMondayForIsoDate(weekStartDate?.trim() || "");
+  const normalizedWeekStartDate = getMondayForIsoDate(
+    weekStartDate?.trim() || "",
+  );
 
   if (!normalizedWeekStartDate) {
     return { mode: DEFAULT_IS_YATIRIM_WEEK_MODE };
@@ -342,7 +392,16 @@ export function getIsYatirimWeeklyQuestionModel({
   const currentWeekStart = getMondayForIsoDate(todayIsoDate);
 
   if (weekFilter.mode === "last_4_weeks") {
-    const selectedWeekStarts = getIncludedWeekStartsEndingAt(currentWeekStart, 4);
+    const selectedWeekStarts = getIncludedWeekStartsEndingAt(
+      currentWeekStart,
+      4,
+    );
+    const hasFreeTextWeek = selectedWeekStarts.some(
+      (weekStart) => weekStart >= IS_YATIRIM_WEEKLY_FREE_TEXT_CUTOVER_WEEK,
+    );
+    if (hasFreeTextWeek) {
+      return "free_text";
+    }
     const hasLegacyWeek = selectedWeekStarts.some(
       (weekStart) => weekStart < IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK,
     );
@@ -366,6 +425,10 @@ export function getIsYatirimWeeklyQuestionModel({
   const hasLikertResponses = recognitionQuestions.some(
     (question) => question.respondentCount > 0,
   );
+
+  if (selectedWeekStart >= IS_YATIRIM_WEEKLY_FREE_TEXT_CUTOVER_WEEK) {
+    return "free_text";
+  }
 
   return selectedWeekStart >= IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK ||
     hasLikertResponses
@@ -392,7 +455,10 @@ export function applyIsYatirimWeekFilterToSearchParams(
   }
 }
 
-function normalizeWeekFilterLike(value: unknown, fallback: IsYatirimWeekFilter) {
+function normalizeWeekFilterLike(
+  value: unknown,
+  fallback: IsYatirimWeekFilter,
+) {
   const input = asObject(value);
   const normalized = normalizeIsYatirimWeekFilter({
     weekMode: asString(input.mode || input.weekMode, fallback.mode),
@@ -411,13 +477,19 @@ function normalizeWeekFilterLike(value: unknown, fallback: IsYatirimWeekFilter) 
   };
 }
 
-function normalizeSegmentOption(value: unknown, index: number): WeeklySegmentOption {
+function normalizeSegmentOption(
+  value: unknown,
+  index: number,
+): WeeklySegmentOption {
   const input = asObject(value);
   const id = asString(input.id || input.segmentId, index === 0 ? "all" : "");
 
   return {
     id: id || `segment-${index + 1}`,
-    label: asString(input.label || input.segmentLabel || input.name, id || "Segment"),
+    label: asString(
+      input.label || input.segmentLabel || input.name,
+      id || "Segment",
+    ),
     ...(input.type ? { type: asString(input.type) } : {}),
     ...(input.respondentCount !== undefined
       ? { respondentCount: asNumber(input.respondentCount) }
@@ -430,19 +502,30 @@ function normalizeSegmentOption(value: unknown, index: number): WeeklySegmentOpt
 
 function normalizeCategory(value: unknown, index: number): WeeklyCategory {
   const input = asObject(value);
-  const label = asString(input.label || input.name || value, `Kategori ${index + 1}`);
+  const label = asString(
+    input.label || input.name || value,
+    `Kategori ${index + 1}`,
+  );
   return {
-    id: asString(input.id || input.category || input.categoryId || input.key, label),
+    id: asString(
+      input.id || input.category || input.categoryId || input.key,
+      label,
+    ),
     label,
     ...(input.shortLabel ? { shortLabel: asString(input.shortLabel) } : {}),
   };
 }
 
 function firstDefined(...values: unknown[]) {
-  return values.find((value) => value !== undefined && value !== null && value !== "");
+  return values.find(
+    (value) => value !== undefined && value !== null && value !== "",
+  );
 }
 
-function normalizeKpiMetric(value: unknown, fallbackLabel: string): WeeklyKpiMetric {
+function normalizeKpiMetric(
+  value: unknown,
+  fallbackLabel: string,
+): WeeklyKpiMetric {
   const input = asObject(value);
   const primitiveValue =
     typeof value === "string" || typeof value === "number" ? value : undefined;
@@ -459,7 +542,11 @@ function normalizeKpiMetric(value: unknown, fallbackLabel: string): WeeklyKpiMet
     input.pp,
   );
   const label = asString(
-    input.label || input.feeling || input.emotion || input.category || input.name,
+    input.label ||
+      input.feeling ||
+      input.emotion ||
+      input.category ||
+      input.name,
     fallbackLabel,
   );
   const subtitle = asString(
@@ -467,7 +554,8 @@ function normalizeKpiMetric(value: unknown, fallbackLabel: string): WeeklyKpiMet
       input.description ||
       input.detail ||
       input.trendLabel ||
-      (input.desiredPercentage !== undefined && input.experiencedPercentage !== undefined
+      (input.desiredPercentage !== undefined &&
+      input.experiencedPercentage !== undefined
         ? `İstenen %${asNumber(input.desiredPercentage).toLocaleString("tr-TR")} · Deneyimlenen %${asNumber(input.experiencedPercentage).toLocaleString("tr-TR")}`
         : ""),
   );
@@ -477,7 +565,12 @@ function normalizeKpiMetric(value: unknown, fallbackLabel: string): WeeklyKpiMet
     input.percentChange,
     input.percentageChange,
   );
-  const pointDelta = firstDefined(input.delta, input.deltaPp, input.change, input.changePp);
+  const pointDelta = firstDefined(
+    input.delta,
+    input.deltaPp,
+    input.change,
+    input.changePp,
+  );
   const delta = firstDefined(percentageDelta, pointDelta);
   const previousTotal = firstDefined(input.previousTotal, input.previousCount);
   const fallbackDeltaLabel =
@@ -501,7 +594,11 @@ function normalizeKpiMetric(value: unknown, fallbackLabel: string): WeeklyKpiMet
         }
       : {}),
     ...(input.deltaLabel || input.changeLabel || fallbackDeltaLabel
-      ? { deltaLabel: asString(input.deltaLabel || input.changeLabel || fallbackDeltaLabel) }
+      ? {
+          deltaLabel: asString(
+            input.deltaLabel || input.changeLabel || fallbackDeltaLabel,
+          ),
+        }
       : {}),
   };
 }
@@ -542,14 +639,21 @@ function normalizeChartItems(value: unknown): WeeklyFeelingBarItem[] {
           raw.comparisonValue,
         ),
       ),
-      ...(firstDefined(raw.delta, raw.deltaPp, raw.change, raw.changePp) !== undefined
-        ? { delta: asNumber(firstDefined(raw.delta, raw.deltaPp, raw.change, raw.changePp)) }
+      ...(firstDefined(raw.delta, raw.deltaPp, raw.change, raw.changePp) !==
+      undefined
+        ? {
+            delta: asNumber(
+              firstDefined(raw.delta, raw.deltaPp, raw.change, raw.changePp),
+            ),
+          }
         : {}),
     };
   });
 }
 
-function normalizeExpectationBalance(value: unknown): WeeklyExpectationBalanceItem[] {
+function normalizeExpectationBalance(
+  value: unknown,
+): WeeklyExpectationBalanceItem[] {
   const input = asObject(value);
   const rawItems = Array.isArray(value)
     ? value
@@ -576,8 +680,20 @@ function normalizeExpectationBalance(value: unknown): WeeklyExpectationBalanceIt
           raw.currentValue,
         ),
       ),
-      ...(firstDefined(raw.previous, raw.previousValue, raw.previousBalancePp) !== undefined
-        ? { previous: asNumber(firstDefined(raw.previous, raw.previousValue, raw.previousBalancePp)) }
+      ...(firstDefined(
+        raw.previous,
+        raw.previousValue,
+        raw.previousBalancePp,
+      ) !== undefined
+        ? {
+            previous: asNumber(
+              firstDefined(
+                raw.previous,
+                raw.previousValue,
+                raw.previousBalancePp,
+              ),
+            ),
+          }
         : {}),
       ...(firstDefined(raw.deltaPp, raw.delta, raw.change) !== undefined
         ? { trend: asNumber(firstDefined(raw.deltaPp, raw.delta, raw.change)) }
@@ -586,11 +702,24 @@ function normalizeExpectationBalance(value: unknown): WeeklyExpectationBalanceIt
   });
 }
 
-function normalizeParticipationDay(value: unknown, fallbackDay: WeeklyParticipationDay["day"]) {
+function normalizeParticipationDay(
+  value: unknown,
+  fallbackDay: WeeklyParticipationDay["day"],
+) {
   const input = asObject(value);
   return {
-    day: normalizeParticipationDayLabel(input.day || input.label || input.name, fallbackDay),
-    value: asNumber(firstDefined(input.value, input.count, input.total, input.respondentCount)),
+    day: normalizeParticipationDayLabel(
+      input.day || input.label || input.name,
+      fallbackDay,
+    ),
+    value: asNumber(
+      firstDefined(
+        input.value,
+        input.count,
+        input.total,
+        input.respondentCount,
+      ),
+    ),
   };
 }
 
@@ -614,7 +743,10 @@ function sortFixedParticipationDays(days: WeeklyParticipationDay[]) {
   }));
 }
 
-function normalizeParticipationSeries(value: unknown, index: number): WeeklyParticipationSeries {
+function normalizeParticipationSeries(
+  value: unknown,
+  index: number,
+): WeeklyParticipationSeries {
   const input = asObject(value);
   const rawDays = input.days || input.data || input.points || [];
   const weekStartDate = asString(input.weekStart || input.weekStartDate);
@@ -629,10 +761,15 @@ function normalizeParticipationSeries(value: unknown, index: number): WeeklyPart
 
   return {
     id: asString(input.id || input.key, `week-${index + 1}`),
-    label: asString(input.label || input.name || input.weekLabel, `Hafta ${index + 1}`),
+    label: asString(
+      input.label || input.name || input.weekLabel,
+      `Hafta ${index + 1}`,
+    ),
     ...(weekStartDate ? { weekStartDate } : {}),
     days,
-    recognitionQuestions: normalizeRecognitionQuestions(input.recognitionQuestions),
+    recognitionQuestions: normalizeRecognitionQuestions(
+      input.recognitionQuestions,
+    ),
   };
 }
 
@@ -674,7 +811,11 @@ function normalizeParticipation(value: unknown): WeeklyParticipation {
 function normalizeTableRow(value: unknown, index: number): WeeklyTableRow {
   const input = asObject(value);
   const feeling = asString(
-    input.feeling || input.label || input.emotion || input.category || input.name,
+    input.feeling ||
+      input.label ||
+      input.emotion ||
+      input.category ||
+      input.name,
     `Duygu ${index + 1}`,
   );
 
@@ -690,7 +831,15 @@ function normalizeTableRow(value: unknown, index: number): WeeklyTableRow {
         input.averageExperience,
       ),
     ),
-    change: asNullableNumber(firstDefined(input.change, input.delta, input.deltaPp, input.changePp, input.experienceChangePp)),
+    change: asNullableNumber(
+      firstDefined(
+        input.change,
+        input.delta,
+        input.deltaPp,
+        input.changePp,
+        input.experienceChangePp,
+      ),
+    ),
     desired: asNullableNumber(
       firstDefined(
         input.desired,
@@ -701,10 +850,19 @@ function normalizeTableRow(value: unknown, index: number): WeeklyTableRow {
       ),
     ),
     balance: asNullableNumber(
-      firstDefined(input.balance, input.balancePp, input.gap, input.difference, input.averageBalance),
+      firstDefined(
+        input.balance,
+        input.balancePp,
+        input.gap,
+        input.difference,
+        input.averageBalance,
+      ),
     ),
     trend: asString(
-      asObject(input.trend).label || input.trendLabel || input.range || input.balanceLabel,
+      asObject(input.trend).label ||
+        input.trendLabel ||
+        input.range ||
+        input.balanceLabel,
     ),
   };
 }
@@ -720,7 +878,9 @@ function getDistributionInput(
   }
 
   const distributionObject = asObject(distribution);
-  return asObject(distributionObject[String(score)] || distributionObject[score]);
+  return asObject(
+    distributionObject[String(score)] || distributionObject[score],
+  );
 }
 
 function normalizeRecognitionDistribution(
@@ -759,7 +919,10 @@ function normalizeRecognitionQuestion(
     (distribution["3"]?.percentage || 0) + (distribution["4"]?.percentage || 0);
 
   return {
-    id: asString(input.id || input.key || questionId, `recognition-${index + 1}`),
+    id: asString(
+      input.id || input.key || questionId,
+      `recognition-${index + 1}`,
+    ),
     questionId,
     questionText: asString(
       input.questionText || input.question_text || input.label || input.title,
@@ -781,18 +944,68 @@ function normalizeRecognitionQuestions(value: unknown) {
   return asArray(value, normalizeRecognitionQuestion);
 }
 
+function normalizeFreeTextResponse(value: unknown) {
+  const input = asObject(value);
+
+  return {
+    text: asString(input.text || input.answer || input.value).trim(),
+    count: asNumber(input.count || input.respondentCount || input.total),
+  };
+}
+
+function normalizeFreeTextQuestion(
+  value: unknown,
+  index: number,
+): WeeklyFreeTextQuestion {
+  const input = asObject(value);
+  const responses = asArray(
+    input.responses || input.answers,
+    normalizeFreeTextResponse,
+  ).filter((response) => response.text && response.count > 0);
+
+  return {
+    questionId: asString(
+      input.questionId || input.question_id || input.id,
+      `free-text-${index + 1}`,
+    ),
+    questionText: asString(
+      input.questionText || input.question_text || input.label || input.title,
+      `Soru ${index + 1}`,
+    ),
+    respondentCount: asNumber(
+      input.respondentCount || input.answerCount || input.total,
+    ),
+    uniqueAnswerCount: asNumber(
+      input.uniqueAnswerCount || input.uniqueCount,
+      responses.length,
+    ),
+    responses,
+  };
+}
+
+function normalizeFreeTextQuestions(value: unknown) {
+  return asArray(value, normalizeFreeTextQuestion);
+}
+
 function normalizeWeeklyDashboardSegmentData(
   value: unknown,
 ): WeeklyDashboardSegmentData {
   const input = asObject(value);
   const kpis = asObject(input.kpis);
   const participation = normalizeParticipation(input.participation);
-  const weeklySeries = asArray(input.weeklySeries, normalizeParticipationSeries);
+  const weeklySeries = asArray(
+    input.weeklySeries,
+    normalizeParticipationSeries,
+  );
   const recognitionQuestions = normalizeRecognitionQuestions(
     input.recognitionQuestions,
   );
   const periodRecognitionQuestions = normalizeRecognitionQuestions(
     asObject(input.period).recognitionQuestions,
+  );
+  const freeTextQuestions = normalizeFreeTextQuestions(input.freeTextQuestions);
+  const periodFreeTextQuestions = normalizeFreeTextQuestions(
+    asObject(input.period).freeTextQuestions,
   );
 
   return {
@@ -810,8 +1023,13 @@ function normalizeWeeklyDashboardSegmentData(
     recognitionQuestions: recognitionQuestions.length
       ? recognitionQuestions
       : periodRecognitionQuestions,
+    freeTextQuestions: freeTextQuestions.length
+      ? freeTextQuestions
+      : periodFreeTextQuestions,
     participation,
-    weeklySeries: weeklySeries.length ? weeklySeries : participation.weeklySeries,
+    weeklySeries: weeklySeries.length
+      ? weeklySeries
+      : participation.weeklySeries,
     table: {
       rows: asArray(asObject(input.table).rows, normalizeTableRow),
     },
@@ -835,6 +1053,12 @@ export function normalizeWeeklyDashboardResponse(
     meta.weekFilter,
     fallbackWeekFilter || { mode: DEFAULT_IS_YATIRIM_WEEK_MODE },
   );
+  const rawQuestionModel = asString(meta.questionModel);
+  const questionModel = ["legacy", "likert", "free_text", "mixed"].includes(
+    rawQuestionModel,
+  )
+    ? (rawQuestionModel as IsYatirimWeeklyQuestionModel)
+    : undefined;
 
   return {
     meta: {
@@ -848,7 +1072,10 @@ export function normalizeWeeklyDashboardResponse(
       categories: Array.isArray(meta.categories)
         ? asArray(meta.categories, normalizeCategory)
         : [
-            ...asArray(asObject(meta.categories).experienced, normalizeCategory),
+            ...asArray(
+              asObject(meta.categories).experienced,
+              normalizeCategory,
+            ),
             ...asArray(asObject(meta.categories).desired, normalizeCategory),
           ],
       selectedSegmentId: asString(
@@ -857,6 +1084,7 @@ export function normalizeWeeklyDashboardResponse(
       ),
       selectedUnvanId: asString(meta.selectedUnvanId) || null,
       generatedAt: asString(meta.generatedAt),
+      ...(questionModel ? { questionModel } : {}),
     },
     selectedSegment: normalizeWeeklyDashboardSegmentData(selectedSegmentInput),
     selectedUnvan: input.selectedUnvan

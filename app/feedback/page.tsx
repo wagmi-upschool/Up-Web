@@ -47,6 +47,7 @@ import {
   isEmptyFeedbackAnswerValue,
   isChoiceQuestion,
   MAX_FEEDBACK_FREE_TEXT,
+  MAX_PULSE_FREE_TEXT,
   parsePercentageValue,
   sanitizePercentageInput,
   validateFeedbackAnswer,
@@ -276,6 +277,7 @@ function getPreferredActiveTab(
 function validateSubmittedModuleAnswers(
   questions: FeedbackQuestion[],
   answers: ModuleFormValues["answers"],
+  freeTextMaxLength = MAX_FEEDBACK_FREE_TEXT,
 ) {
   for (const question of questions) {
     const rawValue = answers[question.question_id];
@@ -290,7 +292,11 @@ function validateSubmittedModuleAnswers(
       return getRequiredSurveyQuestionMessage(question);
     }
 
-    const verdict = validateFeedbackAnswer(question, rawValue);
+    const verdict = validateFeedbackAnswer(
+      question,
+      rawValue,
+      freeTextMaxLength,
+    );
     if (verdict !== true) {
       return verdict;
     }
@@ -302,6 +308,7 @@ function validateSubmittedModuleAnswers(
 function validateOptionalModuleAnswers(
   questions: FeedbackQuestion[],
   answers: ModuleFormValues["answers"],
+  freeTextMaxLength = MAX_FEEDBACK_FREE_TEXT,
 ) {
   let answeredQuestionCount = 0;
 
@@ -312,7 +319,11 @@ function validateOptionalModuleAnswers(
     }
 
     answeredQuestionCount += 1;
-    const verdict = validateFeedbackAnswer(question, rawValue);
+    const verdict = validateFeedbackAnswer(
+      question,
+      rawValue,
+      freeTextMaxLength,
+    );
     if (verdict !== true) {
       return verdict;
     }
@@ -491,12 +502,12 @@ function QuestionField({
   form,
   module,
   question,
-  hideFreeTextHelper = false,
+  freeTextMaxLength = MAX_FEEDBACK_FREE_TEXT,
 }: {
   form: UseFormReturn<ModuleFormValues>;
   module: FeedbackTab;
   question: FeedbackQuestion;
-  hideFreeTextHelper?: boolean;
+  freeTextMaxLength?: number;
 }) {
   const rawQuestionValue = form.watch(`answers.${question.question_id}`);
   const questionValue =
@@ -847,21 +858,20 @@ function QuestionField({
       ) : (
         <textarea
           rows={4}
-          maxLength={MAX_FEEDBACK_FREE_TEXT}
+          maxLength={freeTextMaxLength}
           className="mt-3 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
           {...form.register(`answers.${question.question_id}`, {
-            validate: (value) => validateFeedbackAnswer(question, value),
+            validate: (value) =>
+              validateFeedbackAnswer(question, value, freeTextMaxLength),
             maxLength: {
-              value: MAX_FEEDBACK_FREE_TEXT,
-              message: `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`,
+              value: freeTextMaxLength,
+              message: `En fazla ${freeTextMaxLength} karakter.`,
             },
           })}
         />
       )}
 
-      {question.type !== "boolean" &&
-      !isChoiceQuestion(question) &&
-      !(hideFreeTextHelper && question.type === "free_text") ? (
+      {question.type === "likert" || question.type === "percentage" ? (
         <div
           className={
             question.type === "likert"
@@ -875,10 +885,14 @@ function QuestionField({
             ))
           ) : question.type === "percentage" ? (
             <span>{PERCENTAGE_GUIDE_TEXT}</span>
-          ) : (
-            `${MAX_FEEDBACK_FREE_TEXT - questionValue.length} karakter kaldı.`
-          )}
+          ) : null}
         </div>
+      ) : null}
+
+      {question.type === "free_text" ? (
+        <p className="mt-2 text-left text-[11px] text-gray-400">
+          {questionValue.length}/{freeTextMaxLength}
+        </p>
       ) : null}
 
       {errorMessage ? (
@@ -1023,6 +1037,9 @@ function FeedbackPageContent() {
     resolvedActiveTab === "survey" ? surveyQuestions : valuesQuestions;
   const feedbackReceivers = receivers?.feedback_receivers || [];
   const isIsy = receivers?.is_isy ?? false;
+  const answerFreeTextMaxLength = isIsy
+    ? MAX_PULSE_FREE_TEXT
+    : MAX_FEEDBACK_FREE_TEXT;
   const showGeneralCommentField = shouldShowGeneralCommentField(isIsy);
   const autoSelectedReceiverId = getAutoSelectedReceiverId({
     isSelfMode,
@@ -1288,6 +1305,7 @@ function FeedbackPageContent() {
     const validationMessage = validateSubmittedModuleAnswers(
       surveyQuestions,
       values.answers,
+      answerFreeTextMaxLength,
     );
     if (validationMessage) {
       toast.error(validationMessage);
@@ -1319,6 +1337,7 @@ function FeedbackPageContent() {
     const validationMessage = validateOptionalModuleAnswers(
       selectedValuesQuestions,
       values.answers,
+      answerFreeTextMaxLength,
     );
     if (validationMessage) {
       toast.error(validationMessage);
@@ -1600,7 +1619,7 @@ function FeedbackPageContent() {
                         form={surveyForm}
                         module="survey"
                         question={question}
-                        hideFreeTextHelper={isIsy}
+                        freeTextMaxLength={answerFreeTextMaxLength}
                       />
                     ))}
 
@@ -1687,7 +1706,7 @@ function FeedbackPageContent() {
                         form={valuesForm}
                         module="values"
                         question={selectedValuesQuestion}
-                        hideFreeTextHelper={isIsy}
+                        freeTextMaxLength={answerFreeTextMaxLength}
                       />
                     ) : (
                       <div className="rounded-[14px] border border-dashed border-gray-200 bg-white px-5 py-4 text-[14px] text-gray-500">

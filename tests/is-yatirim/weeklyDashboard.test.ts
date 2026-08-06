@@ -3,11 +3,13 @@ import test from "node:test";
 import {
   DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
   IS_YATIRIM_WEEKLY_COMPETENCY_ID,
+  IS_YATIRIM_WEEKLY_FREE_TEXT_CUTOVER_WEEK,
   IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK,
   IS_YATIRIM_WEEKLY_PICKER_MIN_DATE,
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_CLIENT,
   WEEKLY_PARTICIPATION_DAYS,
+  getLimitedWeeklyFreeTextResponses,
   getIsYatirimWeeklyQuestionModel,
   getMondayForIsoDate,
   normalizeIsYatirimWeekFilter,
@@ -22,14 +24,23 @@ test("normalizeIsYatirimWeeklySegment defaults blank segment to all", () => {
     normalizeIsYatirimWeeklySegment(null),
     DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
   );
-  assert.equal(normalizeIsYatirimWeeklySegment(""), DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT);
-  assert.equal(normalizeIsYatirimWeeklySegment("  "), DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT);
+  assert.equal(
+    normalizeIsYatirimWeeklySegment(""),
+    DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
+  );
+  assert.equal(
+    normalizeIsYatirimWeeklySegment("  "),
+    DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
+  );
   assert.equal(normalizeIsYatirimWeeklySegment("gmy-1"), "gmy-1");
 });
 
 test("normalizeIsYatirimWeeklyToken trims URL token", () => {
   assert.equal(normalizeIsYatirimWeeklyToken(null), "");
-  assert.equal(normalizeIsYatirimWeeklyToken("  weekly-token  "), "weekly-token");
+  assert.equal(
+    normalizeIsYatirimWeeklyToken("  weekly-token  "),
+    "weekly-token",
+  );
 });
 
 test("getMondayForIsoDate normalizes selected date to Monday", () => {
@@ -88,6 +99,36 @@ test("weekly question model switches at the H7 cutover even with zero responses"
   );
 });
 
+test("weekly question model switches to free text from 3 August 2026", () => {
+  assert.equal(IS_YATIRIM_WEEKLY_FREE_TEXT_CUTOVER_WEEK, "2026-08-03");
+  assert.equal(
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: { mode: "week", weekStartDate: "2026-07-27" },
+      todayIsoDate: "2026-08-10",
+    }),
+    "likert",
+  );
+  assert.equal(
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: { mode: "week", weekStartDate: "2026-08-03" },
+      todayIsoDate: "2026-08-10",
+    }),
+    "free_text",
+  );
+});
+
+test("free-text Top N limits all question cards with the shared selection", () => {
+  const responses = Array.from({ length: 40 }, (_, index) => ({
+    count: 40 - index,
+    text: `Yanıt ${index + 1}`,
+  }));
+
+  assert.equal(getLimitedWeeklyFreeTextResponses(responses, 10).length, 10);
+  assert.equal(getLimitedWeeklyFreeTextResponses(responses, 20).length, 20);
+  assert.equal(getLimitedWeeklyFreeTextResponses(responses, 30).length, 30);
+  assert.equal(getLimitedWeeklyFreeTextResponses(responses, 40).length, 40);
+});
+
 test("weekly question model honors Likert responses on an older single week", () => {
   assert.equal(
     getIsYatirimWeeklyQuestionModel({
@@ -122,7 +163,7 @@ test("weekly question model keeps legacy and Likert weeks separate in ranges", (
       weekFilter: { mode: "last_4_weeks" },
       todayIsoDate: "2026-08-03",
     }),
-    "likert",
+    "free_text",
   );
 });
 
@@ -168,10 +209,9 @@ test("buildIsYatirimWeeklyDashboardUrl forwards segment token and preset week mo
 });
 
 test("normalizeIsYatirimWeekFilter falls back for unsupported weekly ranges", () => {
-  assert.deepEqual(
-    normalizeIsYatirimWeekFilter({ weekMode: "last_8_weeks" }),
-    { mode: "last_week" },
-  );
+  assert.deepEqual(normalizeIsYatirimWeekFilter({ weekMode: "last_8_weeks" }), {
+    mode: "last_week",
+  });
 });
 
 test("buildIsYatirimWeeklyDashboardUrl only sends weekStartDate for week mode", () => {
@@ -410,6 +450,43 @@ test("normalizeWeeklyDashboardResponse maps weekly recognition questions", () =>
   );
 });
 
+test("normalizeWeeklyDashboardResponse maps grouped free-text questions", () => {
+  const response = normalizeWeeklyDashboardResponse({
+    meta: {
+      questionModel: "free_text",
+    },
+    selectedSegment: {
+      freeTextQuestions: [
+        {
+          question_id: "stop",
+          question_text: "Neyi durdurmalısınız?",
+          respondentCount: 3,
+          uniqueAnswerCount: 2,
+          answers: [
+            { answer: "Fazla toplantı", count: 2 },
+            { answer: "Gereksiz raporlama", count: 1 },
+            { answer: "", count: 4 },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.meta.questionModel, "free_text");
+  assert.deepEqual(response.selectedSegment.freeTextQuestions, [
+    {
+      questionId: "stop",
+      questionText: "Neyi durdurmalısınız?",
+      respondentCount: 3,
+      uniqueAnswerCount: 2,
+      responses: [
+        { text: "Fazla toplantı", count: 2 },
+        { text: "Gereksiz raporlama", count: 1 },
+      ],
+    },
+  ]);
+});
+
 test("normalizeWeeklyDashboardResponse preserves expectation balance signs", () => {
   const response = normalizeWeeklyDashboardResponse({
     selectedSegment: {
@@ -523,7 +600,12 @@ test("normalizeWeeklyDashboardResponse maps backend weekly dashboard fields", ()
           previousTotal: 157,
           deltaPercentage: 4.5,
         },
-        noneOnly: { percentage: 25, count: 41, previousPercentage: 23.8, deltaPp: 1.2 },
+        noneOnly: {
+          percentage: 25,
+          count: 41,
+          previousPercentage: 23.8,
+          deltaPp: 1.2,
+        },
         topExpectationGap: {
           category: "appreciation",
           label: "Takdir",

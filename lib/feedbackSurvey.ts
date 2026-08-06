@@ -7,6 +7,7 @@ import type {
 } from "@/lib/feedbackClient";
 
 export const MAX_FEEDBACK_FREE_TEXT = 2000;
+export const MAX_PULSE_FREE_TEXT = 150;
 
 const DEFAULT_NUMERIC_SCALES = {
   likert: { min: 1, max: 5 },
@@ -171,6 +172,7 @@ export function parsePercentageValue(value: string) {
 export function validateFeedbackAnswer(
   question: FeedbackQuestion,
   value?: FeedbackAnswerFormValue | null,
+  freeTextMaxLength = MAX_FEEDBACK_FREE_TEXT,
 ) {
   if (isEmptyFeedbackAnswerValue(value)) {
     return true;
@@ -205,8 +207,8 @@ export function validateFeedbackAnswer(
   }
 
   if (question.type === "free_text") {
-    if (value.length > MAX_FEEDBACK_FREE_TEXT) {
-      return `En fazla ${MAX_FEEDBACK_FREE_TEXT} karakter.`;
+    if (value.length > freeTextMaxLength) {
+      return `En fazla ${freeTextMaxLength} karakter.`;
     }
 
     return true;

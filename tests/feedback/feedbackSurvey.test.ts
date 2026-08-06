@@ -10,6 +10,7 @@ import {
   getQuestionScaleMax,
   getQuestionScaleMin,
   hasAnyAnsweredFeedbackQuestion,
+  MAX_PULSE_FREE_TEXT,
   sanitizePercentageInput,
   validateFeedbackAnswer,
 } from "../../lib/feedbackSurvey";
@@ -99,6 +100,25 @@ test("validateFeedbackAnswer applies rules per question type", () => {
   assert.equal(
     validateFeedbackAnswer(questions[6], ["clarity", "support"]),
     true,
+  );
+});
+
+test("validateFeedbackAnswer limits Pulse free-text answers to 150 characters", () => {
+  assert.equal(
+    validateFeedbackAnswer(
+      questions[2],
+      "a".repeat(MAX_PULSE_FREE_TEXT),
+      MAX_PULSE_FREE_TEXT,
+    ),
+    true,
+  );
+  assert.equal(
+    validateFeedbackAnswer(
+      questions[2],
+      "a".repeat(MAX_PULSE_FREE_TEXT + 1),
+      MAX_PULSE_FREE_TEXT,
+    ),
+    "En fazla 150 karakter.",
   );
 });
 
