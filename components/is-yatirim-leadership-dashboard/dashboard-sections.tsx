@@ -120,7 +120,9 @@ const TREND_METRICS = [
 ] as const;
 
 type TrendMetric = (typeof TREND_METRICS)[number]["value"];
-type TrendSelection = "all" | TrendMetric;
+const ALL_TREND_METRICS: TrendMetric[] = TREND_METRICS.map(
+  (metric) => metric.value,
+);
 
 const WORD_PILL_PALETTE = [
   { background: "#EEF4FF", border: "#9BB6FF", text: "#0057FF" },
@@ -735,7 +737,7 @@ function getTrendDateRange(trend: SurveyTrendPoint[]) {
 function TrendTooltip({
   active,
   payload,
-  selection,
+  selectedMetrics,
 }: {
   active?: boolean;
   payload?: Array<{
@@ -743,20 +745,16 @@ function TrendTooltip({
     payload: SurveyTrendPoint & { averageMoodPercent: number };
     value?: number;
   }>;
-  selection: TrendSelection;
+  selectedMetrics: TrendMetric[];
 }) {
   if (!active || !payload?.length) {
     return null;
   }
 
   const point = payload[0].payload;
-  const visiblePayload =
-    selection === "all"
-      ? payload
-      : payload.filter((entry) => {
-          const config = getTrendMetricConfig(selection);
-          return entry.dataKey === config.chartKey;
-        });
+  const visibleMetrics = TREND_METRICS.filter((metric) =>
+    selectedMetrics.includes(metric.value),
+  );
 
   return (
     <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
@@ -764,30 +762,20 @@ function TrendTooltip({
         {toTurkishUpperCase(point.surveyDateLabel || point.surveyDate)}
       </p>
       <div className="mt-3 space-y-2">
-        {visiblePayload.map((entry) => {
-          const config = TREND_METRICS.find(
-            (item) => item.chartKey === entry.dataKey,
-          );
-
-          if (!config) {
-            return null;
-          }
-
-          return (
-            <div
-              className="flex items-center justify-between gap-8 font-poppins text-sm"
-              key={config.value}
+        {visibleMetrics.map((metric) => (
+          <div
+            className="flex items-center justify-between gap-8 font-poppins text-sm"
+            key={metric.value}
+          >
+            <span className="text-white/70">{metric.legendLabel}</span>
+            <span
+              className="font-righteous text-2xl leading-none"
+              style={{ color: metric.color }}
             >
-              <span className="text-white/70">{config.legendLabel}</span>
-              <span
-                className="font-righteous text-2xl leading-none"
-                style={{ color: config.color }}
-              >
-                {formatTrendMetricValue(point[config.value], config.value)}
-              </span>
-            </div>
-          );
-        })}
+              {formatTrendMetricValue(point[metric.value], metric.value)}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -798,10 +786,25 @@ export function MoodTrendCard({
 }: {
   response: LeadershipDashboardResponse;
 }) {
-  const [selection, setSelection] = useState<TrendSelection>("all");
+  const [selectedMetrics, setSelectedMetrics] = useState<TrendMetric[]>(() => [
+    ...ALL_TREND_METRICS,
+  ]);
   const trend = response.selectedSegment.trend;
   const activeMetric =
-    selection === "all" ? null : getTrendMetricConfig(selection);
+    selectedMetrics.length === 1
+      ? getTrendMetricConfig(selectedMetrics[0])
+      : null;
+  const areAllMetricsSelected =
+    selectedMetrics.length === ALL_TREND_METRICS.length;
+  const isSingleAverageMoodSelection =
+    selectedMetrics.length === 1 && selectedMetrics[0] === "averageMoodScore";
+  const toggleMetric = (metric: TrendMetric) => {
+    setSelectedMetrics((currentMetrics) =>
+      currentMetrics.includes(metric)
+        ? currentMetrics.filter((currentMetric) => currentMetric !== metric)
+        : [...currentMetrics, metric],
+    );
+  };
   const chartData = useMemo(
     () =>
       trend.map((point) => ({
@@ -814,13 +817,13 @@ export function MoodTrendCard({
     [response.meta.maxMoodScore, trend],
   );
   const metricStats = useMemo(() => {
-    if (selection === "all" || !trend.length) {
+    if (!activeMetric || !trend.length) {
       return null;
     }
 
     const values = trend.map((point) => ({
       point,
-      value: getTrendDisplayValue(point, selection),
+      value: getTrendDisplayValue(point, activeMetric.value),
     }));
     const total = values.reduce((sum, item) => sum + item.value, 0);
     const average = values.length ? total / values.length : 0;
@@ -838,7 +841,7 @@ export function MoodTrendCard({
       lowest,
       last,
     };
-  }, [selection, trend]);
+  }, [activeMetric, trend]);
   const dateRange = getTrendDateRange(trend);
 
   return (
@@ -855,17 +858,17 @@ export function MoodTrendCard({
       <div className="mb-7 flex flex-wrap gap-3">
         <TrendPill
           color="#8B8A83"
-          isActive={selection === "all"}
+          isActive={areAllMetricsSelected}
           label="Tümü"
-          onClick={() => setSelection("all")}
+          onClick={() => setSelectedMetrics([...ALL_TREND_METRICS])}
         />
         {TREND_METRICS.map((metric) => (
           <TrendPill
             color={metric.color}
-            isActive={selection === metric.value}
+            isActive={selectedMetrics.includes(metric.value)}
             key={metric.value}
             label={metric.pillLabel}
-            onClick={() => setSelection(metric.value)}
+            onClick={() => toggleMetric(metric.value)}
           />
         ))}
       </div>
@@ -952,12 +955,12 @@ export function MoodTrendCard({
               <YAxis
                 axisLine={{ stroke: "#171717", strokeOpacity: 0.14 }}
                 domain={
-                  selection === "averageMoodScore"
+                  isSingleAverageMoodSelection
                     ? [1, response.meta.maxMoodScore]
                     : [0, 100]
                 }
                 label={
-                  selection === "averageMoodScore"
+                  isSingleAverageMoodSelection
                     ? undefined
                     : {
                         angle: -90,
@@ -976,11 +979,11 @@ export function MoodTrendCard({
                   fontSize: 14,
                 }}
                 tickFormatter={(value: number) =>
-                  selection === "averageMoodScore" ? "" : `${value}%`
+                  isSingleAverageMoodSelection ? "" : `${value}%`
                 }
                 tickLine={false}
                 ticks={
-                  selection === "averageMoodScore"
+                  isSingleAverageMoodSelection
                     ? [1, 2, 3, 4]
                     : [0, 20, 40, 60, 80, 100]
                 }
@@ -1014,19 +1017,18 @@ export function MoodTrendCard({
                 yAxisId="mood"
               />
               <Tooltip
-                content={<TrendTooltip selection={selection} />}
+                content={<TrendTooltip selectedMetrics={selectedMetrics} />}
                 cursor={{ stroke: "#171717", strokeOpacity: 0.12 }}
               />
               {TREND_METRICS.map((metric) => {
-                const isVisible =
-                  selection === "all" || selection === metric.value;
+                const isVisible = selectedMetrics.includes(metric.value);
                 const dataKey =
-                  selection === metric.value &&
+                  isSingleAverageMoodSelection &&
                   metric.value === "averageMoodScore"
                     ? "averageMoodScore"
                     : metric.chartKey;
                 const yAxisId =
-                  selection === metric.value &&
+                  isSingleAverageMoodSelection &&
                   metric.value === "averageMoodScore"
                     ? "mood"
                     : "left";
@@ -1037,7 +1039,7 @@ export function MoodTrendCard({
 
                 return (
                   <Fragment key={metric.value}>
-                    {selection !== "all" ? (
+                    {selectedMetrics.length === 1 ? (
                       <Area
                         dataKey={dataKey}
                         fill={`url(#isYatirimTrendFill-${metric.value})`}
@@ -1078,15 +1080,16 @@ export function MoodTrendCard({
       {trend.length ? (
         <div className="mt-7 flex flex-wrap gap-x-8 gap-y-3">
           {TREND_METRICS.map((metric) => {
-            const isActive = selection === "all" || selection === metric.value;
+            const isActive = selectedMetrics.includes(metric.value);
 
             return (
               <button
+                aria-pressed={isActive}
                 className={`inline-flex items-center gap-2 font-poppins text-sm font-semibold transition-colors sm:text-base ${
                   isActive ? "text-[#171717]/68" : "text-[#171717]/20"
                 }`}
                 key={metric.value}
-                onClick={() => setSelection(metric.value)}
+                onClick={() => toggleMetric(metric.value)}
                 type="button"
               >
                 <span
@@ -1119,6 +1122,7 @@ function TrendPill({
 }) {
   return (
     <button
+      aria-pressed={isActive}
       className="rounded-full border px-5 py-2.5 font-poppins text-base font-semibold transition-all sm:px-6 sm:text-lg"
       onClick={onClick}
       style={{
