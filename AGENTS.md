@@ -1,10 +1,18 @@
 # Repository Guidelines
 
+## Web UI / Client-Only Boundary
+
+- Agents working in this repository are web UI/client agents only. Their implementation scope is limited to frontend code and client-side behavior.
+- Backend source directories are off-limits. Do not read, list, search, open, inspect, copy, write, edit, or delete `/Users/yusuf/Software/amplify_backend-1`, any `amplify_backend*` repository or directory, this repository's `amplify/` directory, or any other backend source/infrastructure directory.
+- Never perform backend mutations. Do not run backend deployments, migrations, database operations, Lambda operations, infrastructure commands, or Amplify backend commands.
+- Backend behavior may only be verified from the client boundary through read-only HTTP endpoint responses, browser network traffic, and the frontend's API contract. Verification does not authorize backend source access or backend changes.
+- If a task requires a backend change, report the required API/contract change to the user and stop the backend portion. Continue only with frontend work that is independently safe and in scope.
+
 ## Project Structure & Module Organization
 - `app/` houses App Router routes, layout wrappers, and loaders; keep server components close to their entry points.
 - Feature UI lives under `components/`; pair domain-specific hooks or helpers with each folder to preserve clear boundaries.
 - `services/` and `state/` contain API access and Redux Toolkit slices; expose clients and selectors via module indexes.
-- Shared config lives in `lib/`, `middleware.ts`, and `types/`; Amplify IaC stays in `amplify/`, generated clients in `src/`.
+- Shared frontend config lives in `lib/`, `middleware.ts`, and `types/`; generated client code lives in `src/`. The `amplify/` directory remains outside agent scope.
 - `tests/` mirrors the feature tree for integration coverage; product specs sit in `docs/` and `PRD.md`.
 
 ## Build, Test, and Development Commands
@@ -12,7 +20,7 @@
 - `npm run build` compiles the production bundle and runs type checks; `npm run start` serves the result.
 - `npm run lint` executes `next lint` with shared ESLint and Tailwind rules; pass `--fix` to auto-format.
 - `npm run test:quiz-config` runs `tsx --test` against `tests/api/quiz/quizConfig.test.ts`; mirror this pattern for future suites.
-- `npm run amplify:generate` refreshes GraphQL clients in `src/graphql/`, and `npm run amplify:deploy` pushes backend updates through `ampx sandbox`.
+- Do not run `npm run amplify:generate`, `npm run amplify:deploy`, or any equivalent backend/Amplify command.
 
 ## Coding Style & Naming Conventions
 - Write TypeScript/React with 2-space indentation and trailing commas; run Prettier (Tailwind plugin included) or `npm run lint -- --fix`.
