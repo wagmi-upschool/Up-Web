@@ -86,8 +86,8 @@ type WeeklyDashboardProps = {
 };
 
 const WEEK_OPTIONS: Array<{ mode: IsYatirimWeekMode; label: string }> = [
-  { mode: "this_week", label: "Aktif Dönem" },
-  { mode: "last_week", label: "Önceki Dönem" },
+  { mode: "this_week", label: "Bu Hafta" },
+  { mode: "last_week", label: "Geçen Hafta" },
   { mode: "last_4_weeks", label: "Son 4 Hafta" },
   { mode: "week", label: "Hafta Seç" },
 ];
@@ -400,9 +400,9 @@ function getWeekOptionMeta(
   }
 
   return {
-    label: mode === "last_week" ? "Önceki Dönem" : "Aktif Dönem",
+    label: mode === "last_week" ? "Geçen Hafta" : "Bu Hafta",
     detail: `${display.weekCode} · ${display.rangeLabel}`,
-    summary: `${mode === "last_week" ? "Önceki Dönem" : "Aktif Dönem"} · ${
+    summary: `${mode === "last_week" ? "Geçen Hafta" : "Bu Hafta"} · ${
       display.weekCode
     } · ${display.rangeLabel}`,
   };
