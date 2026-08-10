@@ -2,7 +2,7 @@ export const IS_YATIRIM_WEEKLY_CLIENT = "is-yatirim";
 export const IS_YATIRIM_WEEKLY_COMPETENCY_ID =
   "6fbe460b-6143-4ca9-8bb0-634a12618332";
 export const DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT = "all";
-export const DEFAULT_IS_YATIRIM_WEEK_MODE = "last_week";
+export const DEFAULT_IS_YATIRIM_WEEK_MODE = "this_week";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE = "2026-05-18";
 export const IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES = [
@@ -30,6 +30,10 @@ export type IsYatirimWeekMode =
 export type IsYatirimWeekFilter = {
   mode: IsYatirimWeekMode;
   weekStartDate?: string;
+  startWeek?: string;
+  endWeek?: string;
+  startDate?: string;
+  endDate?: string;
   label?: string;
   periodLabel?: string;
   weekLabel?: string;
@@ -295,6 +299,32 @@ export function isIsYatirimExcludedWeeklyStartDate(
   );
 }
 
+export function getResolvedIsYatirimWeekStart(
+  weekFilter: IsYatirimWeekFilter | null | undefined,
+) {
+  return getMondayForIsoDate(
+    weekFilter?.startWeek || weekFilter?.weekStartDate || "",
+  );
+}
+
+export function isIsYatirimWeekStartSelectable(
+  weekStartDate: string,
+  latestAvailableWeekStart: string,
+) {
+  const normalizedWeekStart = getMondayForIsoDate(weekStartDate);
+  const normalizedLatestWeekStart = getMondayForIsoDate(
+    latestAvailableWeekStart,
+  );
+
+  return Boolean(
+    normalizedWeekStart &&
+      normalizedLatestWeekStart &&
+      normalizedWeekStart <= normalizedLatestWeekStart &&
+      normalizedWeekStart >= IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE &&
+      !isIsYatirimExcludedWeeklyStartDate(normalizedWeekStart),
+  );
+}
+
 export function normalizeIsYatirimWeekMode(
   value: string | null | undefined,
 ): IsYatirimWeekMode {
@@ -392,8 +422,10 @@ export function getIsYatirimWeeklyQuestionModel({
   const currentWeekStart = getMondayForIsoDate(todayIsoDate);
 
   if (weekFilter.mode === "last_4_weeks") {
+    const rangeEndWeekStart =
+      getMondayForIsoDate(weekFilter.endWeek || "") || currentWeekStart;
     const selectedWeekStarts = getIncludedWeekStartsEndingAt(
-      currentWeekStart,
+      rangeEndWeekStart,
       4,
     );
     const hasFreeTextWeek = selectedWeekStarts.some(
@@ -417,11 +449,12 @@ export function getIsYatirimWeeklyQuestionModel({
   }
 
   const selectedWeekStart =
-    weekFilter.mode === "week"
+    getResolvedIsYatirimWeekStart(weekFilter) ||
+    (weekFilter.mode === "week"
       ? getMondayForIsoDate(weekFilter.weekStartDate || "")
       : weekFilter.mode === "last_week"
         ? addDaysToIsoDate(currentWeekStart, -7)
-        : currentWeekStart;
+        : currentWeekStart);
   const hasLikertResponses = recognitionQuestions.some(
     (question) => question.respondentCount > 0,
   );
@@ -460,9 +493,20 @@ function normalizeWeekFilterLike(
   fallback: IsYatirimWeekFilter,
 ) {
   const input = asObject(value);
+  const startWeek = getMondayForIsoDate(
+    asString(
+      input.startWeek ||
+        input.weekStartDate ||
+        fallback.startWeek ||
+        fallback.weekStartDate,
+    ),
+  );
+  const endWeek = getMondayForIsoDate(
+    asString(input.endWeek || fallback.endWeek || startWeek),
+  );
   const normalized = normalizeIsYatirimWeekFilter({
     weekMode: asString(input.mode || input.weekMode, fallback.mode),
-    weekStartDate: asString(input.weekStartDate || fallback.weekStartDate),
+    weekStartDate: startWeek,
   });
 
   if (normalized.mode === "week" && !normalized.weekStartDate) {
@@ -471,6 +515,15 @@ function normalizeWeekFilterLike(
 
   return {
     ...normalized,
+    ...(startWeek
+      ? {
+          weekStartDate: startWeek,
+          startWeek,
+        }
+      : {}),
+    ...(endWeek ? { endWeek } : {}),
+    ...(input.startDate ? { startDate: asString(input.startDate) } : {}),
+    ...(input.endDate ? { endDate: asString(input.endDate) } : {}),
     ...(input.label ? { label: asString(input.label) } : {}),
     ...(input.periodLabel ? { periodLabel: asString(input.periodLabel) } : {}),
     ...(input.weekLabel ? { weekLabel: asString(input.weekLabel) } : {}),

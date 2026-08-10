@@ -49,7 +49,9 @@ import {
   getLimitedWeeklyFreeTextResponses,
   getIsYatirimWeeklyQuestionModel,
   getMondayForIsoDate,
+  getResolvedIsYatirimWeekStart,
   isIsYatirimExcludedWeeklyStartDate,
+  isIsYatirimWeekStartSelectable,
   normalizeIsYatirimWeekFilter,
   type IsYatirimWeekFilter,
   type IsYatirimWeekMode,
@@ -76,6 +78,7 @@ type WeeklyDashboardProps = {
   isUnvanComparisonEnabled: boolean;
   isLoading: boolean;
   isUpdating: boolean;
+  latestAvailableWeekStart: string;
   errorMessage?: string | null;
   onSegmentSelect: (segment: string) => void;
   onUnvanSelect: (unvan: string) => void;
@@ -83,8 +86,8 @@ type WeeklyDashboardProps = {
 };
 
 const WEEK_OPTIONS: Array<{ mode: IsYatirimWeekMode; label: string }> = [
-  { mode: "this_week", label: "Bu Hafta" },
-  { mode: "last_week", label: "Geçen Hafta" },
+  { mode: "this_week", label: "Aktif Dönem" },
+  { mode: "last_week", label: "Önceki Dönem" },
   { mode: "last_4_weeks", label: "Son 4 Hafta" },
   { mode: "week", label: "Hafta Seç" },
 ];
@@ -294,23 +297,6 @@ function getPreviousSurveyWeekStart(weekStart: Date) {
   return addUtcDays(getUtcMonday(weekStart), -7);
 }
 
-function getDisplayPeriodLabel(
-  weekFilter: IsYatirimWeekFilter,
-  fallback?: string,
-) {
-  if (weekFilter.mode === "last_4_weeks") {
-    return fallback || getWeekOptionLabel(weekFilter);
-  }
-
-  const weekStart = getWeekStartForMode(
-    weekFilter.mode,
-    weekFilter.weekStartDate,
-  );
-  const display = getWeekDisplay(weekStart);
-
-  return `${display.weekCode} · ${display.rangeLabel}`;
-}
-
 function formatWeekRange(startDate: Date, includeYear = false) {
   const endDate = addUtcDays(startDate, 6);
   const startMonth = SHORT_TURKISH_MONTHS[startDate.getUTCMonth()];
@@ -350,37 +336,57 @@ function getWeekDisplay(
   };
 }
 
-function getWeekStartForMode(mode: IsYatirimWeekMode, weekStartDate?: string) {
+function getWeekStartForMode(
+  mode: IsYatirimWeekMode,
+  weekStartDate?: string,
+  latestAvailableWeekStart?: string,
+) {
   const currentWeekStart = getUtcMonday(getTodayUtcDate());
+  const resolvedWeekStart = parseUtcIsoDate(
+    getMondayForIsoDate(weekStartDate || ""),
+  );
+  const activeWeekStart =
+    parseUtcIsoDate(getMondayForIsoDate(latestAvailableWeekStart || "")) ||
+    currentWeekStart;
+
+  if (resolvedWeekStart && mode !== "last_4_weeks") {
+    return resolvedWeekStart;
+  }
 
   if (mode === "last_week") {
-    return addUtcDays(currentWeekStart, -7);
+    return getPreviousSurveyWeekStart(activeWeekStart);
   }
 
-  if (mode === "week" && weekStartDate) {
-    return (
-      parseUtcIsoDate(getMondayForIsoDate(weekStartDate)) || currentWeekStart
-    );
-  }
-
-  return currentWeekStart;
+  return activeWeekStart;
 }
 
-function getWeekOptionMeta(mode: IsYatirimWeekMode, weekStartDate?: string) {
-  const currentWeekStart = getUtcMonday(getTodayUtcDate());
-  const startDate = getWeekStartForMode(mode, weekStartDate);
+function getWeekOptionMeta(
+  mode: IsYatirimWeekMode,
+  weekStartDate?: string,
+  latestAvailableWeekStart?: string,
+) {
+  const activeWeekStart = getWeekStartForMode(
+    "this_week",
+    undefined,
+    latestAvailableWeekStart,
+  );
+  const startDate = getWeekStartForMode(
+    mode,
+    weekStartDate,
+    latestAvailableWeekStart,
+  );
   const display = getWeekDisplay(startDate);
 
   if (mode === "last_4_weeks") {
-    const weekStarts = getSurveyWeekStartsEndingAt(currentWeekStart, 4);
-    const firstWeekStart = weekStarts[0] || currentWeekStart;
+    const weekStarts = getSurveyWeekStartsEndingAt(activeWeekStart, 4);
+    const firstWeekStart = weekStarts[0] || activeWeekStart;
     return {
       label: "Son 4 Hafta",
       detail: `${formatWeekRange(firstWeekStart).split("–")[0]}–${
-        formatWeekRange(currentWeekStart).split("–")[1]
+        formatWeekRange(activeWeekStart).split("–")[1]
       }`,
       summary: `Son 4 Hafta · ${formatWeekRange(firstWeekStart).split("–")[0]}–${
-        formatWeekRange(currentWeekStart).split("–")[1]
+        formatWeekRange(activeWeekStart).split("–")[1]
       }`,
     };
   }
@@ -394,24 +400,24 @@ function getWeekOptionMeta(mode: IsYatirimWeekMode, weekStartDate?: string) {
   }
 
   return {
-    label: mode === "last_week" ? "Geçen Hafta" : "Bu Hafta",
+    label: mode === "last_week" ? "Önceki Dönem" : "Aktif Dönem",
     detail: `${display.weekCode} · ${display.rangeLabel}`,
-    summary: `${mode === "last_week" ? "Geçen Hafta" : "Bu Hafta"} · ${
+    summary: `${mode === "last_week" ? "Önceki Dönem" : "Aktif Dönem"} · ${
       display.weekCode
     } · ${display.rangeLabel}`,
   };
 }
 
-function getWeekOptionLabel(weekFilter: IsYatirimWeekFilter) {
-  return getWeekOptionMeta(weekFilter.mode, weekFilter.weekStartDate).summary;
-}
-
 function WeeklyFilterPicker({
   weekFilter,
+  periodLabel,
+  latestAvailableWeekStart,
   isUpdating,
   onApply,
 }: {
   weekFilter: IsYatirimWeekFilter;
+  periodLabel: string;
+  latestAvailableWeekStart: string;
   isUpdating: boolean;
   onApply: (weekFilter: IsYatirimWeekFilter) => void;
 }) {
@@ -430,6 +436,7 @@ function WeeklyFilterPicker({
     const selectedWeek = getWeekStartForMode(
       weekFilter.mode,
       weekFilter.weekStartDate,
+      latestAvailableWeekStart,
     );
     return createUtcDate(
       selectedWeek.getUTCFullYear(),
@@ -449,6 +456,7 @@ function WeeklyFilterPicker({
     const selectedWeek = getWeekStartForMode(
       weekFilter.mode,
       weekFilter.weekStartDate,
+      latestAvailableWeekStart,
     );
     setVisibleMonth(
       createUtcDate(
@@ -457,7 +465,12 @@ function WeeklyFilterPicker({
         1,
       ),
     );
-  }, [isOpen, weekFilter.mode, weekFilter.weekStartDate]);
+  }, [
+    isOpen,
+    latestAvailableWeekStart,
+    weekFilter.mode,
+    weekFilter.weekStartDate,
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -481,7 +494,11 @@ function WeeklyFilterPicker({
     weekMode: draftMode,
     weekStartDate: draftWeekStartDate,
   });
-  const selectedWeekStart = getWeekStartForMode(draftMode, draftWeekStartDate);
+  const selectedWeekStart = getWeekStartForMode(
+    draftMode,
+    draftWeekStartDate,
+    latestAvailableWeekStart,
+  );
   const selectedWeekDisplay = getWeekDisplay(selectedWeekStart);
   const weekRows = useMemo(() => {
     const firstDayOfMonth = createUtcDate(
@@ -526,11 +543,27 @@ function WeeklyFilterPicker({
     (visibleMonth.getUTCFullYear() ===
       minimumSelectableMonth.getUTCFullYear() &&
       visibleMonth.getUTCMonth() <= minimumSelectableMonth.getUTCMonth());
+  const latestAvailableWeekDate = parseUtcIsoDate(latestAvailableWeekStart);
+  const latestAvailableMonth = latestAvailableWeekDate
+    ? createUtcDate(
+        latestAvailableWeekDate.getUTCFullYear(),
+        latestAvailableWeekDate.getUTCMonth(),
+        1,
+      )
+    : null;
+  const isNextMonthDisabled = Boolean(
+    latestAvailableMonth && visibleMonth >= latestAvailableMonth,
+  );
   const isApplyDisabled =
     isUpdating ||
     (normalizedDraftFilter.mode === weekFilter.mode &&
       normalizedDraftFilter.weekStartDate === weekFilter.weekStartDate) ||
-    (draftMode === "week" && !normalizedDraftFilter.weekStartDate);
+    (draftMode === "week" &&
+      (!normalizedDraftFilter.weekStartDate ||
+        !isIsYatirimWeekStartSelectable(
+          normalizedDraftFilter.weekStartDate,
+          latestAvailableWeekStart,
+        )));
 
   return (
     <div className="static sm:relative" ref={containerRef}>
@@ -540,7 +573,7 @@ function WeeklyFilterPicker({
         type="button"
       >
         <CalendarDays className="h-4 w-4" />
-        <span>{getWeekOptionLabel(weekFilter)}</span>
+        <span>{periodLabel || "Dönem yükleniyor"}</span>
         <ChevronDown
           className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
@@ -551,7 +584,11 @@ function WeeklyFilterPicker({
           <div className="space-y-2.5 p-4">
             {WEEK_OPTIONS.filter((option) => option.mode !== "week").map(
               (option) => {
-                const meta = getWeekOptionMeta(option.mode, draftWeekStartDate);
+                const meta = getWeekOptionMeta(
+                  option.mode,
+                  option.mode === draftMode ? draftWeekStartDate : undefined,
+                  latestAvailableWeekStart,
+                );
                 const isActive = draftMode === option.mode;
 
                 return (
@@ -629,7 +666,12 @@ function WeeklyFilterPicker({
                     {visibleMonth.getUTCFullYear()}
                   </p>
                   <button
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#171717]/10 bg-[#F7F1E8] text-[#171717]/58 transition-colors hover:text-[#171717]"
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#171717]/10 bg-[#F7F1E8] transition-colors ${
+                      isNextMonthDisabled
+                        ? "cursor-not-allowed text-[#171717]/20"
+                        : "text-[#171717]/58 hover:text-[#171717]"
+                    }`}
+                    disabled={isNextMonthDisabled}
                     onClick={() =>
                       setVisibleMonth((current) => addUtcMonths(current, 1))
                     }
@@ -644,7 +686,12 @@ function WeeklyFilterPicker({
                     const isSelected =
                       draftMode === "week" &&
                       draftWeekStartDate === week.isoStart;
-                    const isDisabled = week.isFuture || week.isBeforeMinimum;
+                    const isDisabled =
+                      week.isBeforeMinimum ||
+                      !isIsYatirimWeekStartSelectable(
+                        week.isoStart,
+                        latestAvailableWeekStart,
+                      );
 
                     return (
                       <button
@@ -696,7 +743,11 @@ function WeeklyFilterPicker({
             <p className="font-poppins text-sm font-semibold text-[#171717]">
               {draftMode === "week"
                 ? `${selectedWeekDisplay.weekCode} · ${selectedWeekDisplay.rangeLabelWithYear}`
-                : getWeekOptionMeta(draftMode, draftWeekStartDate).summary}
+                : getWeekOptionMeta(
+                    draftMode,
+                    draftWeekStartDate,
+                    latestAvailableWeekStart,
+                  ).summary}
             </p>
             <button
               className={`rounded-full px-4 py-2 font-poppins text-sm font-semibold text-white shadow-[0_14px_28px_rgba(0,87,255,0.25)] transition-colors ${
@@ -723,6 +774,7 @@ function WeeklyFilterPicker({
 function WeeklyHeader({
   response,
   weekFilter,
+  latestAvailableWeekStart,
   selectedSegment,
   dailyToken,
   weeklyToken,
@@ -733,6 +785,7 @@ function WeeklyHeader({
 }: {
   response?: WeeklyDashboardResponse;
   weekFilter: IsYatirimWeekFilter;
+  latestAvailableWeekStart: string;
   selectedSegment: string;
   dailyToken: string;
   weeklyToken: string;
@@ -741,10 +794,7 @@ function WeeklyHeader({
   isUpdating: boolean;
   onWeekFilterChange: (weekFilter: IsYatirimWeekFilter) => void;
 }) {
-  const periodLabel = getDisplayPeriodLabel(
-    response?.meta.weekFilter || weekFilter,
-    response?.meta.periodLabel,
-  );
+  const periodLabel = response?.meta.periodLabel || "Dönem yükleniyor";
 
   return (
     <header className="relative z-30 overflow-visible rounded-[30px] border border-[#171717]/10 bg-[#F8F2E7]/80 shadow-[0_24px_60px_rgba(23,23,23,0.08)] backdrop-blur-sm">
@@ -789,7 +839,9 @@ function WeeklyHeader({
             ) : null}
             <WeeklyFilterPicker
               isUpdating={isUpdating}
+              latestAvailableWeekStart={latestAvailableWeekStart}
               onApply={onWeekFilterChange}
+              periodLabel={periodLabel}
               weekFilter={weekFilter}
             />
           </div>
@@ -1235,16 +1287,18 @@ function getComparisonLegendLabels(response?: WeeklyDashboardResponse) {
   }
 
   if (response?.meta.weekFilter) {
-    const currentWeekStart = getWeekStartForMode(
-      response.meta.weekFilter.mode,
-      response.meta.weekFilter.weekStartDate,
+    const currentWeekStart = parseUtcIsoDate(
+      getResolvedIsYatirimWeekStart(response.meta.weekFilter),
     );
-    const previousWeekStart = getPreviousSurveyWeekStart(currentWeekStart);
 
-    return {
-      current: getWeekCode(currentWeekStart),
-      previous: getWeekCode(previousWeekStart),
-    };
+    if (currentWeekStart) {
+      const previousWeekStart = getPreviousSurveyWeekStart(currentWeekStart);
+
+      return {
+        current: getWeekCode(currentWeekStart),
+        previous: getWeekCode(previousWeekStart),
+      };
+    }
   }
 
   const currentLabel = extractWeekLegendLabel(
@@ -2095,6 +2149,7 @@ export default function IsYatirimWeeklyDashboard({
   isUnvanComparisonEnabled,
   isLoading,
   isUpdating,
+  latestAvailableWeekStart,
   errorMessage,
   onSegmentSelect,
   onUnvanSelect,
@@ -2129,9 +2184,7 @@ export default function IsYatirimWeeklyDashboard({
         : previousParticipationResponse,
     [isUnvanComparisonEnabled, previousParticipationResponse, selectedUnvan],
   );
-  const periodLabel = response
-    ? getDisplayPeriodLabel(response.meta.weekFilter, response.meta.periodLabel)
-    : getWeekOptionLabel(weekFilter);
+  const periodLabel = response?.meta.periodLabel || "Dönem yükleniyor";
   const questionModel = displayResponse
     ? displayResponse.meta.questionModel ||
       getIsYatirimWeeklyQuestionModel({
@@ -2183,6 +2236,7 @@ export default function IsYatirimWeeklyDashboard({
       <AnalyticsDashboardBody>
         <WeeklyHeader
           isUpdating={isUpdating}
+          latestAvailableWeekStart={latestAvailableWeekStart}
           onWeekFilterChange={onWeekFilterChange}
           response={response}
           selectedSegment={activeSegment}

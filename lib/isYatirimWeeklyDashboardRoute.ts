@@ -33,21 +33,22 @@ export function buildIsYatirimWeeklyDashboardUrl({
     weekStartDate: weekFilter?.weekStartDate,
   });
 
+  const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
   url.searchParams.set("client", IS_YATIRIM_WEEKLY_CLIENT);
   url.searchParams.set("isWeekly", "true");
   url.searchParams.set("competencyId", IS_YATIRIM_WEEKLY_COMPETENCY_ID);
   url.searchParams.set("segment", normalizeIsYatirimWeeklySegment(segment));
-  const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
-  if (normalizedUnvan) {
-    url.searchParams.set("unvan", normalizedUnvan);
-  }
-
   url.searchParams.set("weekMode", normalizedWeekFilter.mode);
 
-  if (normalizedWeekFilter.mode === "week" && normalizedWeekFilter.weekStartDate) {
+  if (
+    normalizedWeekFilter.mode === "week" &&
+    normalizedWeekFilter.weekStartDate
+  ) {
     url.searchParams.set("weekStartDate", normalizedWeekFilter.weekStartDate);
-  } else {
-    url.searchParams.delete("weekStartDate");
+  }
+
+  if (normalizedUnvan) {
+    url.searchParams.set("unvan", normalizedUnvan);
   }
 
   if (normalizedToken) {

@@ -23,6 +23,7 @@ import {
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_ROUTE,
   applyIsYatirimWeekFilterToSearchParams,
+  getResolvedIsYatirimWeekStart,
   isIsYatirimExcludedWeeklyStartDate,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
@@ -105,6 +106,8 @@ function getWeeklyDashboardQueryKey(
     token,
     weekFilter.mode,
     weekFilter.weekStartDate || "",
+    weekFilter.startWeek || "",
+    weekFilter.endWeek || "",
   ] as const;
 }
 
@@ -149,13 +152,6 @@ function addDaysToIsoDate(value: string, days: number) {
   return formatIsoDate(date);
 }
 
-function getTodayIsoDate() {
-  const now = new Date();
-  return formatIsoDate(
-    new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())),
-  );
-}
-
 function getPreviousIncludedWeekStartDate(value: string) {
   let previousWeekStart = addDaysToIsoDate(value, -7);
 
@@ -169,6 +165,38 @@ function getPreviousIncludedWeekStartDate(value: string) {
   return previousWeekStart;
 }
 
+function resolveWeekFilterForActivePeriod(
+  weekFilter: IsYatirimWeekFilter,
+  latestAvailableWeekStart: string,
+): IsYatirimWeekFilter {
+  if (!latestAvailableWeekStart) {
+    return weekFilter;
+  }
+
+  if (weekFilter.mode === "this_week") {
+    return {
+      mode: "week",
+      weekStartDate: latestAvailableWeekStart,
+    };
+  }
+
+  if (weekFilter.mode === "last_week") {
+    return {
+      mode: "week",
+      weekStartDate: getPreviousIncludedWeekStartDate(latestAvailableWeekStart),
+    };
+  }
+
+  if (weekFilter.mode === "last_4_weeks") {
+    return {
+      ...weekFilter,
+      endWeek: latestAvailableWeekStart,
+    };
+  }
+
+  return weekFilter;
+}
+
 function getPreviousParticipationWeekFilter(
   weekFilter: IsYatirimWeekFilter,
 ): IsYatirimWeekFilter | null {
@@ -176,21 +204,7 @@ function getPreviousParticipationWeekFilter(
     return null;
   }
 
-  const currentWeekStart = normalizeIsYatirimWeekFilter({
-    weekMode: "week",
-    weekStartDate: getTodayIsoDate(),
-  }).weekStartDate;
-  let selectedWeekStart = "";
-
-  if (weekFilter.mode === "week") {
-    selectedWeekStart = weekFilter.weekStartDate || "";
-  } else if (weekFilter.mode === "last_week") {
-    selectedWeekStart = currentWeekStart
-      ? addDaysToIsoDate(currentWeekStart, -7)
-      : "";
-  } else {
-    selectedWeekStart = currentWeekStart || "";
-  }
+  const selectedWeekStart = getResolvedIsYatirimWeekStart(weekFilter);
 
   const previousWeekStart = selectedWeekStart
     ? getPreviousIncludedWeekStartDate(selectedWeekStart)
@@ -258,12 +272,15 @@ function replaceWeeklyDashboardRoute(
     weekFilter: IsYatirimWeekFilter;
   },
 ) {
-  const nextSearchParams = buildWeeklyDashboardSearchParams(currentSearchParams, {
-    segment,
-    selectedUnvan,
-    isUnvanComparisonEnabled,
-    weekFilter,
-  });
+  const nextSearchParams = buildWeeklyDashboardSearchParams(
+    currentSearchParams,
+    {
+      segment,
+      selectedUnvan,
+      isUnvanComparisonEnabled,
+      weekFilter,
+    },
+  );
   const nextSearch = nextSearchParams.toString();
   const currentSearch = currentSearchParams.toString();
 
@@ -272,7 +289,9 @@ function replaceWeeklyDashboardRoute(
   }
 
   startTransition(() => {
-    router.replace(`${IS_YATIRIM_WEEKLY_ROUTE}${nextSearch ? `?${nextSearch}` : ""}`);
+    router.replace(
+      `${IS_YATIRIM_WEEKLY_ROUTE}${nextSearch ? `?${nextSearch}` : ""}`,
+    );
   });
 }
 
@@ -296,8 +315,10 @@ function IsYatirimWeeklyDashboardContent() {
   const weeklyToken = normalizeIsYatirimWeeklyToken(
     searchParams.get("weeklyToken") || searchParams.get("token"),
   );
-  const dailyToken = normalizeIsYatirimWeeklyToken(searchParams.get("dailyToken"));
-  const weekFilter = normalizeIsYatirimWeekFilter({
+  const dailyToken = normalizeIsYatirimWeeklyToken(
+    searchParams.get("dailyToken"),
+  );
+  const requestedWeekFilter = normalizeIsYatirimWeekFilter({
     weekMode: searchParams.get("weekMode"),
     weekStartDate: searchParams.get("weekStartDate"),
   });
@@ -312,20 +333,45 @@ function IsYatirimWeeklyDashboardContent() {
     }
   }, [optimisticBreakdown, segment, selectedUnvan]);
 
+  const activePeriodQuery = useQuery({
+    queryKey: ["isYatirimWeeklyDashboardActivePeriod", weeklyToken],
+    queryFn: () =>
+      getWeeklyDashboard(DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT, weeklyToken, {
+        mode: "this_week",
+      }),
+    refetchOnWindowFocus: true,
+  });
+  const latestAvailableWeekStart = getResolvedIsYatirimWeekStart(
+    activePeriodQuery.data?.meta.weekFilter,
+  );
+  const resolvedWeekFilter = resolveWeekFilterForActivePeriod(
+    requestedWeekFilter,
+    latestAvailableWeekStart,
+  );
+  const canLoadDashboard =
+    requestedWeekFilter.mode !== "this_week" ||
+    Boolean(latestAvailableWeekStart);
   const dashboardQuery = useQuery({
     queryKey: getWeeklyDashboardQueryKey(
       segment,
       selectedUnvan,
       weeklyToken,
-      weekFilter,
+      resolvedWeekFilter,
     ),
     queryFn: () =>
-      getWeeklyDashboard(segment, weeklyToken, weekFilter, selectedUnvan),
+      getWeeklyDashboard(
+        segment,
+        weeklyToken,
+        resolvedWeekFilter,
+        selectedUnvan,
+      ),
+    enabled: canLoadDashboard,
     placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
-  const previousParticipationWeekFilter =
-    getPreviousParticipationWeekFilter(weekFilter);
+  const previousParticipationWeekFilter = getPreviousParticipationWeekFilter(
+    dashboardQuery.data?.meta.weekFilter || resolvedWeekFilter,
+  );
   const previousParticipationQuery = useQuery({
     queryKey: previousParticipationWeekFilter
       ? getWeeklyDashboardQueryKey(
@@ -366,7 +412,7 @@ function IsYatirimWeeklyDashboardContent() {
       segment: normalizedSegment,
       selectedUnvan: "",
       isUnvanComparisonEnabled,
-      weekFilter,
+      weekFilter: requestedWeekFilter,
     });
   };
 
@@ -387,23 +433,27 @@ function IsYatirimWeeklyDashboardContent() {
       segment: DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
       selectedUnvan: normalizedUnvan,
       isUnvanComparisonEnabled,
-      weekFilter,
+      weekFilter: requestedWeekFilter,
     });
   };
 
   const handleWeekFilterChange = (nextWeekFilter: IsYatirimWeekFilter) => {
+    const nextResolvedWeekFilter = resolveWeekFilterForActivePeriod(
+      nextWeekFilter,
+      latestAvailableWeekStart,
+    );
     void queryClient.prefetchQuery({
       queryKey: getWeeklyDashboardQueryKey(
         segment,
         selectedUnvan,
         weeklyToken,
-        nextWeekFilter,
+        nextResolvedWeekFilter,
       ),
       queryFn: () =>
         getWeeklyDashboard(
           segment,
           weeklyToken,
-          nextWeekFilter,
+          nextResolvedWeekFilter,
           selectedUnvan,
         ),
     });
@@ -419,10 +469,19 @@ function IsYatirimWeeklyDashboardContent() {
   return (
     <IsYatirimWeeklyDashboard
       errorMessage={
-        dashboardQuery.error ? formatApiError(dashboardQuery.error) : null
+        activePeriodQuery.error
+          ? formatApiError(activePeriodQuery.error)
+          : dashboardQuery.error
+            ? formatApiError(dashboardQuery.error)
+            : null
       }
-      isLoading={dashboardQuery.isLoading}
-      isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
+      isLoading={activePeriodQuery.isLoading || dashboardQuery.isLoading}
+      isUpdating={
+        (activePeriodQuery.isFetching || dashboardQuery.isFetching) &&
+        !activePeriodQuery.isLoading &&
+        !dashboardQuery.isLoading
+      }
+      latestAvailableWeekStart={latestAvailableWeekStart}
       onSegmentSelect={handleSegmentSelect}
       onUnvanSelect={handleUnvanSelect}
       onWeekFilterChange={handleWeekFilterChange}
@@ -433,7 +492,7 @@ function IsYatirimWeeklyDashboardContent() {
       dailyToken={dailyToken}
       isUnvanComparisonEnabled={isUnvanComparisonEnabled}
       weeklyToken={weeklyToken}
-      weekFilter={weekFilter}
+      weekFilter={dashboardQuery.data?.meta.weekFilter || resolvedWeekFilter}
     />
   );
 }

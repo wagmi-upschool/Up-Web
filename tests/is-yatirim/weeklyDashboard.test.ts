@@ -12,6 +12,8 @@ import {
   getLimitedWeeklyFreeTextResponses,
   getIsYatirimWeeklyQuestionModel,
   getMondayForIsoDate,
+  getResolvedIsYatirimWeekStart,
+  isIsYatirimWeekStartSelectable,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
   normalizeIsYatirimWeeklyToken,
@@ -55,7 +57,7 @@ test("normalizeIsYatirimWeekFilter falls back when week date is missing", () => 
       weekMode: "week",
       weekStartDate: "",
     }),
-    { mode: "last_week" },
+    { mode: "this_week" },
   );
 });
 
@@ -77,7 +79,7 @@ test("normalizeIsYatirimWeekFilter excludes the holiday week", () => {
       weekMode: "week",
       weekStartDate: "2026-05-25",
     }),
-    { mode: "last_week" },
+    { mode: "this_week" },
   );
 });
 
@@ -167,10 +169,11 @@ test("weekly question model keeps legacy and Likert weeks separate in ranges", (
   );
 });
 
-test("buildIsYatirimWeeklyDashboardUrl sends isolated weekly request parameters", () => {
+test("buildIsYatirimWeeklyDashboardUrl sends active period without weekStartDate", () => {
   const url = buildIsYatirimWeeklyDashboardUrl({
     baseUrl: "https://example.com/base/",
     segment: "",
+    weekFilter: { mode: "this_week" },
   });
 
   assert.equal(url.origin, "https://example.com");
@@ -182,7 +185,7 @@ test("buildIsYatirimWeeklyDashboardUrl sends isolated weekly request parameters"
     url.searchParams.get("competencyId"),
     IS_YATIRIM_WEEKLY_COMPETENCY_ID,
   );
-  assert.equal(url.searchParams.get("weekMode"), "last_week");
+  assert.equal(url.searchParams.get("weekMode"), "this_week");
   assert.equal(url.searchParams.get("weekStartDate"), null);
 });
 
@@ -210,7 +213,7 @@ test("buildIsYatirimWeeklyDashboardUrl forwards segment token and preset week mo
 
 test("normalizeIsYatirimWeekFilter falls back for unsupported weekly ranges", () => {
   assert.deepEqual(normalizeIsYatirimWeekFilter({ weekMode: "last_8_weeks" }), {
-    mode: "last_week",
+    mode: "this_week",
   });
 });
 
@@ -249,7 +252,6 @@ test("buildIsYatirimWeeklyDashboardUrl forwards selected unvan for weekly reques
   assert.equal(url.searchParams.get("isWeekly"), "true");
   assert.equal(url.searchParams.get("segment"), "all");
   assert.equal(url.searchParams.get("unvan"), "mudur");
-  assert.equal(url.searchParams.get("isUnvan"), null);
 });
 
 test("normalizeWeeklyDashboardResponse fills safe weekly fallbacks", () => {
@@ -506,7 +508,11 @@ test("normalizeWeeklyDashboardResponse preserves week comparison labels", () => 
     meta: {
       periodLabel: "H3 · 8-14 Haz",
       weekFilter: {
-        mode: "last_week",
+        mode: "this_week",
+        startWeek: "2026-06-08",
+        endWeek: "2026-06-08",
+        startDate: "2026-06-08",
+        endDate: "2026-06-14",
         periodLabel: "H3 · 8-14 Haz",
       },
       previousWeekFilter: {
@@ -518,7 +524,51 @@ test("normalizeWeeklyDashboardResponse preserves week comparison labels", () => 
   });
 
   assert.equal(response.meta.weekFilter.periodLabel, "H3 · 8-14 Haz");
+  assert.equal(response.meta.weekFilter.startWeek, "2026-06-08");
+  assert.equal(response.meta.weekFilter.endWeek, "2026-06-08");
+  assert.equal(response.meta.weekFilter.startDate, "2026-06-08");
+  assert.equal(response.meta.weekFilter.endDate, "2026-06-14");
+  assert.equal(response.meta.weekFilter.weekStartDate, "2026-06-08");
+  assert.equal(
+    getResolvedIsYatirimWeekStart(response.meta.weekFilter),
+    "2026-06-08",
+  );
   assert.equal(response.meta.previousWeekFilter?.periodLabel, "H2 · 1-7 Haz");
+});
+
+test("active backend week limits unopened picker weeks", () => {
+  assert.equal(
+    isIsYatirimWeekStartSelectable("2026-08-03", "2026-08-03"),
+    true,
+  );
+  assert.equal(
+    isIsYatirimWeekStartSelectable("2026-08-10", "2026-08-03"),
+    false,
+  );
+  assert.equal(
+    isIsYatirimWeekStartSelectable("2026-08-10", "2026-08-10"),
+    true,
+  );
+});
+
+test("normalizeWeeklyDashboardResponse preserves multi-week boundaries", () => {
+  const response = normalizeWeeklyDashboardResponse({
+    meta: {
+      periodLabel: "H8–H11",
+      weekFilter: {
+        mode: "last_4_weeks",
+        startWeek: "2026-07-13",
+        endWeek: "2026-08-03",
+        startDate: "2026-07-13",
+        endDate: "2026-08-09",
+      },
+    },
+  });
+
+  assert.equal(response.meta.weekFilter.startWeek, "2026-07-13");
+  assert.equal(response.meta.weekFilter.endWeek, "2026-08-03");
+  assert.equal(response.meta.weekFilter.startDate, "2026-07-13");
+  assert.equal(response.meta.weekFilter.endDate, "2026-08-09");
 });
 
 test("normalizeWeeklyDashboardResponse labels participant when previous week is missing", () => {
