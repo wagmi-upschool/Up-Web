@@ -2,7 +2,7 @@ export const IS_YATIRIM_WEEKLY_CLIENT = "is-yatirim";
 export const IS_YATIRIM_WEEKLY_COMPETENCY_ID =
   "6fbe460b-6143-4ca9-8bb0-634a12618332";
 export const DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT = "all";
-export const DEFAULT_IS_YATIRIM_WEEK_MODE = "this_week";
+export const DEFAULT_IS_YATIRIM_WEEK_MODE = "last_week";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE = "2026-05-18";
 export const IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES = [
@@ -383,6 +383,12 @@ function getCurrentIsoDate() {
   );
 }
 
+export function getCurrentIsYatirimWeekStart(
+  todayIsoDate = getCurrentIsoDate(),
+) {
+  return getMondayForIsoDate(todayIsoDate);
+}
+
 function addDaysToIsoDate(value: string, days: number) {
   const date = parseIsoDate(value);
 
@@ -392,6 +398,56 @@ function addDaysToIsoDate(value: string, days: number) {
 
   date.setUTCDate(date.getUTCDate() + days);
   return formatIsoDate(date);
+}
+
+export function getIsYatirimPresetWeekStart(
+  mode: Extract<IsYatirimWeekMode, "this_week" | "last_week">,
+  latestAvailableWeekStart: string,
+) {
+  const activeWeekStart = getMondayForIsoDate(latestAvailableWeekStart);
+
+  if (!activeWeekStart || mode === "this_week") {
+    return activeWeekStart;
+  }
+
+  let previousWeekStart = addDaysToIsoDate(activeWeekStart, -7);
+
+  while (
+    previousWeekStart &&
+    isIsYatirimExcludedWeeklyStartDate(previousWeekStart)
+  ) {
+    previousWeekStart = addDaysToIsoDate(previousWeekStart, -7);
+  }
+
+  return previousWeekStart;
+}
+
+export function getIsYatirimWeekBadgeLabel(
+  weekStartDate: string,
+  latestAvailableWeekStart: string,
+) {
+  const normalizedWeekStart = getMondayForIsoDate(weekStartDate);
+  const activeWeekStart = getIsYatirimPresetWeekStart(
+    "this_week",
+    latestAvailableWeekStart,
+  );
+
+  if (!normalizedWeekStart || !activeWeekStart) {
+    return null;
+  }
+
+  if (normalizedWeekStart === activeWeekStart) {
+    return "Bu Hafta" as const;
+  }
+
+  if (
+    normalizedWeekStart ===
+    getIsYatirimPresetWeekStart("last_week", latestAvailableWeekStart)
+  ) {
+    return "Geçen Hafta" as const;
+  }
+
+  return null;
 }
 
 function getIncludedWeekStartsEndingAt(value: string, count: number) {

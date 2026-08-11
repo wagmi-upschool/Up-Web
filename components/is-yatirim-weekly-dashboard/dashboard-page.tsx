@@ -48,6 +48,8 @@ import {
   formatWeeklyPp,
   getLimitedWeeklyFreeTextResponses,
   getIsYatirimWeeklyQuestionModel,
+  getIsYatirimPresetWeekStart,
+  getIsYatirimWeekBadgeLabel,
   getMondayForIsoDate,
   getResolvedIsYatirimWeekStart,
   isIsYatirimExcludedWeeklyStartDate,
@@ -346,15 +348,26 @@ function getWeekStartForMode(
     getMondayForIsoDate(weekStartDate || ""),
   );
   const activeWeekStart =
-    parseUtcIsoDate(getMondayForIsoDate(latestAvailableWeekStart || "")) ||
-    currentWeekStart;
+    parseUtcIsoDate(
+      getIsYatirimPresetWeekStart(
+        "this_week",
+        latestAvailableWeekStart || "",
+      ),
+    ) || currentWeekStart;
 
-  if (resolvedWeekStart && mode !== "last_4_weeks") {
+  if (resolvedWeekStart && mode === "week") {
     return resolvedWeekStart;
   }
 
   if (mode === "last_week") {
-    return getPreviousSurveyWeekStart(activeWeekStart);
+    return (
+      parseUtcIsoDate(
+        getIsYatirimPresetWeekStart(
+          "last_week",
+          latestAvailableWeekStart || "",
+        ),
+      ) || getPreviousSurveyWeekStart(activeWeekStart)
+    );
   }
 
   return activeWeekStart;
@@ -586,7 +599,7 @@ function WeeklyFilterPicker({
               (option) => {
                 const meta = getWeekOptionMeta(
                   option.mode,
-                  option.mode === draftMode ? draftWeekStartDate : undefined,
+                  undefined,
                   latestAvailableWeekStart,
                 );
                 const isActive = draftMode === option.mode;
@@ -601,6 +614,7 @@ function WeeklyFilterPicker({
                     key={option.mode}
                     onClick={() => {
                       setDraftMode(option.mode);
+                      setDraftWeekStartDate("");
                       setIsWeekListOpen(false);
                     }}
                     type="button"
@@ -692,6 +706,10 @@ function WeeklyFilterPicker({
                         week.isoStart,
                         latestAvailableWeekStart,
                       );
+                    const badgeLabel = getIsYatirimWeekBadgeLabel(
+                      week.isoStart,
+                      latestAvailableWeekStart,
+                    );
 
                     return (
                       <button
@@ -720,7 +738,7 @@ function WeeklyFilterPicker({
                         <span className="text-sm font-semibold sm:text-base">
                           {week.rangeLabel}
                         </span>
-                        {week.isCurrentWeek || week.isLastWeek ? (
+                        {badgeLabel ? (
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${
                               isSelected
@@ -728,7 +746,7 @@ function WeeklyFilterPicker({
                                 : "bg-[#0057FF]/9 text-[#0057FF]"
                             }`}
                           >
-                            {week.isCurrentWeek ? "Bu Hafta" : "Geçen Hafta"}
+                            {badgeLabel}
                           </span>
                         ) : null}
                       </button>
@@ -745,7 +763,7 @@ function WeeklyFilterPicker({
                 ? `${selectedWeekDisplay.weekCode} · ${selectedWeekDisplay.rangeLabelWithYear}`
                 : getWeekOptionMeta(
                     draftMode,
-                    draftWeekStartDate,
+                    undefined,
                     latestAvailableWeekStart,
                   ).summary}
             </p>

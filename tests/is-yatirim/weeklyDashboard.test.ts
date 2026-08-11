@@ -9,8 +9,11 @@ import {
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_CLIENT,
   WEEKLY_PARTICIPATION_DAYS,
+  getCurrentIsYatirimWeekStart,
   getLimitedWeeklyFreeTextResponses,
   getIsYatirimWeeklyQuestionModel,
+  getIsYatirimPresetWeekStart,
+  getIsYatirimWeekBadgeLabel,
   getMondayForIsoDate,
   getResolvedIsYatirimWeekStart,
   isIsYatirimWeekStartSelectable,
@@ -51,13 +54,60 @@ test("getMondayForIsoDate normalizes selected date to Monday", () => {
   assert.equal(getMondayForIsoDate("invalid"), "");
 });
 
+test("weekly presets follow the supplied calendar week dynamically", () => {
+  assert.equal(
+    getIsYatirimPresetWeekStart("this_week", "2026-08-03"),
+    "2026-08-03",
+  );
+  assert.equal(
+    getIsYatirimPresetWeekStart("last_week", "2026-08-03"),
+    "2026-07-27",
+  );
+  assert.equal(
+    getIsYatirimPresetWeekStart("this_week", "2026-08-10"),
+    "2026-08-10",
+  );
+  assert.equal(
+    getIsYatirimPresetWeekStart("last_week", "2026-08-10"),
+    "2026-08-03",
+  );
+});
+
+test("week picker badges follow the supplied calendar week", () => {
+  assert.equal(
+    getIsYatirimWeekBadgeLabel("2026-08-03", "2026-08-03"),
+    "Bu Hafta",
+  );
+  assert.equal(
+    getIsYatirimWeekBadgeLabel("2026-07-27", "2026-08-03"),
+    "Geçen Hafta",
+  );
+  assert.equal(
+    getIsYatirimWeekBadgeLabel("2026-08-10", "2026-08-03"),
+    null,
+  );
+  assert.equal(
+    getIsYatirimWeekBadgeLabel("2026-08-10", "2026-08-10"),
+    "Bu Hafta",
+  );
+  assert.equal(
+    getIsYatirimWeekBadgeLabel("2026-08-03", "2026-08-10"),
+    "Geçen Hafta",
+  );
+});
+
+test("current calendar week is derived dynamically", () => {
+  assert.equal(getCurrentIsYatirimWeekStart("2026-08-11"), "2026-08-10");
+  assert.equal(getCurrentIsYatirimWeekStart("2026-08-17"), "2026-08-17");
+});
+
 test("normalizeIsYatirimWeekFilter falls back when week date is missing", () => {
   assert.deepEqual(
     normalizeIsYatirimWeekFilter({
       weekMode: "week",
       weekStartDate: "",
     }),
-    { mode: "this_week" },
+    { mode: "last_week" },
   );
 });
 
@@ -79,7 +129,7 @@ test("normalizeIsYatirimWeekFilter excludes the holiday week", () => {
       weekMode: "week",
       weekStartDate: "2026-05-25",
     }),
-    { mode: "this_week" },
+    { mode: "last_week" },
   );
 });
 
@@ -213,7 +263,7 @@ test("buildIsYatirimWeeklyDashboardUrl forwards segment token and preset week mo
 
 test("normalizeIsYatirimWeekFilter falls back for unsupported weekly ranges", () => {
   assert.deepEqual(normalizeIsYatirimWeekFilter({ weekMode: "last_8_weeks" }), {
-    mode: "this_week",
+    mode: "last_week",
   });
 });
 
@@ -536,18 +586,18 @@ test("normalizeWeeklyDashboardResponse preserves week comparison labels", () => 
   assert.equal(response.meta.previousWeekFilter?.periodLabel, "H2 · 1-7 Haz");
 });
 
-test("active backend week limits unopened picker weeks", () => {
+test("current calendar week limits future picker weeks", () => {
   assert.equal(
-    isIsYatirimWeekStartSelectable("2026-08-03", "2026-08-03"),
+    isIsYatirimWeekStartSelectable("2026-08-03", "2026-08-10"),
     true,
-  );
-  assert.equal(
-    isIsYatirimWeekStartSelectable("2026-08-10", "2026-08-03"),
-    false,
   );
   assert.equal(
     isIsYatirimWeekStartSelectable("2026-08-10", "2026-08-10"),
     true,
+  );
+  assert.equal(
+    isIsYatirimWeekStartSelectable("2026-08-17", "2026-08-10"),
+    false,
   );
 });
 
