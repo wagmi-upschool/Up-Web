@@ -859,8 +859,12 @@ export function MoodTrendCard({
         <TrendPill
           color="#8B8A83"
           isActive={areAllMetricsSelected}
-          label="Tümü"
-          onClick={() => setSelectedMetrics([...ALL_TREND_METRICS])}
+          label={areAllMetricsSelected ? "Tümünü Kaldır" : "Tümü"}
+          onClick={() =>
+            setSelectedMetrics(
+              areAllMetricsSelected ? [] : [...ALL_TREND_METRICS],
+            )
+          }
         />
         {TREND_METRICS.map((metric) => (
           <TrendPill
