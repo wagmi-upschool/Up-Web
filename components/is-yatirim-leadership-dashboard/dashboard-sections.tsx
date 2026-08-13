@@ -786,8 +786,8 @@ export function MoodTrendCard({
 }: {
   response: LeadershipDashboardResponse;
 }) {
-  const [selectedMetrics, setSelectedMetrics] = useState<TrendMetric[]>(() => [
-    ...ALL_TREND_METRICS,
+  const [selectedMetrics, setSelectedMetrics] = useState<TrendMetric[]>([
+    "participationRate",
   ]);
   const trend = response.selectedSegment.trend;
   const activeMetric =
