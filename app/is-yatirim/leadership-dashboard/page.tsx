@@ -21,10 +21,13 @@ import {
   DEFAULT_IS_YATIRIM_SEGMENT,
   applyIsYatirimBreakdownSelectionToSearchParams,
   applyIsYatirimDateFilterToSearchParams,
+  getDefaultIsYatirimDateFilter,
   getTodayDateString,
+  IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
+  normalizeIsYatirimMoodStreaksFlag,
   normalizeIsYatirimSegment,
   normalizeIsYatirimUnvan,
   normalizeIsYatirimUnvanFlag,
@@ -224,6 +227,9 @@ function IsYatirimLeadershipDashboardContent() {
     searchParams.get("isUnvan"),
   );
   const isWeeklyToggleEnabled = searchParams.get("isWeeklyToggle") !== "false";
+  const isMoodStreaksEnabled = normalizeIsYatirimMoodStreaksFlag(
+    searchParams.get(IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM),
+  );
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
   const selectedUnvan = isUnvanComparisonEnabled
     ? normalizeIsYatirimUnvan(searchParams.get("unvan"))
@@ -238,16 +244,23 @@ function IsYatirimLeadershipDashboardContent() {
   const weeklyToken = normalizeIsYatirimDashboardToken(
     searchParams.get("weeklyToken"),
   );
-  const dateFilter = normalizeIsYatirimDateFilter(
-    {
-      dateMode: searchParams.get("dateMode"),
-      startDate: searchParams.get("startDate"),
-      endDate: searchParams.get("endDate"),
-    },
-    {
-      todayDate: getTodayDateString(),
-    },
-  );
+  const hasExplicitDateFilter =
+    searchParams.has("dateMode") ||
+    searchParams.has("startDate") ||
+    searchParams.has("endDate");
+  const todayDate = getTodayDateString();
+  const dateFilter = hasExplicitDateFilter
+    ? normalizeIsYatirimDateFilter(
+        {
+          dateMode: searchParams.get("dateMode"),
+          startDate: searchParams.get("startDate"),
+          endDate: searchParams.get("endDate"),
+        },
+        {
+          todayDate,
+        },
+      )
+    : getDefaultIsYatirimDateFilter(todayDate);
   const effectiveDateFilter = resolveIsYatirimDateFilterByPickerFlag(
     isDateTimePickerEnabled,
     dateFilter,
@@ -491,6 +504,7 @@ function IsYatirimLeadershipDashboardContent() {
         dashboardQuery.error ? formatApiError(dashboardQuery.error) : null
       }
       isLoading={dashboardQuery.isLoading}
+      isMoodStreaksEnabled={isMoodStreaksEnabled}
       isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
       isBreakdownUpdating={isBreakdownUpdating}
       isDateTimePickerEnabled={isDateTimePickerEnabled}

@@ -14,8 +14,12 @@ import {
 } from "lucide-react";
 import {
   Area,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   ComposedChart,
+  LabelList,
   Line,
   ResponsiveContainer,
   Tooltip,
@@ -43,6 +47,7 @@ import {
   formatTurkishDateTime,
   sortIsYatirimUnvanOptions,
   type EngagementAnswer,
+  type ConsecutiveMoodStreaks,
   type GmyExtremeItem,
   type GmyRankingItem,
   type GmyScoreChangeItem,
@@ -130,6 +135,65 @@ const WORD_PILL_PALETTE = [
   { background: "#F3ECFF", border: "#CDB6FF", text: "#8A5CF6" },
   { background: "#ECF8F1", border: "#B8E1CE", text: "#3CA875" },
   { background: "#EAF9F7", border: "#B7E5E1", text: "#277F83" },
+] as const;
+
+type MoodStreakChartDatum = {
+  id: string;
+  label: string;
+  value: number | null;
+  color: string;
+  fillOpacity: number;
+};
+
+const MOOD_STREAK_BUCKETS = [
+  {
+    id: "bad-3",
+    label: "Kötü x3",
+    category: "bad",
+    bucket: "exactly3Days",
+    color: "#E03030",
+    fillOpacity: 0.58,
+  },
+  {
+    id: "bad-4",
+    label: "Kötü x4",
+    category: "bad",
+    bucket: "exactly4Days",
+    color: "#E03030",
+    fillOpacity: 0.78,
+  },
+  {
+    id: "bad-5-plus",
+    label: "Kötü x5+",
+    category: "bad",
+    bucket: "atLeast5Days",
+    color: "#E03030",
+    fillOpacity: 1,
+  },
+  {
+    id: "great-3",
+    label: "Harika x3",
+    category: "great",
+    bucket: "exactly3Days",
+    color: "#00A878",
+    fillOpacity: 0.58,
+  },
+  {
+    id: "great-4",
+    label: "Harika x4",
+    category: "great",
+    bucket: "exactly4Days",
+    color: "#00A878",
+    fillOpacity: 0.78,
+  },
+  {
+    id: "great-5-plus",
+    label: "Harika x5+",
+    category: "great",
+    bucket: "atLeast5Days",
+    color: "#00A878",
+    fillOpacity: 1,
+  },
 ] as const;
 
 function clampPercent(value: number) {
@@ -1109,6 +1173,209 @@ export function MoodTrendCard({
           })}
         </div>
       ) : null}
+    </AnalyticsCard>
+  );
+}
+
+function ConsecutiveMoodStreakTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    payload: MoodStreakChartDatum;
+    value?: number;
+  }>;
+}) {
+  const item = payload?.[0]?.payload;
+
+  if (!active || !item || item.value === null) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
+      <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-white/55">
+        {toTurkishUpperCase(item.label)}
+      </p>
+      <p className="mt-2 font-righteous text-3xl leading-none text-white">
+        {formatCount(item.value)} kişi
+      </p>
+    </div>
+  );
+}
+
+function MoodStreakXAxisTick({
+  payload,
+  x = 0,
+  y = 0,
+}: {
+  payload?: { value?: string };
+  x?: number;
+  y?: number;
+}) {
+  const label = payload?.value || "";
+
+  if (!label) {
+    return null;
+  }
+
+  const [category, bucket] = label.split(" ");
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        fill="#171717"
+        fillOpacity={0.58}
+        fontFamily="var(--font-poppins)"
+        fontSize={10}
+        fontWeight={600}
+        textAnchor="middle"
+      >
+        <tspan x={0} y={13}>
+          {category}
+        </tspan>
+        <tspan x={0} y={28}>
+          {bucket}
+        </tspan>
+      </text>
+    </g>
+  );
+}
+
+function getMoodStreakChartData(
+  streaks: ConsecutiveMoodStreaks,
+): MoodStreakChartDatum[] {
+  const data = MOOD_STREAK_BUCKETS.map((item) => ({
+    id: item.id,
+    label: item.label,
+    value: streaks[item.category][item.bucket],
+    color: item.color,
+    fillOpacity: item.fillOpacity,
+  }));
+
+  return [
+    ...data.slice(0, 3),
+    {
+      id: "category-gap",
+      label: "",
+      value: null,
+      color: "transparent",
+      fillOpacity: 0,
+    },
+    ...data.slice(3),
+  ];
+}
+
+export function ConsecutiveMoodStreakChart({
+  response,
+}: {
+  response: LeadershipDashboardResponse;
+}) {
+  const streaks = response.selectedSegment.consecutiveMoodStreaks;
+
+  if (!streaks) {
+    return (
+      <AnalyticsCard>
+        <AnalyticsSubheading dotColor="#985DF8">
+          ARDIŞIK DUYGU SERİLERİ
+        </AnalyticsSubheading>
+        <EmptyInlineState>Seri verisi henüz sağlanmıyor</EmptyInlineState>
+      </AnalyticsCard>
+    );
+  }
+
+  const chartData = getMoodStreakChartData(streaks);
+  const accessibleSummary = MOOD_STREAK_BUCKETS.map(
+    (item) =>
+      `${item.label}: ${formatCount(streaks[item.category][item.bucket])} kişi`,
+  ).join(", ");
+
+  return (
+    <AnalyticsCard className="rounded-[34px] p-6 sm:p-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <AnalyticsSubheading dotColor="#985DF8">
+            ARDIŞIK DUYGU SERİLERİ
+          </AnalyticsSubheading>
+          <p className="font-poppins text-sm text-[#171717]/52 sm:text-base">
+            Seçili dönemdeki en uzun kesintisiz seri · Her çalışan tek kovada
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 font-poppins text-xs font-semibold text-[#171717]/62">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#E03030]/10 px-3 py-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#E03030]" />
+            Kötü
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#00A878]/10 px-3 py-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#00A878]" />
+            Harika
+          </span>
+        </div>
+      </div>
+      <div
+        aria-label={`Ardışık duygu serileri çalışan sayıları. ${accessibleSummary}`}
+        className="h-[360px] rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] px-2 pb-2 pt-5 sm:h-[400px] sm:px-5"
+        role="img"
+      >
+        <ResponsiveContainer height="100%" width="100%">
+          <BarChart
+            barCategoryGap="18%"
+            data={chartData}
+            margin={{ bottom: 24, left: 0, right: 8, top: 28 }}
+          >
+            <CartesianGrid
+              stroke="#171717"
+              strokeDasharray="4 5"
+              strokeOpacity={0.08}
+              vertical={false}
+            />
+            <XAxis
+              axisLine={{ stroke: "#171717", strokeOpacity: 0.14 }}
+              dataKey="label"
+              interval={0}
+              tick={<MoodStreakXAxisTick />}
+              tickLine={false}
+            />
+            <YAxis
+              allowDecimals={false}
+              axisLine={false}
+              domain={[0, (dataMax: number) => Math.max(1, dataMax)]}
+              tick={{
+                fill: "#171717",
+                fillOpacity: 0.46,
+                fontFamily: "var(--font-poppins)",
+                fontSize: 13,
+              }}
+              tickFormatter={(value: number) => formatCount(value)}
+              tickLine={false}
+              width={42}
+            />
+            <Tooltip
+              content={<ConsecutiveMoodStreakTooltip />}
+              cursor={{ fill: "#985DF8", fillOpacity: 0.06 }}
+            />
+            <Bar dataKey="value" maxBarSize={88} radius={[12, 12, 4, 4]}>
+              {chartData.map((item) => (
+                <Cell
+                  fill={item.color}
+                  fillOpacity={item.fillOpacity}
+                  key={item.id}
+                />
+              ))}
+              <LabelList
+                className="font-righteous"
+                dataKey="value"
+                fill="#171717"
+                fontSize={18}
+                formatter={(value: number) => formatCount(value)}
+                position="top"
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="sr-only">{accessibleSummary}</p>
     </AnalyticsCard>
   );
 }

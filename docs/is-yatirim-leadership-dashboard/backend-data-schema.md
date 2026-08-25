@@ -7,16 +7,20 @@ Bu dokuman backend ekibinden istenecek veri contract'ini tanimlar. Frontend prod
 ## Endpoint
 
 ```text
-GET /analytics/dashboard?client=is-yatirim&competencyId=<uuid>&segment=<segmentId>
+GET /analytics/dashboard?client=is-yatirim&competencyId=<uuid>&segment=<segmentId>&unvan=<unvanId>&dateMode=<single|range>&startDate=<YYYY-MM-DD>&endDate=<YYYY-MM-DD>
 ```
 
 ### Query Parameters
 
-| Name | Required | Type | Description |
-| --- | --- | --- | --- |
-| `client` | Yes | string | Is Yatirim dashboard icin `is-yatirim` olmalidir. |
-| `competencyId` | Yes | UUID string | Is Yatirim dashboard veri setini belirleyen competency ID. |
-| `segment` | No | string | `all` veya GMY segment ID. Bos ise `all`. |
+| Name           | Required | Type              | Description                                                         |
+| -------------- | -------- | ----------------- | ------------------------------------------------------------------- |
+| `client`       | Yes      | string            | Is Yatirim dashboard icin `is-yatirim` olmalidir.                   |
+| `competencyId` | Yes      | UUID string       | Is Yatirim dashboard veri setini belirleyen competency ID.          |
+| `segment`      | No       | string            | `all` veya GMY segment ID. Bos ise `all`.                           |
+| `unvan`        | No       | string            | Unvan ID. Verildiğinde `segment=all` ile seçili unvan dilimi döner. |
+| `dateMode`     | No       | `single \| range` | Tarih filtresinin tek gün veya aralık olduğunu belirtir.            |
+| `startDate`    | No       | `YYYY-MM-DD`      | Seçili pencerenin dahil başlangıç tarihi.                           |
+| `endDate`      | No       | `YYYY-MM-DD`      | Seçili pencerenin dahil bitiş tarihi.                               |
 
 Verified live endpoint:
 
@@ -61,6 +65,7 @@ type EngagementAnswer = "yes" | "partial" | "no";
 type LeadershipDashboardResponse = {
   meta: DashboardMeta;
   selectedSegment: SegmentDashboardData;
+  selectedUnvan?: SegmentDashboardData | null;
   comparisons: DashboardComparisons;
 };
 
@@ -70,9 +75,9 @@ type DashboardMeta = {
   dashboardTitle: string;
   surveyId: string;
   surveyName: string;
-  latestSurveyDate: string;       // YYYY-MM-DD
-  latestSurveyDateLabel: string;  // Turkish display label
-  generatedAt: string;            // ISO datetime
+  latestSurveyDate: string; // YYYY-MM-DD
+  latestSurveyDateLabel: string; // Turkish display label
+  generatedAt: string; // ISO datetime
   trendWindowLabel: string;
   maxMoodScore: 4;
   selectedSegmentId: string;
@@ -95,6 +100,18 @@ type SegmentDashboardData = {
   engagementByMood: Record<MoodCategory, EngagementByMood>;
   wordClouds: Record<MoodCategory, WordItem[]>;
   allWords: WordItem[];
+  consecutiveMoodStreaks: ConsecutiveMoodStreaks;
+};
+
+type ConsecutiveMoodStreakBucketCounts = {
+  exactly3Days: number;
+  exactly4Days: number;
+  atLeast5Days: number;
+};
+
+type ConsecutiveMoodStreaks = {
+  bad: ConsecutiveMoodStreakBucketCounts;
+  great: ConsecutiveMoodStreakBucketCounts;
 };
 
 type SurveyMetricSnapshot = {
@@ -199,7 +216,11 @@ Example:
 [
   { "id": "all", "label": "Tüm Şirket", "type": "all" },
   { "id": "burak-kinalilar", "label": "Burak Kınalılar", "type": "gmy" },
-  { "id": "fatih-mehmet-yilmaz", "label": "Fatih Mehmet Yılmaz", "type": "gmy" },
+  {
+    "id": "fatih-mehmet-yilmaz",
+    "label": "Fatih Mehmet Yılmaz",
+    "type": "gmy"
+  },
   { "id": "orhan-veli-canli", "label": "Orhan Veli Canlı", "type": "gmy" },
   { "id": "evren-arslan", "label": "Evren Arslan", "type": "gmy" },
   { "id": "pinar-ozyuksel", "label": "Pınar Özyüksel", "type": "gmy" },
@@ -213,19 +234,19 @@ Example:
 
 ## Calculation Rules
 
-| Field | Rule |
-| --- | --- |
-| `participationRate` | `respondentCount / targetEmployeeCount * 100` |
-| `averageMoodScore` | Weighted average on 1-4 mood scale |
-| `badRate` | Bad respondent count / respondent count * 100 |
-| `mehRate` | Meh respondent count / respondent count * 100 |
-| `goodRate` | Good respondent count / respondent count * 100 |
-| `greatRate` | Great respondent count / respondent count * 100 |
-| `lowMoodRate` | `badRate + mehRate` |
-| `goodGreatRate` | `goodRate + greatRate` |
-| `workLinkedRate` | `(yes + partial) / mood group respondent count * 100` |
+| Field                   | Rule                                                                      |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `participationRate`     | `respondentCount / targetEmployeeCount * 100`                             |
+| `averageMoodScore`      | Weighted average on 1-4 mood scale                                        |
+| `badRate`               | Bad respondent count / respondent count \* 100                            |
+| `mehRate`               | Meh respondent count / respondent count \* 100                            |
+| `goodRate`              | Good respondent count / respondent count \* 100                           |
+| `greatRate`             | Great respondent count / respondent count \* 100                          |
+| `lowMoodRate`           | `badRate + mehRate`                                                       |
+| `goodGreatRate`         | `goodRate + greatRate`                                                    |
+| `workLinkedRate`        | `(yes + partial) / mood group respondent count * 100`                     |
 | `workLinkedLowMoodRate` | Work-linked rate for low mood respondents, or agreed aggregate definition |
-| `delta` | `currentAverageMoodScore - previousAverageMoodScore` |
+| `delta`                 | `currentAverageMoodScore - previousAverageMoodScore`                      |
 
 Percentages should be rounded to one decimal place unless backend has a central reporting rule.
 
@@ -292,6 +313,73 @@ analytics_is_yatirim_gmy_score_change
   respondent_count
 ```
 
+## Consecutive Mood Streak Contract
+
+Frontend rollout'u query-param feature flag ile kontrol edilir:
+
+```text
+/is-yatirim/leadership-dashboard?isMoodStreaks=true
+```
+
+Flag yalnizca acikca `true` oldugunda grafik render edilir. Eksik, `false` veya diger degerlerde grafik gizlenir. Bu frontend flag'i upstream `/analytics/dashboard` request'ine aktarilmaz ve backend response contract'ini degistirmez.
+
+### Required Source Fields
+
+Backend hesaplamasi asagidaki mantiksal alanlara erisebilmelidir. Bu alanlar API response'una eklenmemelidir.
+
+| Logical field                          | Purpose                                                              |
+| -------------------------------------- | -------------------------------------------------------------------- |
+| `user_id`                              | Calisani gunler arasinda anonim ve kararli bicimde eslestirmek.      |
+| Question 1 answer                      | Canonical `kotu`, `eh_iste`, `iyi`, `harika` degeri.                 |
+| `puanlama_tarih_saat`                  | Ayni gun yanitlarini siralamak ve `Europe/Istanbul` gununu turetmek. |
+| `competencyId` / organization relation | Yanitlari istenen dashboard veri setiyle sinirlamak.                 |
+| GMY segment and unvan membership       | Mevcut dashboard ile ayni `segment` ve `unvan` kapsamini uygulamak.  |
+
+### Calculation Rules
+
+1. Request'teki dahil `startDate` ve `endDate` ile secili organizasyon/GMY/unvan kapsamindaki kayitlari filtrele.
+2. Gun sinirlarini `Europe/Istanbul` zaman diliminde hesapla. Ayni kullanicinin ayni gundeki birden fazla yanitinda en son `puanlama_tarih_saat` degerini kullan.
+3. Her kullanicinin gunlerini artan tarihle sirala. Eksik gun, `eh_iste`, `iyi` veya kategori degisimi seriyi keser.
+4. Pencere disindaki komsu gunleri okuma; `startDate` seriyi keser.
+5. Kullanici icin tum `kotu` ve `harika` serileri arasindaki en uzun seriyi sec. Esit uzunlukta bitis tarihi daha yeni olani sec.
+6. Her kullaniciyi toplamda en fazla bir kovaya yaz. Uzunluk 3'ten kucukse kullaniciyi hicbir kovaya yazma.
+7. Uzunluk tam 3 ise `exactly3Days`, tam 4 ise `exactly4Days`, 5 veya daha fazlaysa `atLeast5Days` alanini artir.
+
+### Response Example
+
+`consecutiveMoodStreaks`, hem `selectedSegment` hem de response'ta mevcutsa `selectedUnvan` icinde ayni sekilde donmelidir:
+
+```json
+{
+  "segmentId": "all",
+  "segmentLabel": "Tüm Şirket",
+  "consecutiveMoodStreaks": {
+    "bad": {
+      "exactly3Days": 12,
+      "exactly4Days": 6,
+      "atLeast5Days": 3
+    },
+    "great": {
+      "exactly3Days": 18,
+      "exactly4Days": 9,
+      "atLeast5Days": 5
+    }
+  }
+}
+```
+
+Alan backend rollout'u tamamlandiginda zorunludur. Alt alanlar eksiksiz, sifir dahil non-negative integer donmelidir. Ham `user_id`, gunluk yanit veya kisi listesi response'a eklenmemelidir. Kucuk gruplar icin bu contract seviyesinde sayi maskeleme uygulanmaz.
+
+### Backend Acceptance Scenarios
+
+- Eksik gun, `eh_iste`, `iyi` ve kategori degisimi seriyi keser.
+- Tam 3, tam 4, tam 5 ve 5'ten uzun seriler dogru kovaya girer.
+- Ayni kullanicinin Kotu ve Harika serilerinden yalniz en uzunu sayilir; esitlikte daha yakin tarihte biten seri kazanir.
+- Aralik oncesinde baslayan seri `startDate` sinirinda kirpilir.
+- Ayni gundeki birden fazla cevapta son cevap kullanilir.
+- `all`, GMY ve unvan sorgulari mevcut dashboard uyelik semantigiyle farkli ama tutarli toplamlar dondurur.
+- 3 gunden kisa ve tek gun araliklarinda alti alan da `0` doner.
+
 ## Contract Guarantees
 
 - `meta.segments` must always include `all`.
@@ -303,6 +391,7 @@ analytics_is_yatirim_gmy_score_change
 - `competencyId` is request-level routing input and is not currently returned in the response body.
 - Empty lists must be `[]`.
 - Empty numeric values must be `0`.
+- `selectedSegment.consecutiveMoodStreaks` and, when present, `selectedUnvan.consecutiveMoodStreaks` must contain all six non-negative integer bucket counts.
 - Missing most frequent word must be `null`.
 - Dates must be `YYYY-MM-DD`.
 - `generatedAt` must be ISO datetime.

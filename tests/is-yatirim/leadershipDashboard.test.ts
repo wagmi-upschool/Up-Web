@@ -4,6 +4,7 @@ import {
   applyIsYatirimBreakdownSelectionToSearchParams,
   DEFAULT_IS_YATIRIM_SEGMENT,
   formatIsYatirimDateFilterLabel,
+  getDefaultIsYatirimDateFilter,
   IS_YATIRIM_DATE_PICKER_MIN_DATE,
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
@@ -11,6 +12,7 @@ import {
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimDashboardToken,
+  normalizeIsYatirimMoodStreaksFlag,
   normalizeIsYatirimSegment,
   normalizeIsYatirimUnvan,
   normalizeIsYatirimUnvanFlag,
@@ -81,6 +83,30 @@ test("normalizeIsYatirimDateTimePickerFlag defaults enabled unless explicit fals
   assert.equal(normalizeIsYatirimDateTimePickerFlag(""), true);
   assert.equal(normalizeIsYatirimDateTimePickerFlag("false"), false);
   assert.equal(normalizeIsYatirimDateTimePickerFlag(" true "), true);
+});
+
+test("normalizeIsYatirimMoodStreaksFlag requires an explicit true value", () => {
+  assert.equal(normalizeIsYatirimMoodStreaksFlag(null), false);
+  assert.equal(normalizeIsYatirimMoodStreaksFlag(""), false);
+  assert.equal(normalizeIsYatirimMoodStreaksFlag("false"), false);
+  assert.equal(normalizeIsYatirimMoodStreaksFlag("1"), false);
+  assert.equal(normalizeIsYatirimMoodStreaksFlag(" TRUE "), true);
+});
+
+test("getDefaultIsYatirimDateFilter returns the inclusive last 30 days", () => {
+  assert.deepEqual(getDefaultIsYatirimDateFilter("2026-06-30"), {
+    mode: "range",
+    startDate: "2026-06-01",
+    endDate: "2026-06-30",
+    dayCount: 30,
+  });
+
+  assert.deepEqual(getDefaultIsYatirimDateFilter("2026-05-25"), {
+    mode: "range",
+    startDate: IS_YATIRIM_DATE_PICKER_MIN_DATE,
+    endDate: "2026-05-25",
+    dayCount: 6,
+  });
 });
 
 test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => {
@@ -326,12 +352,63 @@ test("normalizeLeadershipDashboardResponse fills empty arrays and numeric fallba
   assert.equal(response.selectedSegment.latest.mostFrequentWord, null);
   assert.deepEqual(response.selectedSegment.wordClouds.bad, []);
   assert.deepEqual(response.selectedSegment.allWords, []);
+  assert.equal(response.selectedSegment.consecutiveMoodStreaks, null);
   assert.equal(response.selectedSegment.engagementByMood.bad.workLinkedRate, 0);
   assert.equal(response.comparisons.gmyRanking.length, 0);
   assert.equal(response.comparisons.unvanRanking.length, 0);
   assert.equal(response.comparisons.unvanScoreChanges.length, 0);
   assert.equal(response.comparisons.unvanExtremes.length, 0);
   assert.equal(response.comparisons.dateComparison.length, 0);
+});
+
+test("normalizeLeadershipDashboardResponse distinguishes missing streak data from explicit zeroes", () => {
+  const response = normalizeLeadershipDashboardResponse({
+    selectedSegment: {
+      consecutiveMoodStreaks: {
+        bad: {
+          exactly3Days: 0,
+          exactly4Days: -4,
+          atLeast5Days: 2.9,
+        },
+        great: {
+          exactly3Days: 7,
+          exactly4Days: "5",
+          atLeast5Days: Number.NaN,
+        },
+      },
+    },
+    selectedUnvan: {
+      consecutiveMoodStreaks: {
+        bad: {},
+        great: {},
+      },
+    },
+  });
+
+  assert.deepEqual(response.selectedSegment.consecutiveMoodStreaks, {
+    bad: {
+      exactly3Days: 0,
+      exactly4Days: 0,
+      atLeast5Days: 2,
+    },
+    great: {
+      exactly3Days: 7,
+      exactly4Days: 0,
+      atLeast5Days: 0,
+    },
+  });
+  assert.deepEqual(response.selectedUnvan?.consecutiveMoodStreaks, {
+    bad: {
+      exactly3Days: 0,
+      exactly4Days: 0,
+      atLeast5Days: 0,
+    },
+    great: {
+      exactly3Days: 0,
+      exactly4Days: 0,
+      atLeast5Days: 0,
+    },
+  });
 });
 
 test("normalizeLeadershipDashboardResponse sorts GMY ranking by rank then score", () => {
@@ -504,10 +581,7 @@ test("getIsYatirimComparisonItems uses full Unvan comparison arrays", () => {
     },
   });
 
-  const unvanItems = getIsYatirimComparisonItems(
-    response.comparisons,
-    "unvan",
-  );
+  const unvanItems = getIsYatirimComparisonItems(response.comparisons, "unvan");
   assert.deepEqual(
     unvanItems.rankingItems.map((item) => item.segmentId),
     ["mudur", "direktor"],

@@ -4,6 +4,7 @@ export const DEFAULT_IS_YATIRIM_SEGMENT = "all";
 export const DEFAULT_IS_YATIRIM_FALLBACK_DATE = "1970-01-01";
 export const IS_YATIRIM_DATE_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_UNVAN_QUERY_PARAM = "unvan";
+export const IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM = "isMoodStreaks";
 export const IS_YATIRIM_UNVAN_ORDER = [
   "support",
   "direktor",
@@ -106,6 +107,17 @@ export type SurveyMetricSnapshot = {
   };
 };
 
+export type ConsecutiveMoodStreakBucketCounts = {
+  exactly3Days: number;
+  exactly4Days: number;
+  atLeast5Days: number;
+};
+
+export type ConsecutiveMoodStreaks = {
+  bad: ConsecutiveMoodStreakBucketCounts;
+  great: ConsecutiveMoodStreakBucketCounts;
+};
+
 export type SegmentDashboardData = {
   segmentId: string;
   segmentLabel: string;
@@ -114,6 +126,7 @@ export type SegmentDashboardData = {
   engagementByMood: Record<MoodCategory, EngagementByMood>;
   wordClouds: Record<MoodCategory, WordItem[]>;
   allWords: WordItem[];
+  consecutiveMoodStreaks: ConsecutiveMoodStreaks | null;
 };
 
 export type GmyRankingItem = {
@@ -313,6 +326,12 @@ function asNumber(value: unknown, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function asNonNegativeInteger(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.trunc(value))
+    : 0;
+}
+
 function asArray<T>(value: unknown, mapper: (item: unknown) => T): T[] {
   return Array.isArray(value) ? value.map(mapper) : [];
 }
@@ -397,6 +416,12 @@ export function normalizeIsYatirimUnvanFlag(value: string | null | undefined) {
   return value?.trim() !== "false";
 }
 
+export function normalizeIsYatirimMoodStreaksFlag(
+  value: string | null | undefined,
+) {
+  return value?.trim().toLowerCase() === "true";
+}
+
 function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {
   return (value || "")
     .trim()
@@ -458,6 +483,31 @@ export function getTodayDateString(now = new Date()) {
   return formatIsoDate(
     createUtcDate(now.getFullYear(), now.getMonth(), now.getDate()),
   );
+}
+
+export function getDefaultIsYatirimDateFilter(
+  todayDate = getTodayDateString(),
+): IsYatirimDateFilter {
+  const parsedToday = parseIsoDate(todayDate);
+  const endDate =
+    parsedToday && todayDate >= IS_YATIRIM_DATE_PICKER_MIN_DATE
+      ? todayDate
+      : IS_YATIRIM_DATE_PICKER_MIN_DATE;
+  const start = parseIsoDate(endDate) as Date;
+
+  start.setUTCDate(start.getUTCDate() - 29);
+  const shiftedStartDate = formatIsoDate(start);
+  const startDate =
+    shiftedStartDate < IS_YATIRIM_DATE_PICKER_MIN_DATE
+      ? IS_YATIRIM_DATE_PICKER_MIN_DATE
+      : shiftedStartDate;
+
+  return {
+    mode: "range",
+    startDate,
+    endDate,
+    dayCount: getInclusiveDayCount(startDate, endDate),
+  };
 }
 
 export function normalizeIsYatirimDateFilter(
@@ -768,6 +818,33 @@ function normalizeWordClouds(value: unknown): Record<MoodCategory, WordItem[]> {
   );
 }
 
+function normalizeConsecutiveMoodStreakBucketCounts(
+  value: unknown,
+): ConsecutiveMoodStreakBucketCounts {
+  const input = asObject(value);
+
+  return {
+    exactly3Days: asNonNegativeInteger(input.exactly3Days),
+    exactly4Days: asNonNegativeInteger(input.exactly4Days),
+    atLeast5Days: asNonNegativeInteger(input.atLeast5Days),
+  };
+}
+
+function normalizeConsecutiveMoodStreaks(
+  value: unknown,
+): ConsecutiveMoodStreaks | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const input = asObject(value);
+
+  return {
+    bad: normalizeConsecutiveMoodStreakBucketCounts(input.bad),
+    great: normalizeConsecutiveMoodStreakBucketCounts(input.great),
+  };
+}
+
 function normalizeLatest(
   value: unknown,
   fallbackDateFilter: IsYatirimDateFilter,
@@ -821,6 +898,9 @@ function normalizeSelectedSegment(
     engagementByMood: normalizeEngagementByMood(input.engagementByMood),
     wordClouds: normalizeWordClouds(input.wordClouds),
     allWords: asArray(input.allWords, normalizeWord),
+    consecutiveMoodStreaks: normalizeConsecutiveMoodStreaks(
+      input.consecutiveMoodStreaks,
+    ),
   };
 }
 

@@ -22,6 +22,7 @@ import {
 import {
   DashboardEmptyContent,
   ComparisonBreakdownTabs,
+  ConsecutiveMoodStreakChart,
   EngagementByMoodGrid,
   GmyExtremeSection,
   GmyRankingSection,
@@ -42,6 +43,7 @@ type IsYatirimLeadershipDashboardProps = {
   weeklyToken: string;
   isWeeklyToggleEnabled: boolean;
   isLoading: boolean;
+  isMoodStreaksEnabled: boolean;
   isUpdating: boolean;
   isBreakdownUpdating: boolean;
   isDateTimePickerEnabled: boolean;
@@ -61,6 +63,7 @@ export default function IsYatirimLeadershipDashboard({
   weeklyToken,
   isWeeklyToggleEnabled,
   isLoading,
+  isMoodStreaksEnabled,
   isUpdating,
   isBreakdownUpdating,
   isDateTimePickerEnabled,
@@ -85,7 +88,7 @@ export default function IsYatirimLeadershipDashboard({
           comparisons: response?.comparisons,
           isUnvanComparisonEnabled,
           selectedUnvan,
-      });
+        });
   const comparisonBreakdowns: IsYatirimComparisonBreakdown[] =
     canShowUnvanBreakdown && isAllSegmentSelected && !selectedUnvan
       ? ["gmy", "unvan"]
@@ -141,6 +144,9 @@ export default function IsYatirimLeadershipDashboard({
           <AnalyticsSectionHeading>DUYGU DURUMU</AnalyticsSectionHeading>
           <MoodDistributionCard response={displayResponse} />
           <MoodTrendCard response={displayResponse} />
+          {isMoodStreaksEnabled ? (
+            <ConsecutiveMoodStreakChart response={displayResponse} />
+          ) : null}
 
           {comparisonBreakdowns.map((breakdown) => {
             const comparisonLabel = breakdown === "unvan" ? "Unvan" : "GMY";
