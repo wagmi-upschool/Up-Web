@@ -142,11 +142,11 @@ export default function IsYatirimLeadershipDashboard({
           <KpiGrid response={displayResponse} />
 
           <AnalyticsSectionHeading>DUYGU DURUMU</AnalyticsSectionHeading>
-          <MoodDistributionCard response={displayResponse} />
-          <MoodTrendCard response={displayResponse} />
           {isMoodStreaksEnabled ? (
             <ConsecutiveMoodStreakChart response={displayResponse} />
           ) : null}
+          <MoodDistributionCard response={displayResponse} />
+          <MoodTrendCard response={displayResponse} />
 
           {comparisonBreakdowns.map((breakdown) => {
             const comparisonLabel = breakdown === "unvan" ? "Unvan" : "GMY";

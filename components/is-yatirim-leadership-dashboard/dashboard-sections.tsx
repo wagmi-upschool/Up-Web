@@ -1299,7 +1299,8 @@ export function ConsecutiveMoodStreakChart({
             ARDIŞIK DUYGU SERİLERİ
           </AnalyticsSubheading>
           <p className="font-poppins text-sm text-[#171717]/52 sm:text-base">
-            Seçili dönemdeki en uzun kesintisiz seri · Her çalışan tek kovada
+            Seçili dönemdeki en uzun seri · Anlamlı sonuç görmek için 7+ gün
+            aralığı seçin.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 font-poppins text-xs font-semibold text-[#171717]/62">

@@ -419,7 +419,7 @@ export function normalizeIsYatirimUnvanFlag(value: string | null | undefined) {
 export function normalizeIsYatirimMoodStreaksFlag(
   value: string | null | undefined,
 ) {
-  return value?.trim().toLowerCase() === "true";
+  return value?.trim().toLowerCase() !== "false";
 }
 
 function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {

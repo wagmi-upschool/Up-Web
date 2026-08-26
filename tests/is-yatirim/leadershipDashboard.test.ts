@@ -85,11 +85,11 @@ test("normalizeIsYatirimDateTimePickerFlag defaults enabled unless explicit fals
   assert.equal(normalizeIsYatirimDateTimePickerFlag(" true "), true);
 });
 
-test("normalizeIsYatirimMoodStreaksFlag requires an explicit true value", () => {
-  assert.equal(normalizeIsYatirimMoodStreaksFlag(null), false);
-  assert.equal(normalizeIsYatirimMoodStreaksFlag(""), false);
+test("normalizeIsYatirimMoodStreaksFlag defaults enabled unless explicit false", () => {
+  assert.equal(normalizeIsYatirimMoodStreaksFlag(null), true);
+  assert.equal(normalizeIsYatirimMoodStreaksFlag(""), true);
   assert.equal(normalizeIsYatirimMoodStreaksFlag("false"), false);
-  assert.equal(normalizeIsYatirimMoodStreaksFlag("1"), false);
+  assert.equal(normalizeIsYatirimMoodStreaksFlag("1"), true);
   assert.equal(normalizeIsYatirimMoodStreaksFlag(" TRUE "), true);
 });
 

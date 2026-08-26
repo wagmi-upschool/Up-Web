@@ -315,13 +315,13 @@ analytics_is_yatirim_gmy_score_change
 
 ## Consecutive Mood Streak Contract
 
-Frontend rollout'u query-param feature flag ile kontrol edilir:
+Frontend rollout'u query-param feature flag ile kontrol edilir; varsayilan olarak aciktir:
 
 ```text
 /is-yatirim/leadership-dashboard?isMoodStreaks=true
 ```
 
-Flag yalnizca acikca `true` oldugunda grafik render edilir. Eksik, `false` veya diger degerlerde grafik gizlenir. Bu frontend flag'i upstream `/analytics/dashboard` request'ine aktarilmaz ve backend response contract'ini degistirmez.
+Grafik, `isMoodStreaks=false` verilmedikce render edilir. Bu frontend flag'i upstream `/analytics/dashboard` request'ine aktarilmaz ve backend response contract'ini degistirmez.
 
 ### Required Source Fields
 
