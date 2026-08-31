@@ -432,7 +432,7 @@ export function normalizeIsYatirimMoodStreaksFlag(
 export function normalizeIsYatirimMoodStreakComparisonFlag(
   value: string | null | undefined,
 ) {
-  return value?.trim().toLowerCase() === "true";
+  return value?.trim().toLowerCase() !== "false";
 }
 
 function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {

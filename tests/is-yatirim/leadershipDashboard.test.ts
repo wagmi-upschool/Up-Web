@@ -99,15 +99,16 @@ test("normalizeIsYatirimMoodStreaksFlag defaults enabled unless explicit false",
   assert.equal(normalizeIsYatirimMoodStreaksFlag(" TRUE "), true);
 });
 
-test("normalizeIsYatirimMoodStreakComparisonFlag only enables the new chart explicitly", () => {
+test("normalizeIsYatirimMoodStreakComparisonFlag defaults enabled unless explicit false", () => {
   assert.equal(
     IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM,
     "isMoodStreakComparison",
   );
-  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(null), false);
-  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(""), false);
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(null), true);
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(""), true);
   assert.equal(normalizeIsYatirimMoodStreakComparisonFlag("false"), false);
   assert.equal(normalizeIsYatirimMoodStreakComparisonFlag("true"), true);
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag("1"), true);
   assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(" TRUE "), true);
 });
 
