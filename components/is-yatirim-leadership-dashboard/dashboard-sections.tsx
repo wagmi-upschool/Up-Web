@@ -1432,12 +1432,12 @@ export function ConsecutiveMoodStreakChart({
           {hasPreviousPeriod ? (
             <>
               <span className="inline-flex items-center gap-2 rounded-full border border-[#171717]/8 bg-white/70 px-3 py-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#171717]/70" />
-                Seçili dönem
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#171717]/8 bg-white/70 px-3 py-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#171717]/25" />
                 Önceki dönem
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#171717]/8 bg-white/70 px-3 py-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#171717]/70" />
+                Seçili dönem
               </span>
             </>
           ) : null}
@@ -1506,28 +1506,6 @@ export function ConsecutiveMoodStreakChart({
                 }
                 cursor={{ fill: "#985DF8", fillOpacity: 0.06 }}
               />
-              <Bar
-                dataKey="currentValue"
-                maxBarSize={hasPreviousPeriod ? 44 : 88}
-                name="Seçili dönem"
-                radius={[12, 12, 4, 4]}
-              >
-                {chartData.map((item) => (
-                  <Cell
-                    fill={item.color}
-                    fillOpacity={item.fillOpacity}
-                    key={item.id}
-                  />
-                ))}
-                <LabelList
-                  className="font-righteous"
-                  dataKey="currentValue"
-                  fill="#171717"
-                  fontSize={hasPreviousPeriod ? 15 : 18}
-                  formatter={(value: number) => formatCount(value)}
-                  position="top"
-                />
-              </Bar>
               {hasPreviousPeriod ? (
                 <Bar
                   dataKey="previousValue"
@@ -1553,6 +1531,28 @@ export function ConsecutiveMoodStreakChart({
                   />
                 </Bar>
               ) : null}
+              <Bar
+                dataKey="currentValue"
+                maxBarSize={hasPreviousPeriod ? 44 : 88}
+                name="Seçili dönem"
+                radius={[12, 12, 4, 4]}
+              >
+                {chartData.map((item) => (
+                  <Cell
+                    fill={item.color}
+                    fillOpacity={item.fillOpacity}
+                    key={item.id}
+                  />
+                ))}
+                <LabelList
+                  className="font-righteous"
+                  dataKey="currentValue"
+                  fill="#171717"
+                  fontSize={hasPreviousPeriod ? 15 : 18}
+                  formatter={(value: number) => formatCount(value)}
+                  position="top"
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
