@@ -4,14 +4,19 @@ import {
   applyIsYatirimBreakdownSelectionToSearchParams,
   DEFAULT_IS_YATIRIM_SEGMENT,
   formatIsYatirimDateFilterLabel,
+  getConsecutiveMoodStreakChange,
   getDefaultIsYatirimDateFilter,
+  getIsYatirimLeadershipDashboardQueryKey,
+  getPreviousIsYatirimDateFilter,
   IS_YATIRIM_DATE_PICKER_MIN_DATE,
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
+  IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM,
   IS_YATIRIM_UNVAN_QUERY_PARAM,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimDashboardToken,
+  normalizeIsYatirimMoodStreakComparisonFlag,
   normalizeIsYatirimMoodStreaksFlag,
   normalizeIsYatirimSegment,
   normalizeIsYatirimUnvan,
@@ -28,6 +33,7 @@ import {
   buildIsYatirimDashboardUrl,
   getIsYatirimDashboardBaseUrl,
 } from "../../lib/isYatirimLeadershipDashboardRoute";
+import { getMoodStreakChartData } from "../../components/is-yatirim-leadership-dashboard/dashboard-sections";
 
 test("normalizeIsYatirimSegment defaults blank segment to all", () => {
   assert.equal(normalizeIsYatirimSegment(null), DEFAULT_IS_YATIRIM_SEGMENT);
@@ -93,6 +99,18 @@ test("normalizeIsYatirimMoodStreaksFlag defaults enabled unless explicit false",
   assert.equal(normalizeIsYatirimMoodStreaksFlag(" TRUE "), true);
 });
 
+test("normalizeIsYatirimMoodStreakComparisonFlag only enables the new chart explicitly", () => {
+  assert.equal(
+    IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM,
+    "isMoodStreakComparison",
+  );
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(null), false);
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(""), false);
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag("false"), false);
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag("true"), true);
+  assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(" TRUE "), true);
+});
+
 test("getDefaultIsYatirimDateFilter returns the inclusive last 30 days", () => {
   assert.deepEqual(getDefaultIsYatirimDateFilter("2026-06-30"), {
     mode: "range",
@@ -107,6 +125,194 @@ test("getDefaultIsYatirimDateFilter returns the inclusive last 30 days", () => {
     endDate: "2026-05-25",
     dayCount: 6,
   });
+});
+
+test("getPreviousIsYatirimDateFilter returns the preceding equal-length range", () => {
+  assert.deepEqual(
+    getPreviousIsYatirimDateFilter({
+      mode: "range",
+      startDate: "2026-08-22",
+      endDate: "2026-08-28",
+      dayCount: 7,
+    }),
+    {
+      mode: "range",
+      startDate: "2026-08-15",
+      endDate: "2026-08-21",
+      dayCount: 7,
+    },
+  );
+
+  assert.deepEqual(
+    getPreviousIsYatirimDateFilter({
+      mode: "range",
+      startDate: "2027-01-01",
+      endDate: "2027-01-14",
+      dayCount: 14,
+    }),
+    {
+      mode: "range",
+      startDate: "2026-12-18",
+      endDate: "2026-12-31",
+      dayCount: 14,
+    },
+  );
+
+  assert.deepEqual(
+    getPreviousIsYatirimDateFilter({
+      mode: "range",
+      startDate: "2028-03-01",
+      endDate: "2028-03-07",
+      dayCount: 7,
+    }),
+    {
+      mode: "range",
+      startDate: "2028-02-23",
+      endDate: "2028-02-29",
+      dayCount: 7,
+    },
+  );
+
+  assert.deepEqual(
+    getPreviousIsYatirimDateFilter({
+      mode: "range",
+      startDate: "2026-06-10",
+      endDate: "2026-06-19",
+      dayCount: 10,
+    }),
+    {
+      mode: "range",
+      startDate: "2026-05-31",
+      endDate: "2026-06-09",
+      dayCount: 10,
+    },
+  );
+});
+
+test("getPreviousIsYatirimDateFilter skips single days and unavailable history", () => {
+  assert.equal(
+    getPreviousIsYatirimDateFilter({
+      mode: "single",
+      startDate: "2026-08-28",
+      endDate: "2026-08-28",
+      dayCount: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    getPreviousIsYatirimDateFilter({
+      mode: "range",
+      startDate: IS_YATIRIM_DATE_PICKER_MIN_DATE,
+      endDate: "2026-05-26",
+      dayCount: 7,
+    }),
+    null,
+  );
+});
+
+test("getConsecutiveMoodStreakChange calculates absolute and percentage changes", () => {
+  assert.deepEqual(getConsecutiveMoodStreakChange(12, 9), {
+    absolute: 3,
+    percentage: 33,
+  });
+  assert.deepEqual(getConsecutiveMoodStreakChange(6, 8), {
+    absolute: -2,
+    percentage: -25,
+  });
+  assert.deepEqual(getConsecutiveMoodStreakChange(4, 0), {
+    absolute: 4,
+    percentage: null,
+  });
+  assert.deepEqual(getConsecutiveMoodStreakChange(0, 0), {
+    absolute: 0,
+    percentage: null,
+  });
+});
+
+test("getMoodStreakChartData maps all six current and previous bucket values", () => {
+  const current = {
+    bad: { exactly3Days: 12, exactly4Days: 6, atLeast5Days: 3 },
+    great: { exactly3Days: 18, exactly4Days: 9, atLeast5Days: 5 },
+  };
+  const previous = {
+    bad: { exactly3Days: 9, exactly4Days: 8, atLeast5Days: 4 },
+    great: { exactly3Days: 15, exactly4Days: 7, atLeast5Days: 4 },
+  };
+  const data = getMoodStreakChartData(current, previous);
+
+  assert.equal(data.length, 7);
+  assert.deepEqual(
+    data
+      .filter((item) => item.id !== "category-gap")
+      .map((item) => ({
+        id: item.id,
+        currentValue: item.currentValue,
+        previousValue: item.previousValue,
+      })),
+    [
+      { id: "bad-3", currentValue: 12, previousValue: 9 },
+      { id: "bad-4", currentValue: 6, previousValue: 8 },
+      { id: "bad-5-plus", currentValue: 3, previousValue: 4 },
+      { id: "great-3", currentValue: 18, previousValue: 15 },
+      { id: "great-4", currentValue: 9, previousValue: 7 },
+      { id: "great-5-plus", currentValue: 5, previousValue: 4 },
+    ],
+  );
+  assert.deepEqual(data[3], {
+    id: "category-gap",
+    label: "",
+    currentValue: null,
+    previousValue: null,
+    color: "transparent",
+    fillOpacity: 0,
+  });
+});
+
+test("getMoodStreakChartData keeps zeroes and omits unavailable comparison values", () => {
+  const data = getMoodStreakChartData({
+    bad: { exactly3Days: 0, exactly4Days: 0, atLeast5Days: 0 },
+    great: { exactly3Days: 0, exactly4Days: 0, atLeast5Days: 0 },
+  });
+
+  data
+    .filter((item) => item.id !== "category-gap")
+    .forEach((item) => {
+      assert.equal(item.currentValue, 0);
+      assert.equal(item.previousValue, null);
+    });
+});
+
+test("leadership dashboard query keys isolate current and previous periods", () => {
+  const currentDateFilter = {
+    mode: "range" as const,
+    startDate: "2026-08-22",
+    endDate: "2026-08-28",
+    dayCount: 7,
+  };
+  const previousDateFilter = getPreviousIsYatirimDateFilter(currentDateFilter);
+  assert.ok(previousDateFilter);
+
+  const currentKey = getIsYatirimLeadershipDashboardQueryKey({
+    scope: "current",
+    segment: "all",
+    unvan: "mudur",
+    token: "token",
+    dateFilter: currentDateFilter,
+  });
+  const previousKey = getIsYatirimLeadershipDashboardQueryKey({
+    scope: "previous",
+    segment: "all",
+    unvan: "mudur",
+    token: "token",
+    dateFilter: previousDateFilter,
+  });
+
+  assert.notDeepEqual(currentKey, previousKey);
+  assert.equal(previousKey[1], "previous");
+  assert.equal(previousKey[2], "all");
+  assert.equal(previousKey[3], "mudur");
+  assert.equal(previousKey[6], "2026-08-15");
+  assert.equal(previousKey[7], "2026-08-21");
 });
 
 test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => {

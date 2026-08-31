@@ -40,6 +40,7 @@ import {
   MOOD_ORDER,
   MOOD_TOKENS,
   formatCount,
+  getConsecutiveMoodStreakChange,
   formatIsYatirimDateFilterLabel,
   formatPercent,
   formatScore,
@@ -140,7 +141,8 @@ const WORD_PILL_PALETTE = [
 type MoodStreakChartDatum = {
   id: string;
   label: string;
-  value: number | null;
+  currentValue: number | null;
+  previousValue: number | null;
   color: string;
   fillOpacity: number;
 };
@@ -1180,27 +1182,96 @@ export function MoodTrendCard({
 function ConsecutiveMoodStreakTooltip({
   active,
   payload,
+  isComparisonEnabled,
+  currentDateFilter,
+  previousDateFilter,
 }: {
   active?: boolean;
   payload?: Array<{
     payload: MoodStreakChartDatum;
     value?: number;
   }>;
+  isComparisonEnabled: boolean;
+  currentDateFilter: IsYatirimDateFilter;
+  previousDateFilter: IsYatirimDateFilter | null;
 }) {
   const item = payload?.[0]?.payload;
 
-  if (!active || !item || item.value === null) {
+  if (!active || !item || item.currentValue === null) {
     return null;
   }
 
+  if (!isComparisonEnabled) {
+    return (
+      <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
+        <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-white/55">
+          {toTurkishUpperCase(item.label)}
+        </p>
+        <p className="mt-2 font-righteous text-3xl leading-none text-white">
+          {formatCount(item.currentValue)} kişi
+        </p>
+      </div>
+    );
+  }
+
+  const currentValue = item.currentValue;
+  const previousValue = item.previousValue;
+  const change =
+    previousValue === null
+      ? null
+      : getConsecutiveMoodStreakChange(currentValue, previousValue);
+  const currentLabel = formatDashboardDateLabel(currentDateFilter, {
+    includeDayCount: false,
+  });
+  const previousLabel = previousDateFilter
+    ? formatDashboardDateLabel(previousDateFilter, {
+        includeDayCount: false,
+      })
+    : "";
+  const absoluteLabel = change
+    ? `${change.absolute > 0 ? "+" : ""}${formatCount(change.absolute)}`
+    : "";
+  const changeLabel =
+    previousValue === null || !change
+      ? ""
+      : previousValue === 0 && currentValue > 0
+        ? `Yeni (${absoluteLabel})`
+        : currentValue === 0 && previousValue === 0
+          ? "Değişim yok"
+          : `${absoluteLabel} · ${change.percentage && change.percentage > 0 ? "+" : ""}${formatCount(change.percentage || 0)}%`;
+
   return (
-    <div className="rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
+    <div className="min-w-[240px] rounded-2xl border border-[#171717]/10 bg-[#171717] px-4 py-3 text-white shadow-2xl">
       <p className="font-poppins text-xs font-semibold tracking-[0.2em] text-white/55">
         {toTurkishUpperCase(item.label)}
       </p>
-      <p className="mt-2 font-righteous text-3xl leading-none text-white">
-        {formatCount(item.value)} kişi
-      </p>
+      <div className="mt-3 space-y-2 font-poppins text-xs">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="font-semibold text-white/52">SEÇİLİ DÖNEM</p>
+            <p className="mt-0.5 text-white/70">{currentLabel}</p>
+          </div>
+          <p className="font-righteous text-2xl leading-none text-white">
+            {formatCount(currentValue)}
+          </p>
+        </div>
+        {previousValue !== null ? (
+          <div className="flex items-end justify-between gap-4 border-t border-white/10 pt-2">
+            <div>
+              <p className="font-semibold text-white/52">ÖNCEKİ DÖNEM</p>
+              <p className="mt-0.5 text-white/70">{previousLabel}</p>
+            </div>
+            <p className="font-righteous text-2xl leading-none text-white/72">
+              {formatCount(previousValue)}
+            </p>
+          </div>
+        ) : null}
+      </div>
+      {changeLabel ? (
+        <p className="mt-3 rounded-full bg-white/10 px-3 py-1.5 text-center font-poppins text-xs font-semibold text-white/86">
+          {changeLabel}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1243,13 +1314,17 @@ function MoodStreakXAxisTick({
   );
 }
 
-function getMoodStreakChartData(
-  streaks: ConsecutiveMoodStreaks,
+export function getMoodStreakChartData(
+  currentStreaks: ConsecutiveMoodStreaks,
+  previousStreaks?: ConsecutiveMoodStreaks | null,
 ): MoodStreakChartDatum[] {
   const data = MOOD_STREAK_BUCKETS.map((item) => ({
     id: item.id,
     label: item.label,
-    value: streaks[item.category][item.bucket],
+    currentValue: currentStreaks[item.category][item.bucket],
+    previousValue: previousStreaks
+      ? previousStreaks[item.category][item.bucket]
+      : null,
     color: item.color,
     fillOpacity: item.fillOpacity,
   }));
@@ -1259,7 +1334,8 @@ function getMoodStreakChartData(
     {
       id: "category-gap",
       label: "",
-      value: null,
+      currentValue: null,
+      previousValue: null,
       color: "transparent",
       fillOpacity: 0,
     },
@@ -1269,10 +1345,26 @@ function getMoodStreakChartData(
 
 export function ConsecutiveMoodStreakChart({
   response,
+  previousResponse,
+  previousDateFilter,
+  isComparisonEnabled,
+  isPreviousPeriodLoading,
+  previousPeriodErrorMessage,
 }: {
   response: LeadershipDashboardResponse;
+  previousResponse?: LeadershipDashboardResponse;
+  previousDateFilter: IsYatirimDateFilter | null;
+  isComparisonEnabled: boolean;
+  isPreviousPeriodLoading: boolean;
+  previousPeriodErrorMessage?: string | null;
 }) {
   const streaks = response.selectedSegment.consecutiveMoodStreaks;
+  const previousStreaks =
+    previousResponse?.selectedSegment.consecutiveMoodStreaks || null;
+  const isRangeComparison = response.meta.dateFilter.mode === "range";
+  const hasPreviousPeriod = Boolean(
+    isComparisonEnabled && previousDateFilter && previousStreaks,
+  );
 
   if (!streaks) {
     return (
@@ -1285,11 +1377,36 @@ export function ConsecutiveMoodStreakChart({
     );
   }
 
-  const chartData = getMoodStreakChartData(streaks);
-  const accessibleSummary = MOOD_STREAK_BUCKETS.map(
-    (item) =>
-      `${item.label}: ${formatCount(streaks[item.category][item.bucket])} kişi`,
-  ).join(", ");
+  const chartData = getMoodStreakChartData(
+    streaks,
+    hasPreviousPeriod ? previousStreaks : null,
+  );
+  const accessibleSummary = MOOD_STREAK_BUCKETS.map((item) => {
+    const currentValue = streaks[item.category][item.bucket];
+    const previousValue = previousStreaks?.[item.category][item.bucket];
+
+    return previousValue === undefined
+      ? `${item.label}: ${formatCount(currentValue)} kişi`
+      : `${item.label}: seçili dönem ${formatCount(currentValue)} kişi, önceki dönem ${formatCount(previousValue)} kişi`;
+  }).join(", ");
+  const currentDateLabel = formatDashboardDateLabel(response.meta.dateFilter, {
+    includeDayCount: false,
+  });
+  const previousDateLabel = previousDateFilter
+    ? formatDashboardDateLabel(previousDateFilter, {
+        includeDayCount: false,
+      })
+    : "";
+  const comparisonNotice = previousPeriodErrorMessage
+    ? "Önceki dönem verisi alınamadı"
+    : isComparisonEnabled && isRangeComparison && !previousDateFilter
+      ? "Önceki eşit dönem mevcut veri aralığının dışında"
+      : isComparisonEnabled &&
+          previousDateFilter &&
+          previousResponse &&
+          !previousStreaks
+        ? "Önceki dönem seri verisi henüz sağlanmıyor"
+        : null;
 
   return (
     <AnalyticsCard className="rounded-[34px] p-6 sm:p-8">
@@ -1303,7 +1420,7 @@ export function ConsecutiveMoodStreakChart({
             aralığı seçin.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 font-poppins text-xs font-semibold text-[#171717]/62">
+        <div className="flex flex-wrap justify-end gap-2 font-poppins text-xs font-semibold text-[#171717]/62">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#E03030]/10 px-3 py-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-[#E03030]" />
             Kötü
@@ -1312,69 +1429,133 @@ export function ConsecutiveMoodStreakChart({
             <span className="h-2.5 w-2.5 rounded-full bg-[#00A878]" />
             Harika
           </span>
+          {hasPreviousPeriod ? (
+            <>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#171717]/8 bg-white/70 px-3 py-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#171717]/70" />
+                Seçili dönem
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#171717]/8 bg-white/70 px-3 py-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#171717]/25" />
+                Önceki dönem
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
+      {hasPreviousPeriod ? (
+        <p className="mb-4 font-poppins text-xs font-medium text-[#171717]/46">
+          {currentDateLabel} · {previousDateLabel} ile karşılaştırılıyor
+        </p>
+      ) : comparisonNotice ? (
+        <div className="mb-4 rounded-2xl border border-[#D7B154]/55 bg-[#FFF2BF]/70 px-4 py-3 font-poppins text-sm font-semibold text-[#8A6500]">
+          {comparisonNotice}
+        </div>
+      ) : null}
       <div
         aria-label={`Ardışık duygu serileri çalışan sayıları. ${accessibleSummary}`}
         className="h-[360px] rounded-[26px] border border-[#171717]/8 bg-[linear-gradient(180deg,#FFFDF8_0%,#F8F2E7_100%)] px-2 pb-2 pt-5 sm:h-[400px] sm:px-5"
         role="img"
       >
-        <ResponsiveContainer height="100%" width="100%">
-          <BarChart
-            barCategoryGap="18%"
-            data={chartData}
-            margin={{ bottom: 24, left: 0, right: 8, top: 28 }}
-          >
-            <CartesianGrid
-              stroke="#171717"
-              strokeDasharray="4 5"
-              strokeOpacity={0.08}
-              vertical={false}
-            />
-            <XAxis
-              axisLine={{ stroke: "#171717", strokeOpacity: 0.14 }}
-              dataKey="label"
-              interval={0}
-              tick={<MoodStreakXAxisTick />}
-              tickLine={false}
-            />
-            <YAxis
-              allowDecimals={false}
-              axisLine={false}
-              domain={[0, (dataMax: number) => Math.max(1, dataMax)]}
-              tick={{
-                fill: "#171717",
-                fillOpacity: 0.46,
-                fontFamily: "var(--font-poppins)",
-                fontSize: 13,
-              }}
-              tickFormatter={(value: number) => formatCount(value)}
-              tickLine={false}
-              width={42}
-            />
-            <Tooltip
-              content={<ConsecutiveMoodStreakTooltip />}
-              cursor={{ fill: "#985DF8", fillOpacity: 0.06 }}
-            />
-            <Bar dataKey="value" maxBarSize={88} radius={[12, 12, 4, 4]}>
-              {chartData.map((item) => (
-                <Cell
-                  fill={item.color}
-                  fillOpacity={item.fillOpacity}
-                  key={item.id}
-                />
-              ))}
-              <LabelList
-                className="font-righteous"
-                dataKey="value"
-                fill="#171717"
-                fontSize={18}
-                formatter={(value: number) => formatCount(value)}
-                position="top"
+        {isComparisonEnabled && isPreviousPeriodLoading ? (
+          <div className="flex h-full items-center justify-center">
+            <LottieSpinner size={56} />
+          </div>
+        ) : (
+          <ResponsiveContainer height="100%" width="100%">
+            <BarChart
+              barCategoryGap="18%"
+              barGap={4}
+              data={chartData}
+              margin={{ bottom: 24, left: 0, right: 8, top: 28 }}
+            >
+              <CartesianGrid
+                stroke="#171717"
+                strokeDasharray="4 5"
+                strokeOpacity={0.08}
+                vertical={false}
               />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              <XAxis
+                axisLine={{ stroke: "#171717", strokeOpacity: 0.14 }}
+                dataKey="label"
+                interval={0}
+                tick={<MoodStreakXAxisTick />}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                axisLine={false}
+                domain={[0, (dataMax: number) => Math.max(1, dataMax)]}
+                tick={{
+                  fill: "#171717",
+                  fillOpacity: 0.46,
+                  fontFamily: "var(--font-poppins)",
+                  fontSize: 13,
+                }}
+                tickFormatter={(value: number) => formatCount(value)}
+                tickLine={false}
+                width={42}
+              />
+              <Tooltip
+                content={
+                  <ConsecutiveMoodStreakTooltip
+                    currentDateFilter={response.meta.dateFilter}
+                    isComparisonEnabled={isComparisonEnabled}
+                    previousDateFilter={previousDateFilter}
+                  />
+                }
+                cursor={{ fill: "#985DF8", fillOpacity: 0.06 }}
+              />
+              <Bar
+                dataKey="currentValue"
+                maxBarSize={hasPreviousPeriod ? 44 : 88}
+                name="Seçili dönem"
+                radius={[12, 12, 4, 4]}
+              >
+                {chartData.map((item) => (
+                  <Cell
+                    fill={item.color}
+                    fillOpacity={item.fillOpacity}
+                    key={item.id}
+                  />
+                ))}
+                <LabelList
+                  className="font-righteous"
+                  dataKey="currentValue"
+                  fill="#171717"
+                  fontSize={hasPreviousPeriod ? 15 : 18}
+                  formatter={(value: number) => formatCount(value)}
+                  position="top"
+                />
+              </Bar>
+              {hasPreviousPeriod ? (
+                <Bar
+                  dataKey="previousValue"
+                  maxBarSize={44}
+                  name="Önceki dönem"
+                  radius={[12, 12, 4, 4]}
+                >
+                  {chartData.map((item) => (
+                    <Cell
+                      fill={item.color}
+                      fillOpacity={item.fillOpacity * 0.32}
+                      key={`previous-${item.id}`}
+                    />
+                  ))}
+                  <LabelList
+                    className="font-righteous"
+                    dataKey="previousValue"
+                    fill="#171717"
+                    fillOpacity={0.5}
+                    fontSize={15}
+                    formatter={(value: number) => formatCount(value)}
+                    position="top"
+                  />
+                </Bar>
+              ) : null}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
       <p className="sr-only">{accessibleSummary}</p>
     </AnalyticsCard>

@@ -5,6 +5,8 @@ export const DEFAULT_IS_YATIRIM_FALLBACK_DATE = "1970-01-01";
 export const IS_YATIRIM_DATE_PICKER_MIN_DATE = "2026-05-20";
 export const IS_YATIRIM_UNVAN_QUERY_PARAM = "unvan";
 export const IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM = "isMoodStreaks";
+export const IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM =
+  "isMoodStreakComparison";
 export const IS_YATIRIM_UNVAN_ORDER = [
   "support",
   "direktor",
@@ -116,6 +118,11 @@ export type ConsecutiveMoodStreakBucketCounts = {
 export type ConsecutiveMoodStreaks = {
   bad: ConsecutiveMoodStreakBucketCounts;
   great: ConsecutiveMoodStreakBucketCounts;
+};
+
+export type ConsecutiveMoodStreakChange = {
+  absolute: number;
+  percentage: number | null;
 };
 
 export type SegmentDashboardData = {
@@ -422,6 +429,12 @@ export function normalizeIsYatirimMoodStreaksFlag(
   return value?.trim().toLowerCase() !== "false";
 }
 
+export function normalizeIsYatirimMoodStreakComparisonFlag(
+  value: string | null | undefined,
+) {
+  return value?.trim().toLowerCase() === "true";
+}
+
 function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {
   return (value || "")
     .trim()
@@ -508,6 +521,79 @@ export function getDefaultIsYatirimDateFilter(
     endDate,
     dayCount: getInclusiveDayCount(startDate, endDate),
   };
+}
+
+export function getPreviousIsYatirimDateFilter(
+  dateFilter: IsYatirimDateFilter,
+): IsYatirimDateFilter | null {
+  if (dateFilter.mode !== "range" || dateFilter.dayCount <= 1) {
+    return null;
+  }
+
+  const currentStartDate = parseIsoDate(dateFilter.startDate);
+
+  if (!currentStartDate) {
+    return null;
+  }
+
+  const previousEnd = new Date(currentStartDate);
+  previousEnd.setUTCDate(previousEnd.getUTCDate() - 1);
+
+  const previousStart = new Date(previousEnd);
+  previousStart.setUTCDate(
+    previousStart.getUTCDate() - (dateFilter.dayCount - 1),
+  );
+
+  const previousStartDate = formatIsoDate(previousStart);
+  const previousEndDate = formatIsoDate(previousEnd);
+
+  if (previousStartDate < IS_YATIRIM_DATE_PICKER_MIN_DATE) {
+    return null;
+  }
+
+  return {
+    mode: "range",
+    startDate: previousStartDate,
+    endDate: previousEndDate,
+    dayCount: dateFilter.dayCount,
+  };
+}
+
+export function getConsecutiveMoodStreakChange(
+  current: number,
+  previous: number,
+): ConsecutiveMoodStreakChange {
+  const absolute = current - previous;
+
+  return {
+    absolute,
+    percentage: previous > 0 ? Math.round((absolute / previous) * 100) : null,
+  };
+}
+
+export function getIsYatirimLeadershipDashboardQueryKey({
+  scope,
+  segment,
+  unvan,
+  token,
+  dateFilter,
+}: {
+  scope: "current" | "previous";
+  segment: string;
+  unvan: string;
+  token: string;
+  dateFilter?: IsYatirimDateFilter;
+}) {
+  return [
+    "isYatirimLeadershipDashboard",
+    scope,
+    segment,
+    unvan,
+    token,
+    dateFilter?.mode || "legacy",
+    dateFilter?.startDate || "",
+    dateFilter?.endDate || "",
+  ] as const;
 }
 
 export function normalizeIsYatirimDateFilter(

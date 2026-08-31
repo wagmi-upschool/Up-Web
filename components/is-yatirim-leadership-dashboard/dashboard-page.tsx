@@ -44,6 +44,8 @@ type IsYatirimLeadershipDashboardProps = {
   isWeeklyToggleEnabled: boolean;
   isLoading: boolean;
   isMoodStreaksEnabled: boolean;
+  isMoodStreakComparisonEnabled: boolean;
+  isPreviousPeriodLoading: boolean;
   isUpdating: boolean;
   isBreakdownUpdating: boolean;
   isDateTimePickerEnabled: boolean;
@@ -52,6 +54,9 @@ type IsYatirimLeadershipDashboardProps = {
   onDateFilterChange: (dateFilter: IsYatirimDateFilter) => void;
   onSegmentSelect: (segment: string) => void;
   onUnvanSelect: (unvan: string) => void;
+  previousDateFilter: IsYatirimDateFilter | null;
+  previousPeriodErrorMessage?: string | null;
+  previousPeriodResponse?: LeadershipDashboardResponse;
   selectedUnvan: string;
 };
 
@@ -64,6 +69,8 @@ export default function IsYatirimLeadershipDashboard({
   isWeeklyToggleEnabled,
   isLoading,
   isMoodStreaksEnabled,
+  isMoodStreakComparisonEnabled,
+  isPreviousPeriodLoading,
   isUpdating,
   isBreakdownUpdating,
   isDateTimePickerEnabled,
@@ -72,6 +79,9 @@ export default function IsYatirimLeadershipDashboard({
   onDateFilterChange,
   onSegmentSelect,
   onUnvanSelect,
+  previousDateFilter,
+  previousPeriodErrorMessage,
+  previousPeriodResponse,
   selectedUnvan,
 }: IsYatirimLeadershipDashboardProps) {
   const hasUnvanComparisons = hasIsYatirimUnvanComparisons(
@@ -100,6 +110,13 @@ export default function IsYatirimLeadershipDashboard({
           selectedSegment: response.selectedUnvan,
         }
       : response;
+  const previousDisplayResponse =
+    detailBreakdown === "unvan" && previousPeriodResponse?.selectedUnvan
+      ? {
+          ...previousPeriodResponse,
+          selectedSegment: previousPeriodResponse.selectedUnvan,
+        }
+      : previousPeriodResponse;
 
   return (
     <IsYatirimPageShell>
@@ -143,7 +160,14 @@ export default function IsYatirimLeadershipDashboard({
 
           <AnalyticsSectionHeading>DUYGU DURUMU</AnalyticsSectionHeading>
           {isMoodStreaksEnabled ? (
-            <ConsecutiveMoodStreakChart response={displayResponse} />
+            <ConsecutiveMoodStreakChart
+              isComparisonEnabled={isMoodStreakComparisonEnabled}
+              isPreviousPeriodLoading={isPreviousPeriodLoading}
+              previousDateFilter={previousDateFilter}
+              previousPeriodErrorMessage={previousPeriodErrorMessage}
+              previousResponse={previousDisplayResponse}
+              response={displayResponse}
+            />
           ) : null}
           <MoodDistributionCard response={displayResponse} />
           <MoodTrendCard response={displayResponse} />

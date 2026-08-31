@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import {
   type ReadonlyURLSearchParams,
   useRouter,
@@ -22,11 +22,15 @@ import {
   applyIsYatirimBreakdownSelectionToSearchParams,
   applyIsYatirimDateFilterToSearchParams,
   getDefaultIsYatirimDateFilter,
+  getIsYatirimLeadershipDashboardQueryKey,
+  getPreviousIsYatirimDateFilter,
   getTodayDateString,
+  IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM,
   IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
+  normalizeIsYatirimMoodStreakComparisonFlag,
   normalizeIsYatirimMoodStreaksFlag,
   normalizeIsYatirimSegment,
   normalizeIsYatirimUnvan,
@@ -109,23 +113,6 @@ function formatApiError(error: unknown) {
   const raw = error instanceof Error ? error.message : `${error}`;
   const [, ...messageParts] = raw.split(":");
   return messageParts.join(":").trim() || raw;
-}
-
-function getLeadershipDashboardQueryKey(
-  segment: string,
-  unvan: string,
-  token: string,
-  dateFilter?: IsYatirimDateFilter,
-) {
-  return [
-    "isYatirimLeadershipDashboard",
-    segment,
-    unvan,
-    token,
-    dateFilter?.mode || "legacy",
-    dateFilter?.startDate || "",
-    dateFilter?.endDate || "",
-  ] as const;
 }
 
 function buildDashboardSearchParams(
@@ -230,6 +217,10 @@ function IsYatirimLeadershipDashboardContent() {
   const isMoodStreaksEnabled = normalizeIsYatirimMoodStreaksFlag(
     searchParams.get(IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM),
   );
+  const isMoodStreakComparisonEnabled =
+    normalizeIsYatirimMoodStreakComparisonFlag(
+      searchParams.get(IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM),
+    );
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
   const selectedUnvan = isUnvanComparisonEnabled
     ? normalizeIsYatirimUnvan(searchParams.get("unvan"))
@@ -264,6 +255,15 @@ function IsYatirimLeadershipDashboardContent() {
   const effectiveDateFilter = resolveIsYatirimDateFilterByPickerFlag(
     isDateTimePickerEnabled,
     dateFilter,
+  );
+  const previousDateFilter = useMemo(
+    () =>
+      isMoodStreaksEnabled &&
+      isMoodStreakComparisonEnabled &&
+      effectiveDateFilter
+        ? getPreviousIsYatirimDateFilter(effectiveDateFilter)
+        : null,
+    [effectiveDateFilter, isMoodStreakComparisonEnabled, isMoodStreaksEnabled],
   );
 
   useEffect(() => {
@@ -359,12 +359,13 @@ function IsYatirimLeadershipDashboardContent() {
   ]);
 
   const dashboardQuery = useQuery({
-    queryKey: getLeadershipDashboardQueryKey(
+    queryKey: getIsYatirimLeadershipDashboardQueryKey({
+      scope: "current",
       segment,
-      selectedUnvan,
-      dailyToken,
-      effectiveDateFilter,
-    ),
+      unvan: selectedUnvan,
+      token: dailyToken,
+      dateFilter: effectiveDateFilter,
+    }),
     queryFn: () =>
       getLeadershipDashboard(
         segment,
@@ -373,6 +374,25 @@ function IsYatirimLeadershipDashboardContent() {
         selectedUnvan,
       ),
     placeholderData: (previous) => previous,
+    refetchOnWindowFocus: false,
+  });
+
+  const previousPeriodQuery = useQuery({
+    queryKey: getIsYatirimLeadershipDashboardQueryKey({
+      scope: "previous",
+      segment,
+      unvan: selectedUnvan,
+      token: dailyToken,
+      dateFilter: previousDateFilter || undefined,
+    }),
+    queryFn: () =>
+      getLeadershipDashboard(
+        segment,
+        dailyToken,
+        previousDateFilter as IsYatirimDateFilter,
+        selectedUnvan,
+      ),
+    enabled: Boolean(previousDateFilter),
     refetchOnWindowFocus: false,
   });
 
@@ -473,12 +493,13 @@ function IsYatirimLeadershipDashboardContent() {
     }
 
     void queryClient.prefetchQuery({
-      queryKey: getLeadershipDashboardQueryKey(
+      queryKey: getIsYatirimLeadershipDashboardQueryKey({
+        scope: "current",
         segment,
-        selectedUnvan,
-        dailyToken,
-        nextDateFilter,
-      ),
+        unvan: selectedUnvan,
+        token: dailyToken,
+        dateFilter: nextDateFilter,
+      }),
       queryFn: () =>
         getLeadershipDashboard(
           segment,
@@ -487,6 +508,30 @@ function IsYatirimLeadershipDashboardContent() {
           selectedUnvan,
         ),
     });
+
+    const nextPreviousDateFilter =
+      isMoodStreaksEnabled && isMoodStreakComparisonEnabled
+        ? getPreviousIsYatirimDateFilter(nextDateFilter)
+        : null;
+
+    if (nextPreviousDateFilter) {
+      void queryClient.prefetchQuery({
+        queryKey: getIsYatirimLeadershipDashboardQueryKey({
+          scope: "previous",
+          segment,
+          unvan: selectedUnvan,
+          token: dailyToken,
+          dateFilter: nextPreviousDateFilter,
+        }),
+        queryFn: () =>
+          getLeadershipDashboard(
+            segment,
+            dailyToken,
+            nextPreviousDateFilter,
+            selectedUnvan,
+          ),
+      });
+    }
 
     replaceDashboardRoute(router, searchParams, {
       segment,
@@ -504,7 +549,11 @@ function IsYatirimLeadershipDashboardContent() {
         dashboardQuery.error ? formatApiError(dashboardQuery.error) : null
       }
       isLoading={dashboardQuery.isLoading}
+      isPreviousPeriodLoading={
+        Boolean(previousDateFilter) && previousPeriodQuery.isFetching
+      }
       isMoodStreaksEnabled={isMoodStreaksEnabled}
+      isMoodStreakComparisonEnabled={isMoodStreakComparisonEnabled}
       isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
       isBreakdownUpdating={isBreakdownUpdating}
       isDateTimePickerEnabled={isDateTimePickerEnabled}
@@ -512,6 +561,13 @@ function IsYatirimLeadershipDashboardContent() {
       onDateFilterChange={handleDateFilterChange}
       onSegmentSelect={handleSegmentSelect}
       onUnvanSelect={handleUnvanSelect}
+      previousDateFilter={previousDateFilter}
+      previousPeriodErrorMessage={
+        previousPeriodQuery.error
+          ? formatApiError(previousPeriodQuery.error)
+          : null
+      }
+      previousPeriodResponse={previousPeriodQuery.data}
       response={dashboardQuery.data}
       selectedSegment={visibleSegment}
       selectedUnvan={visibleSelectedUnvan}
