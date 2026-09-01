@@ -16,6 +16,7 @@ import {
   IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM,
   IS_YATIRIM_UNVAN_QUERY_PARAM,
   IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM,
+  limitLeadershipDashboardWords,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimDashboardToken,
@@ -845,6 +846,67 @@ test("word pages merge by collection, preserve order, and keep page one metrics"
   assert.equal(merged.selectedSegment.latest.mostFrequentWord?.text, "Piyasa");
   assert.equal(merged.meta.generatedAt, "page-one");
   assert.equal(merged.selectedSegment.wordPagination?.page, 2);
+});
+
+test("legacy word display caps segment and unvan collections without changing page-one metrics", () => {
+  const createWords = (
+    count: number,
+    category?: "bad" | "meh" | "good" | "great",
+  ) =>
+    Array.from({ length: count }, (_, index) => ({
+      text: `Kelime ${index + 1}`,
+      normalizedText: `kelime-${index + 1}`,
+      count: count - index,
+      ...(category ? { category } : {}),
+    }));
+  const response = normalizeLeadershipDashboardResponse({
+    selectedSegment: {
+      latest: {
+        mostFrequentWord: createWords(1)[0],
+      },
+      allWords: createWords(12),
+      wordClouds: {
+        bad: createWords(10, "bad"),
+        meh: createWords(10, "meh"),
+        good: createWords(10, "good"),
+        great: createWords(4, "great"),
+      },
+      wordPagination: {
+        page: 1,
+        pageSize: 50,
+        collections: {},
+      },
+    },
+    selectedUnvan: {
+      allWords: createWords(11),
+      wordClouds: {
+        bad: createWords(9, "bad"),
+        meh: [],
+        good: createWords(9, "good"),
+        great: createWords(9, "great"),
+      },
+    },
+  });
+
+  const limited = limitLeadershipDashboardWords(response);
+
+  assert.equal(limited.selectedSegment.allWords.length, 10);
+  assert.equal(limited.selectedSegment.wordClouds.bad.length, 8);
+  assert.equal(limited.selectedSegment.wordClouds.meh.length, 8);
+  assert.equal(limited.selectedSegment.wordClouds.good.length, 8);
+  assert.equal(limited.selectedSegment.wordClouds.great.length, 4);
+  assert.equal(limited.selectedUnvan?.allWords.length, 10);
+  assert.equal(limited.selectedUnvan?.wordClouds.bad.length, 8);
+  assert.equal(limited.selectedUnvan?.wordClouds.meh.length, 0);
+  assert.equal(limited.selectedUnvan?.wordClouds.good.length, 8);
+  assert.equal(limited.selectedUnvan?.wordClouds.great.length, 8);
+  assert.equal(limited.selectedSegment.wordPagination, null);
+  assert.equal(
+    limited.selectedSegment.latest.mostFrequentWord?.text,
+    "Kelime 1",
+  );
+  assert.equal(response.selectedSegment.allWords.length, 12);
+  assert.equal(response.selectedSegment.wordClouds.bad.length, 10);
 });
 
 test("normalizeLeadershipDashboardResponse distinguishes missing streak data from explicit zeroes", () => {

@@ -41,6 +41,7 @@ import {
   normalizeIsYatirimUnvanFlag,
   normalizeIsYatirimWordPaginationFlag,
   isSingleCalendarDay,
+  limitLeadershipDashboardWords,
   mergeLeadershipDashboardWordPages,
   resolveIsYatirimDateFilterByPickerFlag,
 } from "@/lib/isYatirimLeadershipDashboard";
@@ -407,10 +408,17 @@ function IsYatirimLeadershipDashboardContent() {
     },
     refetchOnWindowFocus: false,
   });
-  const dashboardResponse = useMemo(
-    () => mergeLeadershipDashboardWordPages(dashboardQuery.data?.pages || []),
-    [dashboardQuery.data?.pages],
-  );
+  const dashboardResponse = useMemo(() => {
+    const mergedResponse = mergeLeadershipDashboardWordPages(
+      dashboardQuery.data?.pages || [],
+    );
+
+    if (!mergedResponse || isWordPaginationFeatureEnabled) {
+      return mergedResponse;
+    }
+
+    return limitLeadershipDashboardWords(mergedResponse);
+  }, [dashboardQuery.data?.pages, isWordPaginationFeatureEnabled]);
   const {
     fetchNextPage,
     hasNextPage,

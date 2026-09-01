@@ -9,6 +9,8 @@ export const IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM =
   "isMoodStreakComparison";
 export const IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM = "isWordPagination";
 export const IS_YATIRIM_WORDS_PAGE_SIZE = 50;
+export const IS_YATIRIM_LEGACY_ALL_WORDS_LIMIT = 10;
+export const IS_YATIRIM_LEGACY_MOOD_WORDS_LIMIT = 8;
 export const IS_YATIRIM_UNVAN_ORDER = [
   "support",
   "direktor",
@@ -730,6 +732,36 @@ export function mergeLeadershipDashboardWordPages(
     selectedSegment: selectedSegment || firstPage.selectedSegment,
     selectedUnvan: firstPage.selectedUnvan
       ? mergeSegmentWordPages(selectedUnvanPages) || firstPage.selectedUnvan
+      : null,
+  };
+}
+
+function limitSegmentDashboardWords(segment: SegmentDashboardData) {
+  return {
+    ...segment,
+    allWords: segment.allWords.slice(0, IS_YATIRIM_LEGACY_ALL_WORDS_LIMIT),
+    wordClouds: MOOD_ORDER.reduce(
+      (collections, mood) => {
+        collections[mood] = segment.wordClouds[mood].slice(
+          0,
+          IS_YATIRIM_LEGACY_MOOD_WORDS_LIMIT,
+        );
+        return collections;
+      },
+      { ...EMPTY_WORD_CLOUDS },
+    ),
+    wordPagination: null,
+  };
+}
+
+export function limitLeadershipDashboardWords(
+  response: LeadershipDashboardResponse,
+): LeadershipDashboardResponse {
+  return {
+    ...response,
+    selectedSegment: limitSegmentDashboardWords(response.selectedSegment),
+    selectedUnvan: response.selectedUnvan
+      ? limitSegmentDashboardWords(response.selectedUnvan)
       : null,
   };
 }
