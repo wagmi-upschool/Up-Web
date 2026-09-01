@@ -27,6 +27,8 @@ export function buildIsYatirimDashboardUrl({
   unvan,
   token,
   dateFilter,
+  wordsPage,
+  wordsPageSize,
 }: {
   baseUrl: string;
   segment?: string | null;
@@ -37,6 +39,8 @@ export function buildIsYatirimDashboardUrl({
     startDate: string;
     endDate: string;
   };
+  wordsPage?: string | number | null;
+  wordsPageSize?: string | number | null;
 }) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
   const url = new URL(`${normalizedBase}/analytics/dashboard`);
@@ -53,6 +57,12 @@ export function buildIsYatirimDashboardUrl({
     url.searchParams.set("dateMode", dateFilter.mode);
     url.searchParams.set("startDate", dateFilter.startDate);
     url.searchParams.set("endDate", dateFilter.endDate);
+  }
+  if (wordsPage !== undefined && wordsPage !== null) {
+    url.searchParams.set("wordsPage", `${wordsPage}`);
+  }
+  if (wordsPageSize !== undefined && wordsPageSize !== null) {
+    url.searchParams.set("wordsPageSize", `${wordsPageSize}`);
   }
   if (normalizedToken) {
     url.searchParams.set("token", normalizedToken);
@@ -112,6 +122,8 @@ export async function handleIsYatirimLeadershipDashboardRequest(
     unvan,
     token,
     dateFilter,
+    wordsPage: request.nextUrl.searchParams.get("wordsPage"),
+    wordsPageSize: request.nextUrl.searchParams.get("wordsPageSize"),
   });
 
   let response: Response;

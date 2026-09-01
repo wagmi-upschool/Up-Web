@@ -9,6 +9,7 @@ import {
 import {
   QueryClient,
   QueryClientProvider,
+  useInfiniteQuery,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -21,12 +22,15 @@ import {
   DEFAULT_IS_YATIRIM_SEGMENT,
   applyIsYatirimBreakdownSelectionToSearchParams,
   applyIsYatirimDateFilterToSearchParams,
+  applyIsYatirimWordPaginationToSearchParams,
   getDefaultIsYatirimDateFilter,
   getIsYatirimLeadershipDashboardQueryKey,
+  getLeadershipDashboardWordTotalPages,
   getPreviousIsYatirimDateFilter,
   getTodayDateString,
   IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM,
   IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM,
+  IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM,
   normalizeIsYatirimDashboardToken,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
@@ -35,6 +39,9 @@ import {
   normalizeIsYatirimSegment,
   normalizeIsYatirimUnvan,
   normalizeIsYatirimUnvanFlag,
+  normalizeIsYatirimWordPaginationFlag,
+  isSingleCalendarDay,
+  mergeLeadershipDashboardWordPages,
   resolveIsYatirimDateFilterByPickerFlag,
 } from "@/lib/isYatirimLeadershipDashboard";
 
@@ -62,6 +69,7 @@ async function getLeadershipDashboard(
   token: string,
   dateFilter?: IsYatirimDateFilter,
   unvan?: string,
+  wordsPage?: number,
 ) {
   const query = new URLSearchParams({
     segment,
@@ -70,6 +78,10 @@ async function getLeadershipDashboard(
 
   if (dateFilter) {
     applyIsYatirimDateFilterToSearchParams(query, dateFilter);
+  }
+
+  if (wordsPage !== undefined) {
+    applyIsYatirimWordPaginationToSearchParams(query, dateFilter, wordsPage);
   }
 
   if (normalizedUnvan) {
@@ -221,6 +233,9 @@ function IsYatirimLeadershipDashboardContent() {
     normalizeIsYatirimMoodStreakComparisonFlag(
       searchParams.get(IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM),
     );
+  const isWordPaginationFeatureEnabled = normalizeIsYatirimWordPaginationFlag(
+    searchParams.get(IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM),
+  );
   const segment = normalizeIsYatirimSegment(searchParams.get("segment"));
   const selectedUnvan = isUnvanComparisonEnabled
     ? normalizeIsYatirimUnvan(searchParams.get("unvan"))
@@ -358,24 +373,69 @@ function IsYatirimLeadershipDashboardContent() {
     selectedUnvan,
   ]);
 
-  const dashboardQuery = useQuery({
+  const isWordPaginationEnabled =
+    isWordPaginationFeatureEnabled && isSingleCalendarDay(effectiveDateFilter);
+  const dashboardQuery = useInfiniteQuery({
     queryKey: getIsYatirimLeadershipDashboardQueryKey({
       scope: "current",
       segment,
       unvan: selectedUnvan,
       token: dailyToken,
       dateFilter: effectiveDateFilter,
+      isWordPaginationEnabled,
     }),
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       getLeadershipDashboard(
         segment,
         dailyToken,
         effectiveDateFilter,
         selectedUnvan,
+        isWordPaginationEnabled ? pageParam : undefined,
       ),
-    placeholderData: (previous) => previous,
+    initialPageParam: 1,
+    getNextPageParam: (
+      _lastPage: LeadershipDashboardResponse,
+      allPages: LeadershipDashboardResponse[],
+    ) => {
+      if (!isWordPaginationEnabled) {
+        return undefined;
+      }
+
+      const totalPages = getLeadershipDashboardWordTotalPages(allPages[0]);
+      const nextPage = allPages.length + 1;
+      return nextPage <= totalPages ? nextPage : undefined;
+    },
     refetchOnWindowFocus: false,
   });
+  const dashboardResponse = useMemo(
+    () => mergeLeadershipDashboardWordPages(dashboardQuery.data?.pages || []),
+    [dashboardQuery.data?.pages],
+  );
+  const {
+    fetchNextPage,
+    hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+  } = dashboardQuery;
+
+  useEffect(() => {
+    if (
+      !isWordPaginationEnabled ||
+      !hasNextPage ||
+      isFetchingNextPage ||
+      isFetchNextPageError
+    ) {
+      return;
+    }
+
+    void fetchNextPage();
+  }, [
+    fetchNextPage,
+    hasNextPage,
+    isFetchNextPageError,
+    isFetchingNextPage,
+    isWordPaginationEnabled,
+  ]);
 
   const previousPeriodQuery = useQuery({
     queryKey: getIsYatirimLeadershipDashboardQueryKey({
@@ -401,10 +461,9 @@ function IsYatirimLeadershipDashboardContent() {
       return;
     }
 
-    const backendDateFilter = dashboardQuery.data?.meta.dateFilter;
+    const backendDateFilter = dashboardResponse?.meta.dateFilter;
 
     if (
-      dashboardQuery.isPlaceholderData ||
       !backendDateFilter ||
       (backendDateFilter.mode === dateFilter.mode &&
         backendDateFilter.startDate === dateFilter.startDate &&
@@ -422,8 +481,7 @@ function IsYatirimLeadershipDashboardContent() {
       isDateTimePickerEnabled: true,
     });
   }, [
-    dashboardQuery.data?.meta.dateFilter,
-    dashboardQuery.isPlaceholderData,
+    dashboardResponse?.meta.dateFilter,
     dateFilter.dayCount,
     dateFilter.endDate,
     dateFilter.mode,
@@ -437,10 +495,8 @@ function IsYatirimLeadershipDashboardContent() {
   ]);
 
   const activeDateFilter =
-    isDateTimePickerEnabled &&
-    !dashboardQuery.isPlaceholderData &&
-    dashboardQuery.data?.meta.dateFilter
-      ? dashboardQuery.data.meta.dateFilter
+    isDateTimePickerEnabled && dashboardResponse?.meta.dateFilter
+      ? dashboardResponse.meta.dateFilter
       : dateFilter;
 
   const handleSegmentSelect = (selectedSegment: string) => {
@@ -492,21 +548,39 @@ function IsYatirimLeadershipDashboardContent() {
       return;
     }
 
-    void queryClient.prefetchQuery({
+    const isNextWordPaginationEnabled =
+      isWordPaginationFeatureEnabled && isSingleCalendarDay(nextDateFilter);
+
+    void queryClient.prefetchInfiniteQuery({
       queryKey: getIsYatirimLeadershipDashboardQueryKey({
         scope: "current",
         segment,
         unvan: selectedUnvan,
         token: dailyToken,
         dateFilter: nextDateFilter,
+        isWordPaginationEnabled: isNextWordPaginationEnabled,
       }),
-      queryFn: () =>
+      queryFn: ({ pageParam }) =>
         getLeadershipDashboard(
           segment,
           dailyToken,
           nextDateFilter,
           selectedUnvan,
+          isNextWordPaginationEnabled ? pageParam : undefined,
         ),
+      initialPageParam: 1,
+      getNextPageParam: (
+        _lastPage: LeadershipDashboardResponse,
+        allPages: LeadershipDashboardResponse[],
+      ) => {
+        if (!isNextWordPaginationEnabled) {
+          return undefined;
+        }
+
+        const totalPages = getLeadershipDashboardWordTotalPages(allPages[0]);
+        const nextPage = allPages.length + 1;
+        return nextPage <= totalPages ? nextPage : undefined;
+      },
     });
 
     const nextPreviousDateFilter =
@@ -546,7 +620,9 @@ function IsYatirimLeadershipDashboardContent() {
     <IsYatirimLeadershipDashboard
       dateFilter={activeDateFilter}
       errorMessage={
-        dashboardQuery.error ? formatApiError(dashboardQuery.error) : null
+        dashboardQuery.error && !dashboardResponse
+          ? formatApiError(dashboardQuery.error)
+          : null
       }
       isLoading={dashboardQuery.isLoading}
       isPreviousPeriodLoading={
@@ -554,7 +630,11 @@ function IsYatirimLeadershipDashboardContent() {
       }
       isMoodStreaksEnabled={isMoodStreaksEnabled}
       isMoodStreakComparisonEnabled={isMoodStreakComparisonEnabled}
-      isUpdating={dashboardQuery.isFetching && !dashboardQuery.isLoading}
+      isUpdating={
+        dashboardQuery.isFetching &&
+        !dashboardQuery.isLoading &&
+        !dashboardQuery.isFetchingNextPage
+      }
       isBreakdownUpdating={isBreakdownUpdating}
       isDateTimePickerEnabled={isDateTimePickerEnabled}
       isUnvanComparisonEnabled={isUnvanComparisonEnabled}
@@ -568,12 +648,25 @@ function IsYatirimLeadershipDashboardContent() {
           : null
       }
       previousPeriodResponse={previousPeriodQuery.data}
-      response={dashboardQuery.data}
+      response={dashboardResponse}
       selectedSegment={visibleSegment}
       selectedUnvan={visibleSelectedUnvan}
       dailyToken={dailyToken}
       isWeeklyToggleEnabled={isWeeklyToggleEnabled}
       weeklyToken={weeklyToken}
+      wordLoadingPage={
+        dashboardQuery.isFetchingNextPage
+          ? (dashboardQuery.data?.pages.length || 0) + 1
+          : null
+      }
+      wordPaginationErrorMessage={
+        dashboardQuery.isFetchNextPageError && dashboardQuery.error
+          ? formatApiError(dashboardQuery.error)
+          : null
+      }
+      onRetryWordPagination={() => {
+        void dashboardQuery.fetchNextPage();
+      }}
     />
   );
 }

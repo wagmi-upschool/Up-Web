@@ -58,6 +58,7 @@ import {
   type MoodCategory,
   type SurveyTrendPoint,
   type WordItem,
+  type WordPaginationCollectionKey,
 } from "@/lib/isYatirimLeadershipDashboard";
 import IsYatirimDateFilterPicker from "./date-filter-picker";
 
@@ -1944,15 +1945,52 @@ export function EngagementByMoodGrid({
 
 export function WordCloudSections({
   response,
+  loadingPage,
+  errorMessage,
+  onRetry,
 }: {
   response: LeadershipDashboardResponse;
+  loadingPage: number | null;
+  errorMessage?: string | null;
+  onRetry: () => void;
 }) {
+  const pagination = response.selectedSegment.wordPagination;
+  const isCollectionLoading = (collection: WordPaginationCollectionKey) =>
+    Boolean(
+      loadingPage &&
+        pagination &&
+        loadingPage <= pagination.collections[collection].totalPages,
+    );
+
   return (
     <>
+      {errorMessage ? (
+        <div className="flex flex-col gap-4 rounded-[28px] border border-[#D7B154] bg-[#FFF2BF] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#A06C00]" />
+            <div>
+              <p className="font-poppins text-sm font-semibold text-[#171717]">
+                Kelimelerin devamı yüklenemedi
+              </p>
+              <p className="mt-1 font-poppins text-sm text-[#171717]/62">
+                {errorMessage}
+              </p>
+            </div>
+          </div>
+          <button
+            className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#A06C00]/25 bg-white/70 px-4 py-2 font-poppins text-sm font-semibold text-[#A06C00] transition hover:bg-white"
+            onClick={onRetry}
+            type="button"
+          >
+            Tekrar dene
+          </button>
+        </div>
+      ) : null}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {MOOD_ORDER.map((mood) => (
           <WordCloudCard
             color={MOOD_TOKENS[mood].color}
+            isLoadingMore={isCollectionLoading(mood)}
             key={mood}
             title={`${MOOD_TOKENS[mood].emoji} ${toTurkishUpperCase(
               MOOD_TOKENS[mood].label,
@@ -1963,6 +2001,7 @@ export function WordCloudSections({
       </section>
       <WordCloudCard
         color="#0057FF"
+        isLoadingMore={isCollectionLoading("allWords")}
         title="TÜM KELİMELER"
         words={response.selectedSegment.allWords}
       />
@@ -1974,10 +2013,12 @@ function WordCloudCard({
   title,
   words,
   color,
+  isLoadingMore,
 }: {
   title: string;
   words: WordItem[];
   color: string;
+  isLoadingMore: boolean;
 }) {
   const sortedWords = [...words].sort((left, right) => {
     if (right.count !== left.count) {
@@ -2001,7 +2042,7 @@ function WordCloudCard({
 
             return (
               <span
-                className="inline-flex max-w-full items-baseline gap-1.5 rounded-full border px-3 py-1.5 font-poppins font-medium leading-snug"
+                className="inline-grid max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 rounded-[28px] border px-3 py-1.5 font-poppins font-medium leading-snug"
                 key={`${word.text}-${word.count}`}
                 style={{
                   backgroundColor: pillTone.background,
@@ -2010,10 +2051,10 @@ function WordCloudCard({
                   fontSize,
                 }}
               >
-                <span className="min-w-0 whitespace-normal break-words">
+                <span className="min-w-0 flex-1 whitespace-normal break-words">
                   {word.text}
                 </span>
-                <span className="shrink-0 text-[0.62em] font-medium leading-none opacity-75">
+                <span className="inline-flex min-w-[1.5em] shrink-0 self-center items-center justify-center text-center text-[0.62em] font-medium leading-none opacity-75">
                   {formatCount(word.count)}
                 </span>
               </span>
@@ -2023,6 +2064,12 @@ function WordCloudCard({
       ) : (
         <EmptyInlineState>Kelime verisi bulunamadı</EmptyInlineState>
       )}
+      {isLoadingMore ? (
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[#0057FF]/10 bg-[#0057FF]/5 px-4 py-3 font-poppins text-sm font-semibold text-[#0057FF]">
+          <LottieSpinner className="!py-0" size={24} />
+          Devamı yükleniyor
+        </div>
+      ) : null}
     </AnalyticsCard>
   );
 }

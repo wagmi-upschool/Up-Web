@@ -7,6 +7,8 @@ export const IS_YATIRIM_UNVAN_QUERY_PARAM = "unvan";
 export const IS_YATIRIM_MOOD_STREAKS_QUERY_PARAM = "isMoodStreaks";
 export const IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM =
   "isMoodStreakComparison";
+export const IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM = "isWordPagination";
+export const IS_YATIRIM_WORDS_PAGE_SIZE = 50;
 export const IS_YATIRIM_UNVAN_ORDER = [
   "support",
   "direktor",
@@ -52,6 +54,20 @@ export type WordItem = {
   count: number;
   normalizedText?: string;
   category?: MoodCategory;
+};
+
+export type WordPaginationCollectionKey = "allWords" | MoodCategory;
+
+export type WordPaginationCollection = {
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+};
+
+export type WordPagination = {
+  page: number;
+  pageSize: number;
+  collections: Record<WordPaginationCollectionKey, WordPaginationCollection>;
 };
 
 export type MoodDistributionItem = {
@@ -133,6 +149,7 @@ export type SegmentDashboardData = {
   engagementByMood: Record<MoodCategory, EngagementByMood>;
   wordClouds: Record<MoodCategory, WordItem[]>;
   allWords: WordItem[];
+  wordPagination: WordPagination | null;
   consecutiveMoodStreaks: ConsecutiveMoodStreaks | null;
 };
 
@@ -339,6 +356,11 @@ function asNonNegativeInteger(value: unknown) {
     : 0;
 }
 
+function asPositiveInteger(value: unknown, fallback: number) {
+  const normalized = asNonNegativeInteger(value);
+  return normalized > 0 ? normalized : fallback;
+}
+
 function asArray<T>(value: unknown, mapper: (item: unknown) => T): T[] {
   return Array.isArray(value) ? value.map(mapper) : [];
 }
@@ -433,6 +455,13 @@ export function normalizeIsYatirimMoodStreakComparisonFlag(
   value: string | null | undefined,
 ) {
   return value?.trim().toLowerCase() !== "false";
+}
+
+export function normalizeIsYatirimWordPaginationFlag(
+  value: string | null | undefined,
+) {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "true" || normalized === "1";
 }
 
 function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {
@@ -577,12 +606,14 @@ export function getIsYatirimLeadershipDashboardQueryKey({
   unvan,
   token,
   dateFilter,
+  isWordPaginationEnabled = false,
 }: {
   scope: "current" | "previous";
   segment: string;
   unvan: string;
   token: string;
   dateFilter?: IsYatirimDateFilter;
+  isWordPaginationEnabled?: boolean;
 }) {
   return [
     "isYatirimLeadershipDashboard",
@@ -593,7 +624,114 @@ export function getIsYatirimLeadershipDashboardQueryKey({
     dateFilter?.mode || "legacy",
     dateFilter?.startDate || "",
     dateFilter?.endDate || "",
+    isWordPaginationEnabled ? "paginatedWords" : "legacyWords",
   ] as const;
+}
+
+export function isSingleCalendarDay(
+  dateFilter?: Pick<IsYatirimDateFilter, "startDate" | "endDate">,
+) {
+  return Boolean(
+    dateFilter?.startDate &&
+      dateFilter.endDate &&
+      dateFilter.startDate === dateFilter.endDate,
+  );
+}
+
+export function getLeadershipDashboardWordTotalPages(
+  response?: LeadershipDashboardResponse,
+) {
+  const paginationSources = [
+    response?.selectedSegment.wordPagination,
+    response?.selectedUnvan?.wordPagination,
+  ];
+
+  return paginationSources.reduce((maxPages, pagination) => {
+    if (!pagination) {
+      return maxPages;
+    }
+
+    return Math.max(
+      maxPages,
+      ...Object.values(pagination.collections).map(
+        (collection) => collection.totalPages,
+      ),
+    );
+  }, 0);
+}
+
+function getWordItemIdentity(item: WordItem) {
+  const normalizedText = item.normalizedText?.trim();
+  return normalizedText || item.text.trim().toLocaleLowerCase("tr-TR");
+}
+
+function mergeWordItemPages(pages: WordItem[][]) {
+  const identities = new Set<string>();
+
+  return pages.flatMap((items) =>
+    items.filter((item) => {
+      const identity = getWordItemIdentity(item);
+
+      if (identities.has(identity)) {
+        return false;
+      }
+
+      identities.add(identity);
+      return true;
+    }),
+  );
+}
+
+function mergeSegmentWordPages(pages: SegmentDashboardData[]) {
+  const firstPage = pages[0];
+
+  if (!firstPage) {
+    return undefined;
+  }
+
+  const latestPagination = pages.findLast(
+    (page) => page.wordPagination !== null,
+  )?.wordPagination;
+
+  return {
+    ...firstPage,
+    allWords: mergeWordItemPages(pages.map((page) => page.allWords)),
+    wordClouds: MOOD_ORDER.reduce(
+      (collections, mood) => {
+        collections[mood] = mergeWordItemPages(
+          pages.map((page) => page.wordClouds[mood]),
+        );
+        return collections;
+      },
+      { ...EMPTY_WORD_CLOUDS },
+    ),
+    wordPagination: latestPagination || firstPage.wordPagination,
+  };
+}
+
+export function mergeLeadershipDashboardWordPages(
+  pages: LeadershipDashboardResponse[],
+): LeadershipDashboardResponse | undefined {
+  const firstPage = pages[0];
+
+  if (!firstPage) {
+    return undefined;
+  }
+
+  const selectedSegment = mergeSegmentWordPages(
+    pages.map((page) => page.selectedSegment),
+  );
+  const selectedUnvanPages = pages.flatMap((page) =>
+    page.selectedUnvan ? [page.selectedUnvan] : [],
+  );
+
+  return {
+    ...firstPage,
+    selectedSegment: selectedSegment || firstPage.selectedSegment,
+    selectedUnvan: firstPage.selectedUnvan
+      ? mergeSegmentWordPages(selectedUnvanPages) || firstPage.selectedUnvan
+      : null,
+  };
 }
 
 export function normalizeIsYatirimDateFilter(
@@ -712,6 +850,23 @@ export function applyIsYatirimDateFilterToSearchParams(
   searchParams.set("dateMode", dateFilter.mode);
   searchParams.set("startDate", dateFilter.startDate);
   searchParams.set("endDate", dateFilter.endDate);
+}
+
+export function applyIsYatirimWordPaginationToSearchParams(
+  searchParams: URLSearchParams,
+  dateFilter: IsYatirimDateFilter | undefined,
+  page: number,
+  pageSize = IS_YATIRIM_WORDS_PAGE_SIZE,
+) {
+  searchParams.delete("wordsPage");
+  searchParams.delete("wordsPageSize");
+
+  if (!isSingleCalendarDay(dateFilter)) {
+    return;
+  }
+
+  searchParams.set("wordsPage", `${page}`);
+  searchParams.set("wordsPageSize", `${pageSize}`);
 }
 
 export function applyIsYatirimBreakdownSelectionToSearchParams(
@@ -904,6 +1059,39 @@ function normalizeWordClouds(value: unknown): Record<MoodCategory, WordItem[]> {
   );
 }
 
+function normalizeWordPaginationCollection(
+  value: unknown,
+): WordPaginationCollection {
+  const input = asObject(value);
+
+  return {
+    totalItems: asNonNegativeInteger(input.totalItems),
+    totalPages: asNonNegativeInteger(input.totalPages),
+    hasNextPage: input.hasNextPage === true,
+  };
+}
+
+function normalizeWordPagination(value: unknown): WordPagination | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const input = asObject(value);
+  const collections = asObject(input.collections);
+
+  return {
+    page: asPositiveInteger(input.page, 1),
+    pageSize: asPositiveInteger(input.pageSize, IS_YATIRIM_WORDS_PAGE_SIZE),
+    collections: {
+      allWords: normalizeWordPaginationCollection(collections.allWords),
+      bad: normalizeWordPaginationCollection(collections.bad),
+      meh: normalizeWordPaginationCollection(collections.meh),
+      good: normalizeWordPaginationCollection(collections.good),
+      great: normalizeWordPaginationCollection(collections.great),
+    },
+  };
+}
+
 function normalizeConsecutiveMoodStreakBucketCounts(
   value: unknown,
 ): ConsecutiveMoodStreakBucketCounts {
@@ -984,6 +1172,7 @@ function normalizeSelectedSegment(
     engagementByMood: normalizeEngagementByMood(input.engagementByMood),
     wordClouds: normalizeWordClouds(input.wordClouds),
     allWords: asArray(input.allWords, normalizeWord),
+    wordPagination: normalizeWordPagination(input.wordPagination),
     consecutiveMoodStreaks: normalizeConsecutiveMoodStreaks(
       input.consecutiveMoodStreaks,
     ),

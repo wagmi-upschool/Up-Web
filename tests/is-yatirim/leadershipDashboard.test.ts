@@ -2,17 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   applyIsYatirimBreakdownSelectionToSearchParams,
+  applyIsYatirimWordPaginationToSearchParams,
   DEFAULT_IS_YATIRIM_SEGMENT,
   formatIsYatirimDateFilterLabel,
   getConsecutiveMoodStreakChange,
   getDefaultIsYatirimDateFilter,
   getIsYatirimLeadershipDashboardQueryKey,
+  getLeadershipDashboardWordTotalPages,
   getPreviousIsYatirimDateFilter,
   IS_YATIRIM_DATE_PICKER_MIN_DATE,
   IS_YATIRIM_CLIENT,
   IS_YATIRIM_COMPETENCY_ID,
   IS_YATIRIM_MOOD_STREAK_COMPARISON_QUERY_PARAM,
   IS_YATIRIM_UNVAN_QUERY_PARAM,
+  IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM,
   normalizeIsYatirimDateFilter,
   normalizeIsYatirimDateTimePickerFlag,
   normalizeIsYatirimDashboardToken,
@@ -21,7 +24,9 @@ import {
   normalizeIsYatirimSegment,
   normalizeIsYatirimUnvan,
   normalizeIsYatirimUnvanFlag,
+  normalizeIsYatirimWordPaginationFlag,
   normalizeLeadershipDashboardResponse,
+  mergeLeadershipDashboardWordPages,
   formatTrendWindowLabel,
   getIsYatirimComparisonItems,
   hasIsYatirimUnvanComparisons,
@@ -110,6 +115,16 @@ test("normalizeIsYatirimMoodStreakComparisonFlag defaults enabled unless explici
   assert.equal(normalizeIsYatirimMoodStreakComparisonFlag("true"), true);
   assert.equal(normalizeIsYatirimMoodStreakComparisonFlag("1"), true);
   assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(" TRUE "), true);
+});
+
+test("normalizeIsYatirimWordPaginationFlag defaults disabled unless explicitly enabled", () => {
+  assert.equal(IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM, "isWordPagination");
+  assert.equal(normalizeIsYatirimWordPaginationFlag(null), false);
+  assert.equal(normalizeIsYatirimWordPaginationFlag(""), false);
+  assert.equal(normalizeIsYatirimWordPaginationFlag("false"), false);
+  assert.equal(normalizeIsYatirimWordPaginationFlag("true"), true);
+  assert.equal(normalizeIsYatirimWordPaginationFlag("1"), true);
+  assert.equal(normalizeIsYatirimWordPaginationFlag(" TRUE "), true);
 });
 
 test("getDefaultIsYatirimDateFilter returns the inclusive last 30 days", () => {
@@ -316,6 +331,74 @@ test("leadership dashboard query keys isolate current and previous periods", () 
   assert.equal(previousKey[7], "2026-08-21");
 });
 
+test("leadership dashboard query keys isolate word pagination feature state", () => {
+  const input = {
+    scope: "current" as const,
+    segment: "all",
+    unvan: "",
+    token: "token",
+    dateFilter: {
+      mode: "single" as const,
+      startDate: "2026-08-31",
+      endDate: "2026-08-31",
+      dayCount: 1,
+    },
+  };
+  const legacyKey = getIsYatirimLeadershipDashboardQueryKey(input);
+  const paginationKey = getIsYatirimLeadershipDashboardQueryKey({
+    ...input,
+    isWordPaginationEnabled: true,
+  });
+
+  assert.notDeepEqual(legacyKey, paginationKey);
+  assert.equal(legacyKey.at(-1), "legacyWords");
+  assert.equal(paginationKey.at(-1), "paginatedWords");
+});
+
+test("word pagination params are added for single calendar days only", () => {
+  const singleParams = new URLSearchParams();
+  applyIsYatirimWordPaginationToSearchParams(
+    singleParams,
+    {
+      mode: "single",
+      startDate: "2026-06-08",
+      endDate: "2026-06-08",
+      dayCount: 1,
+    },
+    1,
+  );
+  assert.equal(singleParams.get("wordsPage"), "1");
+  assert.equal(singleParams.get("wordsPageSize"), "50");
+
+  const sameDayRangeParams = new URLSearchParams();
+  applyIsYatirimWordPaginationToSearchParams(
+    sameDayRangeParams,
+    {
+      mode: "range",
+      startDate: "2026-06-08",
+      endDate: "2026-06-08",
+      dayCount: 1,
+    },
+    2,
+  );
+  assert.equal(sameDayRangeParams.get("wordsPage"), "2");
+  assert.equal(sameDayRangeParams.get("wordsPageSize"), "50");
+
+  const multiDayParams = new URLSearchParams("wordsPage=4&wordsPageSize=100");
+  applyIsYatirimWordPaginationToSearchParams(
+    multiDayParams,
+    {
+      mode: "range",
+      startDate: "2026-06-01",
+      endDate: "2026-06-08",
+      dayCount: 8,
+    },
+    1,
+  );
+  assert.equal(multiDayParams.get("wordsPage"), null);
+  assert.equal(multiDayParams.get("wordsPageSize"), null);
+});
+
 test("buildIsYatirimDashboardUrl uses isolated fixed request parameters", () => {
   const url = buildIsYatirimDashboardUrl({
     baseUrl: "https://example.com/base/",
@@ -355,6 +438,23 @@ test("buildIsYatirimDashboardUrl forwards İş Yatırım URL token when present"
   assert.equal(url.searchParams.get("startDate"), "2026-06-01");
   assert.equal(url.searchParams.get("endDate"), "2026-06-07");
   assert.equal(url.searchParams.get("token"), "secure-token");
+});
+
+test("buildIsYatirimDashboardUrl forwards word pagination without rewriting validation inputs", () => {
+  const url = buildIsYatirimDashboardUrl({
+    baseUrl: "https://example.com",
+    segment: "all",
+    dateFilter: {
+      mode: "single",
+      startDate: "2026-06-08",
+      endDate: "2026-06-08",
+    },
+    wordsPage: "0",
+    wordsPageSize: "101",
+  });
+
+  assert.equal(url.searchParams.get("wordsPage"), "0");
+  assert.equal(url.searchParams.get("wordsPageSize"), "101");
 });
 
 test("buildIsYatirimDashboardUrl omits date params when date picker flow is disabled", () => {
@@ -559,6 +659,7 @@ test("normalizeLeadershipDashboardResponse fills empty arrays and numeric fallba
   assert.equal(response.selectedSegment.latest.mostFrequentWord, null);
   assert.deepEqual(response.selectedSegment.wordClouds.bad, []);
   assert.deepEqual(response.selectedSegment.allWords, []);
+  assert.equal(response.selectedSegment.wordPagination, null);
   assert.equal(response.selectedSegment.consecutiveMoodStreaks, null);
   assert.equal(response.selectedSegment.engagementByMood.bad.workLinkedRate, 0);
   assert.equal(response.comparisons.gmyRanking.length, 0);
@@ -566,6 +667,184 @@ test("normalizeLeadershipDashboardResponse fills empty arrays and numeric fallba
   assert.equal(response.comparisons.unvanScoreChanges.length, 0);
   assert.equal(response.comparisons.unvanExtremes.length, 0);
   assert.equal(response.comparisons.dateComparison.length, 0);
+});
+
+test("word pagination metadata is normalized and total pages include selected unvan", () => {
+  const response = normalizeLeadershipDashboardResponse({
+    selectedSegment: {
+      wordPagination: {
+        page: 1,
+        pageSize: 50,
+        collections: {
+          allWords: { totalItems: 110, totalPages: 3, hasNextPage: true },
+          bad: { totalItems: 55, totalPages: 2, hasNextPage: true },
+          meh: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          good: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          great: { totalItems: 55, totalPages: 2, hasNextPage: true },
+        },
+      },
+    },
+    selectedUnvan: {
+      wordPagination: {
+        page: 1,
+        pageSize: 50,
+        collections: {
+          allWords: { totalItems: 180, totalPages: 4, hasNextPage: true },
+          bad: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          meh: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          good: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          great: { totalItems: 0, totalPages: 0, hasNextPage: false },
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(response.selectedSegment.wordPagination?.collections.bad, {
+    totalItems: 55,
+    totalPages: 2,
+    hasNextPage: true,
+  });
+  assert.equal(response.selectedUnvan?.wordPagination?.pageSize, 50);
+  assert.equal(getLeadershipDashboardWordTotalPages(response), 4);
+});
+
+test("word pages merge by collection, preserve order, and keep page one metrics", () => {
+  const pageOne = normalizeLeadershipDashboardResponse({
+    meta: { generatedAt: "page-one" },
+    selectedSegment: {
+      latest: {
+        mostFrequentWord: {
+          text: "Piyasa",
+          normalizedText: "piyasa",
+          count: 9,
+        },
+      },
+      allWords: [
+        { text: "Piyasa", normalizedText: "piyasa", count: 9 },
+        { text: "Ekip", normalizedText: "ekip", count: 7 },
+      ],
+      wordClouds: {
+        bad: [
+          { text: "Yoğun", normalizedText: "yoğun", count: 6, category: "bad" },
+        ],
+        meh: [],
+        good: [
+          {
+            text: "Destek",
+            normalizedText: "destek",
+            count: 4,
+            category: "good",
+          },
+        ],
+        great: [],
+      },
+      wordPagination: {
+        page: 1,
+        pageSize: 50,
+        collections: {
+          allWords: { totalItems: 3, totalPages: 2, hasNextPage: true },
+          bad: { totalItems: 2, totalPages: 2, hasNextPage: true },
+          meh: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          good: { totalItems: 1, totalPages: 1, hasNextPage: false },
+          great: { totalItems: 0, totalPages: 0, hasNextPage: false },
+        },
+      },
+    },
+    selectedUnvan: {
+      allWords: [{ text: "Liderlik", normalizedText: "liderlik", count: 5 }],
+      wordPagination: {
+        page: 1,
+        pageSize: 50,
+        collections: {
+          allWords: { totalItems: 2, totalPages: 2, hasNextPage: true },
+          bad: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          meh: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          good: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          great: { totalItems: 0, totalPages: 0, hasNextPage: false },
+        },
+      },
+    },
+  });
+  const pageTwo = normalizeLeadershipDashboardResponse({
+    meta: { generatedAt: "page-two" },
+    selectedSegment: {
+      latest: {
+        mostFrequentWord: {
+          text: "Yanlış",
+          normalizedText: "yanlış",
+          count: 99,
+        },
+      },
+      allWords: [
+        { text: "PİYASA", normalizedText: "piyasa", count: 99 },
+        { text: "İletişim", normalizedText: "iletişim", count: 3 },
+      ],
+      wordClouds: {
+        bad: [
+          {
+            text: "YOĞUN",
+            normalizedText: "yoğun",
+            count: 99,
+            category: "bad",
+          },
+          { text: "Stres", normalizedText: "stres", count: 2, category: "bad" },
+        ],
+        meh: [],
+        good: [],
+        great: [],
+      },
+      wordPagination: {
+        page: 2,
+        pageSize: 50,
+        collections: {
+          allWords: { totalItems: 3, totalPages: 2, hasNextPage: false },
+          bad: { totalItems: 2, totalPages: 2, hasNextPage: false },
+          meh: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          good: { totalItems: 1, totalPages: 1, hasNextPage: false },
+          great: { totalItems: 0, totalPages: 0, hasNextPage: false },
+        },
+      },
+    },
+    selectedUnvan: {
+      allWords: [
+        { text: "LİDERLİK", normalizedText: "liderlik", count: 99 },
+        { text: "Güven", normalizedText: "güven", count: 3 },
+      ],
+      wordPagination: {
+        page: 2,
+        pageSize: 50,
+        collections: {
+          allWords: { totalItems: 2, totalPages: 2, hasNextPage: false },
+          bad: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          meh: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          good: { totalItems: 0, totalPages: 0, hasNextPage: false },
+          great: { totalItems: 0, totalPages: 0, hasNextPage: false },
+        },
+      },
+    },
+  });
+
+  const merged = mergeLeadershipDashboardWordPages([pageOne, pageTwo]);
+  assert.ok(merged);
+  assert.deepEqual(
+    merged.selectedSegment.allWords.map((word) => word.text),
+    ["Piyasa", "Ekip", "İletişim"],
+  );
+  assert.deepEqual(
+    merged.selectedSegment.wordClouds.bad.map((word) => word.text),
+    ["Yoğun", "Stres"],
+  );
+  assert.deepEqual(
+    merged.selectedSegment.wordClouds.good.map((word) => word.text),
+    ["Destek"],
+  );
+  assert.deepEqual(
+    merged.selectedUnvan?.allWords.map((word) => word.text),
+    ["Liderlik", "Güven"],
+  );
+  assert.equal(merged.selectedSegment.latest.mostFrequentWord?.text, "Piyasa");
+  assert.equal(merged.meta.generatedAt, "page-one");
+  assert.equal(merged.selectedSegment.wordPagination?.page, 2);
 });
 
 test("normalizeLeadershipDashboardResponse distinguishes missing streak data from explicit zeroes", () => {

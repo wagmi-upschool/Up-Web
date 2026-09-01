@@ -58,6 +58,9 @@ type IsYatirimLeadershipDashboardProps = {
   previousPeriodErrorMessage?: string | null;
   previousPeriodResponse?: LeadershipDashboardResponse;
   selectedUnvan: string;
+  wordLoadingPage: number | null;
+  wordPaginationErrorMessage?: string | null;
+  onRetryWordPagination: () => void;
 };
 
 export default function IsYatirimLeadershipDashboard({
@@ -83,6 +86,9 @@ export default function IsYatirimLeadershipDashboard({
   previousPeriodErrorMessage,
   previousPeriodResponse,
   selectedUnvan,
+  wordLoadingPage,
+  wordPaginationErrorMessage,
+  onRetryWordPagination,
 }: IsYatirimLeadershipDashboardProps) {
   const hasUnvanComparisons = hasIsYatirimUnvanComparisons(
     response?.comparisons,
@@ -202,7 +208,12 @@ export default function IsYatirimLeadershipDashboard({
           <EngagementByMoodGrid response={displayResponse} />
 
           <AnalyticsSectionHeading>KELİME BULUTLARI</AnalyticsSectionHeading>
-          <WordCloudSections response={displayResponse} />
+          <WordCloudSections
+            errorMessage={wordPaginationErrorMessage}
+            loadingPage={wordLoadingPage}
+            onRetry={onRetryWordPagination}
+            response={displayResponse}
+          />
         </>
       ) : (
         <>
