@@ -2270,13 +2270,15 @@ export default function IsYatirimWeeklyDashboard({
         label: activeResponse.meta.periodLabel || "Seçili dönem",
         days: activeResponse.selectedSegment.participation.days,
       };
-      const previousSeries = previousDisplayResponse?.selectedSegment
-        .participation.days.length
+      const previousParticipationDays =
+        previousDisplayResponse?.selectedSegment?.participation?.days || [];
+      const previousSeries = previousParticipationDays.length
         ? [
             {
               id: "previous",
-              label: previousDisplayResponse.meta.periodLabel || "Önceki dönem",
-              days: previousDisplayResponse.selectedSegment.participation.days,
+              label:
+                previousDisplayResponse?.meta.periodLabel || "Önceki dönem",
+              days: previousParticipationDays,
             },
           ]
         : [];
