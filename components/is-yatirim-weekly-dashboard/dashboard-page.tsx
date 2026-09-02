@@ -1569,17 +1569,23 @@ function RecognitionQuestionsSection({
 function FreeTextLimitControl({
   limit,
   onLimitChange,
+  isWordPaginationEnabled,
 }: {
-  limit: WeeklyFreeTextResponseLimit;
-  onLimitChange: (limit: WeeklyFreeTextResponseLimit) => void;
+  limit: WeeklyFreeTextResponseLimit | "all";
+  onLimitChange: (limit: WeeklyFreeTextResponseLimit | "all") => void;
+  isWordPaginationEnabled: boolean;
 }) {
+  const options = isWordPaginationEnabled
+    ? FREE_TEXT_LIMITS.filter((option) => option !== 40)
+    : FREE_TEXT_LIMITS;
+
   return (
     <div
       aria-label="Gösterilecek yanıt sayısı"
       className="flex w-fit rounded-full border border-[#171717]/10 bg-white/70 p-1 shadow-sm"
       role="group"
     >
-      {FREE_TEXT_LIMITS.map((option) => {
+      {options.map((option) => {
         const isActive = option === limit;
 
         return (
@@ -1598,6 +1604,20 @@ function FreeTextLimitControl({
           </button>
         );
       })}
+      {isWordPaginationEnabled ? (
+        <button
+          aria-pressed={limit === "all"}
+          className={`rounded-full px-3 py-2 font-poppins text-xs font-semibold transition-colors sm:px-4 ${
+            limit === "all"
+              ? "bg-[#0057FF] text-white shadow-sm"
+              : "text-[#171717]/55 hover:bg-white hover:text-[#171717]"
+          }`}
+          onClick={() => onLimitChange("all")}
+          type="button"
+        >
+          Tümü
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -1606,16 +1626,15 @@ function FreeTextQuestionCard({
   question,
   limit,
   colorIndex,
-  isWordPaginationEnabled,
 }: {
   question: WeeklyFreeTextQuestion;
-  limit: WeeklyFreeTextResponseLimit;
+  limit: WeeklyFreeTextResponseLimit | "all";
   colorIndex: number;
-  isWordPaginationEnabled: boolean;
 }) {
-  const responses = isWordPaginationEnabled
-    ? question.responses
-    : getLimitedWeeklyFreeTextResponses(question.responses, limit);
+  const responses =
+    limit === "all"
+      ? question.responses
+      : getLimitedWeeklyFreeTextResponses(question.responses, limit);
 
   return (
     <AnalyticsCard>
@@ -1671,8 +1690,8 @@ function FreeTextQuestionsSection({
   onLoadMore,
 }: {
   questions: WeeklyFreeTextQuestion[];
-  limit: WeeklyFreeTextResponseLimit;
-  onLimitChange: (limit: WeeklyFreeTextResponseLimit) => void;
+  limit: WeeklyFreeTextResponseLimit | "all";
+  onLimitChange: (limit: WeeklyFreeTextResponseLimit | "all") => void;
   isWordPaginationEnabled: boolean;
   isFetchingNextWordPage: boolean;
   errorMessage?: string | null;
@@ -1682,6 +1701,27 @@ function FreeTextQuestionsSection({
     (question) => question.pagination?.hasNextPage,
   );
 
+  useEffect(() => {
+    if (
+      limit !== "all" ||
+      !isWordPaginationEnabled ||
+      !hasNextPage ||
+      isFetchingNextWordPage ||
+      errorMessage
+    ) {
+      return;
+    }
+
+    onLoadMore();
+  }, [
+    errorMessage,
+    hasNextPage,
+    isFetchingNextWordPage,
+    isWordPaginationEnabled,
+    limit,
+    onLoadMore,
+  ]);
+
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1690,9 +1730,11 @@ function FreeTextQuestionsSection({
             SERBEST METİN YANITLARI
           </AnalyticsSectionHeading>
         </div>
-        {!isWordPaginationEnabled ? (
-          <FreeTextLimitControl limit={limit} onLimitChange={onLimitChange} />
-        ) : null}
+        <FreeTextLimitControl
+          isWordPaginationEnabled={isWordPaginationEnabled}
+          limit={limit}
+          onLimitChange={onLimitChange}
+        />
       </div>
       {questions.length ? (
         <section className="grid gap-4">
@@ -1701,7 +1743,6 @@ function FreeTextQuestionsSection({
               colorIndex={index}
               key={question.questionId}
               limit={limit}
-              isWordPaginationEnabled={isWordPaginationEnabled}
               question={question}
             />
           ))}
@@ -1712,24 +1753,15 @@ function FreeTextQuestionsSection({
           title="Henüz yanıt yok"
         />
       )}
-      {isWordPaginationEnabled && hasNextPage ? (
-        <div className="flex flex-col items-start gap-2">
-          <button
-            className="rounded-full border border-[#0057FF]/20 bg-[#0057FF] px-5 py-3 font-poppins text-sm font-semibold text-white shadow-[0_10px_22px_rgba(0,87,255,0.16)] transition hover:bg-[#0048D6] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isFetchingNextWordPage}
-            onClick={onLoadMore}
-            type="button"
-          >
-            {isFetchingNextWordPage
-              ? "Yanıtlar yükleniyor…"
-              : "Daha fazla yükle"}
-          </button>
-          {errorMessage ? (
-            <p className="font-poppins text-sm font-medium text-[#B03A3A]">
-              {errorMessage}
-            </p>
-          ) : null}
-        </div>
+      {limit === "all" && isFetchingNextWordPage ? (
+        <p className="font-poppins text-sm font-medium text-[#0057FF]">
+          Tüm yanıtlar yükleniyor…
+        </p>
+      ) : null}
+      {limit === "all" && errorMessage ? (
+        <p className="font-poppins text-sm font-medium text-[#B03A3A]">
+          {errorMessage}
+        </p>
       ) : null}
     </>
   );
@@ -2213,8 +2245,9 @@ export default function IsYatirimWeeklyDashboard({
   onWeekFilterChange,
   onLoadMoreWords,
 }: WeeklyDashboardProps) {
-  const [freeTextLimit, setFreeTextLimit] =
-    useState<WeeklyFreeTextResponseLimit>(10);
+  const [freeTextLimit, setFreeTextLimit] = useState<
+    WeeklyFreeTextResponseLimit | "all"
+  >(10);
   const activeSegment =
     selectedSegment || response?.meta.selectedSegmentId || "all";
   const activeUnvan = selectedUnvan;
