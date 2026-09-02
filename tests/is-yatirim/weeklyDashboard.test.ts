@@ -7,19 +7,24 @@ import {
   IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK,
   IS_YATIRIM_WEEKLY_PICKER_MIN_DATE,
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
+  IS_YATIRIM_WEEKLY_WORD_PAGINATION_QUERY_PARAM,
   IS_YATIRIM_WEEKLY_CLIENT,
   WEEKLY_PARTICIPATION_DAYS,
+  applyIsYatirimWeeklyWordPaginationToSearchParams,
   getCurrentIsYatirimWeekStart,
   getLimitedWeeklyFreeTextResponses,
+  getIsYatirimWeeklyWordNextPage,
   getIsYatirimWeeklyQuestionModel,
   getIsYatirimPresetWeekStart,
   getIsYatirimWeekBadgeLabel,
   getMondayForIsoDate,
   getResolvedIsYatirimWeekStart,
   isIsYatirimWeekStartSelectable,
+  mergeIsYatirimWeeklyWordPages,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
   normalizeIsYatirimWeeklyToken,
+  normalizeIsYatirimWeeklyWordPaginationFlag,
   normalizeWeeklyDashboardResponse,
 } from "../../lib/isYatirimWeeklyDashboard";
 import { buildIsYatirimWeeklyDashboardUrl } from "../../lib/isYatirimWeeklyDashboardRoute";
@@ -82,10 +87,7 @@ test("week picker badges follow the supplied calendar week", () => {
     getIsYatirimWeekBadgeLabel("2026-07-27", "2026-08-03"),
     "Geçen Hafta",
   );
-  assert.equal(
-    getIsYatirimWeekBadgeLabel("2026-08-10", "2026-08-03"),
-    null,
-  );
+  assert.equal(getIsYatirimWeekBadgeLabel("2026-08-10", "2026-08-03"), null);
   assert.equal(
     getIsYatirimWeekBadgeLabel("2026-08-10", "2026-08-10"),
     "Bu Hafta",
@@ -181,6 +183,99 @@ test("free-text Top N limits all question cards with the shared selection", () =
   assert.equal(getLimitedWeeklyFreeTextResponses(responses, 40).length, 40);
 });
 
+test("weekly word pagination flag is opt-in and only writes a single-week request", () => {
+  assert.equal(
+    IS_YATIRIM_WEEKLY_WORD_PAGINATION_QUERY_PARAM,
+    "isWeeklyWordPagination",
+  );
+  assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag(null), false);
+  assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag("false"), false);
+  assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag("1"), true);
+
+  const singleWeekParams = new URLSearchParams();
+  applyIsYatirimWeeklyWordPaginationToSearchParams(singleWeekParams, {
+    isFeatureEnabled: true,
+    weekFilter: { mode: "week", weekStartDate: "2026-08-03" },
+    page: 2,
+  });
+  assert.equal(singleWeekParams.get("unlimited"), "true");
+  assert.equal(singleWeekParams.get("wordsPage"), "2");
+  assert.equal(singleWeekParams.get("wordsPageSize"), "50");
+
+  const multiWeekParams = new URLSearchParams("wordsPage=2&wordsPageSize=50");
+  applyIsYatirimWeeklyWordPaginationToSearchParams(multiWeekParams, {
+    isFeatureEnabled: true,
+    weekFilter: { mode: "last_4_weeks" },
+    page: 2,
+  });
+  assert.equal(multiWeekParams.get("unlimited"), null);
+  assert.equal(multiWeekParams.get("wordsPage"), null);
+  assert.equal(multiWeekParams.get("wordsPageSize"), null);
+});
+
+test("weekly word pages merge by question and preserve independent pagination", () => {
+  const first = normalizeWeeklyDashboardResponse({
+    selectedSegment: {
+      freeTextQuestions: [
+        {
+          questionId: "stop",
+          respondentCount: 110,
+          uniqueAnswerCount: 110,
+          responses: [{ text: "Yanıt 1", count: 1 }],
+          pagination: {
+            page: 1,
+            pageSize: 50,
+            totalItems: 110,
+            totalPages: 3,
+            hasNextPage: true,
+          },
+        },
+      ],
+    },
+  });
+  const second = normalizeWeeklyDashboardResponse({
+    selectedSegment: {
+      freeTextQuestions: [
+        {
+          questionId: "stop",
+          respondentCount: 110,
+          uniqueAnswerCount: 110,
+          responses: [{ text: "Yanıt 2", count: 1 }],
+          pagination: {
+            page: 2,
+            pageSize: 50,
+            totalItems: 110,
+            totalPages: 3,
+            hasNextPage: true,
+          },
+        },
+        {
+          questionId: "start",
+          responses: [],
+          pagination: {
+            page: 2,
+            pageSize: 50,
+            totalItems: 5,
+            totalPages: 1,
+            hasNextPage: false,
+          },
+        },
+      ],
+    },
+  });
+
+  const merged = mergeIsYatirimWeeklyWordPages([first, second]);
+  assert.equal(
+    merged?.selectedSegment.freeTextQuestions[0]?.responses.length,
+    2,
+  );
+  assert.equal(
+    merged?.selectedSegment.freeTextQuestions[0]?.respondentCount,
+    110,
+  );
+  assert.equal(getIsYatirimWeeklyWordNextPage(merged), 3);
+});
+
 test("weekly question model honors Likert responses on an older single week", () => {
   assert.equal(
     getIsYatirimWeeklyQuestionModel({
@@ -237,6 +332,27 @@ test("buildIsYatirimWeeklyDashboardUrl sends active period without weekStartDate
   );
   assert.equal(url.searchParams.get("weekMode"), "this_week");
   assert.equal(url.searchParams.get("weekStartDate"), null);
+});
+
+test("buildIsYatirimWeeklyDashboardUrl only forwards pagination for an enabled single week", () => {
+  const paginatedUrl = buildIsYatirimWeeklyDashboardUrl({
+    baseUrl: "https://example.com",
+    isWordPaginationEnabled: true,
+    wordsPage: 2,
+    weekFilter: { mode: "week", weekStartDate: "2026-08-03" },
+  });
+  assert.equal(paginatedUrl.searchParams.get("unlimited"), "true");
+  assert.equal(paginatedUrl.searchParams.get("wordsPage"), "2");
+  assert.equal(paginatedUrl.searchParams.get("wordsPageSize"), "50");
+
+  const multiWeekUrl = buildIsYatirimWeeklyDashboardUrl({
+    baseUrl: "https://example.com",
+    isWordPaginationEnabled: true,
+    wordsPage: 2,
+    weekFilter: { mode: "last_4_weeks" },
+  });
+  assert.equal(multiWeekUrl.searchParams.get("unlimited"), null);
+  assert.equal(multiWeekUrl.searchParams.get("wordsPage"), null);
 });
 
 test("buildIsYatirimWeeklyDashboardUrl forwards segment token and preset week modes", () => {

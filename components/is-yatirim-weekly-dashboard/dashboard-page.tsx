@@ -82,9 +82,13 @@ type WeeklyDashboardProps = {
   isUpdating: boolean;
   latestAvailableWeekStart: string;
   errorMessage?: string | null;
+  isWordPaginationEnabled: boolean;
+  isFetchingNextWordPage: boolean;
+  wordPaginationErrorMessage?: string | null;
   onSegmentSelect: (segment: string) => void;
   onUnvanSelect: (unvan: string) => void;
   onWeekFilterChange: (weekFilter: IsYatirimWeekFilter) => void;
+  onLoadMoreWords: () => void;
 };
 
 const WEEK_OPTIONS: Array<{ mode: IsYatirimWeekMode; label: string }> = [
@@ -349,10 +353,7 @@ function getWeekStartForMode(
   );
   const activeWeekStart =
     parseUtcIsoDate(
-      getIsYatirimPresetWeekStart(
-        "this_week",
-        latestAvailableWeekStart || "",
-      ),
+      getIsYatirimPresetWeekStart("this_week", latestAvailableWeekStart || ""),
     ) || currentWeekStart;
 
   if (resolvedWeekStart && mode === "week") {
@@ -1605,15 +1606,16 @@ function FreeTextQuestionCard({
   question,
   limit,
   colorIndex,
+  isWordPaginationEnabled,
 }: {
   question: WeeklyFreeTextQuestion;
   limit: WeeklyFreeTextResponseLimit;
   colorIndex: number;
+  isWordPaginationEnabled: boolean;
 }) {
-  const responses = getLimitedWeeklyFreeTextResponses(
-    question.responses,
-    limit,
-  );
+  const responses = isWordPaginationEnabled
+    ? question.responses
+    : getLimitedWeeklyFreeTextResponses(question.responses, limit);
 
   return (
     <AnalyticsCard>
@@ -1663,11 +1665,23 @@ function FreeTextQuestionsSection({
   questions,
   limit,
   onLimitChange,
+  isWordPaginationEnabled,
+  isFetchingNextWordPage,
+  errorMessage,
+  onLoadMore,
 }: {
   questions: WeeklyFreeTextQuestion[];
   limit: WeeklyFreeTextResponseLimit;
   onLimitChange: (limit: WeeklyFreeTextResponseLimit) => void;
+  isWordPaginationEnabled: boolean;
+  isFetchingNextWordPage: boolean;
+  errorMessage?: string | null;
+  onLoadMore: () => void;
 }) {
+  const hasNextPage = questions.some(
+    (question) => question.pagination?.hasNextPage,
+  );
+
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1676,7 +1690,9 @@ function FreeTextQuestionsSection({
             SERBEST METİN YANITLARI
           </AnalyticsSectionHeading>
         </div>
-        <FreeTextLimitControl limit={limit} onLimitChange={onLimitChange} />
+        {!isWordPaginationEnabled ? (
+          <FreeTextLimitControl limit={limit} onLimitChange={onLimitChange} />
+        ) : null}
       </div>
       {questions.length ? (
         <section className="grid gap-4">
@@ -1685,6 +1701,7 @@ function FreeTextQuestionsSection({
               colorIndex={index}
               key={question.questionId}
               limit={limit}
+              isWordPaginationEnabled={isWordPaginationEnabled}
               question={question}
             />
           ))}
@@ -1695,6 +1712,25 @@ function FreeTextQuestionsSection({
           title="Henüz yanıt yok"
         />
       )}
+      {isWordPaginationEnabled && hasNextPage ? (
+        <div className="flex flex-col items-start gap-2">
+          <button
+            className="rounded-full border border-[#0057FF]/20 bg-[#0057FF] px-5 py-3 font-poppins text-sm font-semibold text-white shadow-[0_10px_22px_rgba(0,87,255,0.16)] transition hover:bg-[#0048D6] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isFetchingNextWordPage}
+            onClick={onLoadMore}
+            type="button"
+          >
+            {isFetchingNextWordPage
+              ? "Yanıtlar yükleniyor…"
+              : "Daha fazla yükle"}
+          </button>
+          {errorMessage ? (
+            <p className="font-poppins text-sm font-medium text-[#B03A3A]">
+              {errorMessage}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -2169,9 +2205,13 @@ export default function IsYatirimWeeklyDashboard({
   isUpdating,
   latestAvailableWeekStart,
   errorMessage,
+  isWordPaginationEnabled,
+  isFetchingNextWordPage,
+  wordPaginationErrorMessage,
   onSegmentSelect,
   onUnvanSelect,
   onWeekFilterChange,
+  onLoadMoreWords,
 }: WeeklyDashboardProps) {
   const [freeTextLimit, setFreeTextLimit] =
     useState<WeeklyFreeTextResponseLimit>(10);
@@ -2343,7 +2383,11 @@ export default function IsYatirimWeeklyDashboard({
                   />
                 ) : questionModel === "free_text" ? (
                   <FreeTextQuestionsSection
+                    errorMessage={wordPaginationErrorMessage}
+                    isFetchingNextWordPage={isFetchingNextWordPage}
+                    isWordPaginationEnabled={isWordPaginationEnabled}
                     limit={freeTextLimit}
+                    onLoadMore={onLoadMoreWords}
                     onLimitChange={setFreeTextLimit}
                     questions={
                       displayResponse.selectedSegment.freeTextQuestions

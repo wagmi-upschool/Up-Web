@@ -3,7 +3,9 @@ import {
   DEFAULT_IS_YATIRIM_WEEK_MODE,
   IS_YATIRIM_WEEKLY_CLIENT,
   IS_YATIRIM_WEEKLY_COMPETENCY_ID,
+  applyIsYatirimWeeklyWordPaginationToSearchParams,
   normalizeIsYatirimWeekFilter,
+  normalizeIsYatirimWeeklyWordPaginationFlag,
   normalizeIsYatirimWeeklySegment,
   normalizeIsYatirimWeeklyToken,
   normalizeWeeklyDashboardResponse,
@@ -18,12 +20,16 @@ export function buildIsYatirimWeeklyDashboardUrl({
   unvan,
   token,
   weekFilter,
+  isWordPaginationEnabled = false,
+  wordsPage = 1,
 }: {
   baseUrl: string;
   segment?: string | null;
   unvan?: string | null;
   token?: string | null;
   weekFilter?: IsYatirimWeekFilter;
+  isWordPaginationEnabled?: boolean;
+  wordsPage?: number;
 }) {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
   const url = new URL(`${normalizedBase}/analytics/dashboard`);
@@ -54,6 +60,12 @@ export function buildIsYatirimWeeklyDashboardUrl({
   if (normalizedToken) {
     url.searchParams.set("token", normalizedToken);
   }
+
+  applyIsYatirimWeeklyWordPaginationToSearchParams(url.searchParams, {
+    isFeatureEnabled: isWordPaginationEnabled,
+    weekFilter: normalizedWeekFilter,
+    page: wordsPage,
+  });
 
   return url;
 }
@@ -91,12 +103,20 @@ export async function handleIsYatirimWeeklyDashboardRequest(
     weekMode: request.nextUrl.searchParams.get("weekMode"),
     weekStartDate: request.nextUrl.searchParams.get("weekStartDate"),
   });
+  const isWordPaginationEnabled = normalizeIsYatirimWeeklyWordPaginationFlag(
+    request.nextUrl.searchParams.get("isWeeklyWordPagination"),
+  );
+  const requestedWordsPage = Number(
+    request.nextUrl.searchParams.get("wordsPage") || "1",
+  );
   const upstreamUrl = buildIsYatirimWeeklyDashboardUrl({
     baseUrl,
     segment,
     unvan,
     token,
     weekFilter,
+    isWordPaginationEnabled,
+    wordsPage: Number.isFinite(requestedWordsPage) ? requestedWordsPage : 1,
   });
 
   let response: Response;

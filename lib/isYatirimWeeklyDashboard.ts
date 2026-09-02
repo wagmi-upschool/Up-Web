@@ -10,6 +10,9 @@ export const IS_YATIRIM_WEEKLY_EXCLUDED_WEEK_START_DATES = [
 ] as const;
 export const IS_YATIRIM_WEEKLY_LIKERT_CUTOVER_WEEK = "2026-07-06";
 export const IS_YATIRIM_WEEKLY_FREE_TEXT_CUTOVER_WEEK = "2026-08-03";
+export const IS_YATIRIM_WEEKLY_WORD_PAGINATION_QUERY_PARAM =
+  "isWeeklyWordPagination";
+export const IS_YATIRIM_WEEKLY_WORDS_PAGE_SIZE = 50;
 
 export const IS_YATIRIM_WEEKLY_ROUTE = "/is-yatirim/weekly-dashboard";
 export const IS_YATIRIM_DAILY_ROUTE = "/is-yatirim/leadership-dashboard";
@@ -136,6 +139,14 @@ export type WeeklyFreeTextResponse = {
   count: number;
 };
 
+export type WeeklyFreeTextPagination = {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+};
+
 export const WEEKLY_FREE_TEXT_RESPONSE_LIMITS = [10, 20, 30, 40] as const;
 
 export type WeeklyFreeTextResponseLimit =
@@ -154,7 +165,46 @@ export type WeeklyFreeTextQuestion = {
   respondentCount: number;
   uniqueAnswerCount: number;
   responses: WeeklyFreeTextResponse[];
+  pagination?: WeeklyFreeTextPagination;
 };
+
+export function normalizeIsYatirimWeeklyWordPaginationFlag(
+  value: string | null | undefined,
+) {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "true" || normalized === "1";
+}
+
+export function isSingleIsYatirimCalendarWeek(
+  weekFilter: IsYatirimWeekFilter | undefined,
+) {
+  return weekFilter?.mode !== "last_4_weeks";
+}
+
+export function applyIsYatirimWeeklyWordPaginationToSearchParams(
+  searchParams: URLSearchParams,
+  {
+    isFeatureEnabled,
+    weekFilter,
+    page,
+  }: {
+    isFeatureEnabled: boolean;
+    weekFilter: IsYatirimWeekFilter | undefined;
+    page: number;
+  },
+) {
+  searchParams.delete("unlimited");
+  searchParams.delete("wordsPage");
+  searchParams.delete("wordsPageSize");
+
+  if (!isFeatureEnabled || !isSingleIsYatirimCalendarWeek(weekFilter)) {
+    return;
+  }
+
+  searchParams.set("unlimited", "true");
+  searchParams.set("wordsPage", `${Math.max(1, Math.floor(page))}`);
+  searchParams.set("wordsPageSize", `${IS_YATIRIM_WEEKLY_WORDS_PAGE_SIZE}`);
+}
 
 export type IsYatirimWeeklyQuestionModel =
   | "legacy"
@@ -192,6 +242,103 @@ export type WeeklyDashboardResponse = {
   selectedSegment: WeeklyDashboardSegmentData;
   selectedUnvan?: WeeklyDashboardSegmentData | null;
 };
+
+function mergeWeeklyFreeTextQuestions(pages: WeeklyDashboardSegmentData[]) {
+  const questions = new Map<string, WeeklyFreeTextQuestion>();
+
+  for (const page of pages) {
+    for (const question of page.freeTextQuestions) {
+      const existing = questions.get(question.questionId);
+      if (!existing) {
+        questions.set(question.questionId, {
+          ...question,
+          responses: [...question.responses],
+        });
+        continue;
+      }
+
+      const responseKeys = new Set(
+        existing.responses.map(
+          (response) => `${response.text}\u0000${response.count}`,
+        ),
+      );
+      existing.responses.push(
+        ...question.responses.filter((response) => {
+          const key = `${response.text}\u0000${response.count}`;
+          if (responseKeys.has(key)) {
+            return false;
+          }
+          responseKeys.add(key);
+          return true;
+        }),
+      );
+      existing.pagination = question.pagination || existing.pagination;
+    }
+  }
+
+  return Array.from(questions.values());
+}
+
+function mergeWeeklyDashboardSegmentPages(
+  first: WeeklyDashboardSegmentData,
+  pages: WeeklyDashboardSegmentData[],
+): WeeklyDashboardSegmentData {
+  return {
+    ...first,
+    freeTextQuestions: mergeWeeklyFreeTextQuestions(pages),
+  };
+}
+
+export function mergeIsYatirimWeeklyWordPages(
+  pages: WeeklyDashboardResponse[],
+) {
+  const first = pages[0];
+  if (!first) {
+    return undefined;
+  }
+
+  const segmentPages = pages.map((page) => page.selectedSegment);
+  const unvanPages = pages
+    .map((page) => page.selectedUnvan)
+    .filter((segment): segment is WeeklyDashboardSegmentData =>
+      Boolean(segment),
+    );
+
+  return {
+    ...first,
+    selectedSegment: mergeWeeklyDashboardSegmentPages(
+      first.selectedSegment,
+      segmentPages,
+    ),
+    selectedUnvan: first.selectedUnvan
+      ? mergeWeeklyDashboardSegmentPages(first.selectedUnvan, unvanPages)
+      : first.selectedUnvan,
+  };
+}
+
+export function getIsYatirimWeeklyWordNextPage(
+  response: WeeklyDashboardResponse | undefined,
+) {
+  if (!response) {
+    return undefined;
+  }
+
+  const questions = [
+    ...response.selectedSegment.freeTextQuestions,
+    ...(response.selectedUnvan?.freeTextQuestions || []),
+  ];
+  const pages = questions
+    .map((question) => question.pagination)
+    .filter((pagination): pagination is WeeklyFreeTextPagination =>
+      Boolean(pagination),
+    );
+
+  if (!pages.some((pagination) => pagination.hasNextPage)) {
+    return undefined;
+  }
+
+  return Math.max(...pages.map((pagination) => pagination.page)) + 1;
+}
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -1071,6 +1218,26 @@ function normalizeFreeTextQuestion(
     input.responses || input.answers,
     normalizeFreeTextResponse,
   ).filter((response) => response.text && response.count > 0);
+  const paginationInput = asObject(input.pagination);
+  const hasPagination = Object.keys(paginationInput).length > 0;
+  const pagination = hasPagination
+    ? {
+        page: Math.max(1, Math.floor(asNumber(paginationInput.page, 1))),
+        pageSize: Math.max(
+          1,
+          Math.floor(asNumber(paginationInput.pageSize, responses.length || 1)),
+        ),
+        totalItems: Math.max(
+          0,
+          Math.floor(asNumber(paginationInput.totalItems, responses.length)),
+        ),
+        totalPages: Math.max(
+          1,
+          Math.floor(asNumber(paginationInput.totalPages, 1)),
+        ),
+        hasNextPage: paginationInput.hasNextPage === true,
+      }
+    : undefined;
 
   return {
     questionId: asString(
@@ -1089,6 +1256,7 @@ function normalizeFreeTextQuestion(
       responses.length,
     ),
     responses,
+    ...(pagination ? { pagination } : {}),
   };
 }
 

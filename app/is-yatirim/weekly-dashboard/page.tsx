@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import {
   type ReadonlyURLSearchParams,
   useRouter,
@@ -9,6 +9,7 @@ import {
 import {
   QueryClient,
   QueryClientProvider,
+  useInfiniteQuery,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -20,15 +21,22 @@ import {
 } from "@/lib/isYatirimLeadershipDashboard";
 import {
   DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
+  IS_YATIRIM_WEEKLY_WORD_PAGINATION_QUERY_PARAM,
   IS_YATIRIM_WEEKLY_PICKER_MIN_WEEK_START_DATE,
   IS_YATIRIM_WEEKLY_ROUTE,
   applyIsYatirimWeekFilterToSearchParams,
+  applyIsYatirimWeeklyWordPaginationToSearchParams,
   getCurrentIsYatirimWeekStart,
+  getIsYatirimWeeklyQuestionModel,
   getResolvedIsYatirimWeekStart,
+  getIsYatirimWeeklyWordNextPage,
+  isSingleIsYatirimCalendarWeek,
   isIsYatirimExcludedWeeklyStartDate,
+  mergeIsYatirimWeeklyWordPages,
   normalizeIsYatirimWeekFilter,
   normalizeIsYatirimWeeklySegment,
   normalizeIsYatirimWeeklyToken,
+  normalizeIsYatirimWeeklyWordPaginationFlag,
   type IsYatirimWeekFilter,
   type WeeklyDashboardResponse,
 } from "@/lib/isYatirimWeeklyDashboard";
@@ -43,6 +51,7 @@ async function getWeeklyDashboard(
   token: string,
   weekFilter: IsYatirimWeekFilter,
   unvan?: string,
+  wordPagination?: { enabled: boolean; page: number },
 ) {
   const query = new URLSearchParams({
     segment,
@@ -50,6 +59,17 @@ async function getWeeklyDashboard(
   const normalizedUnvan = normalizeIsYatirimUnvan(unvan);
 
   applyIsYatirimWeekFilterToSearchParams(query, weekFilter);
+
+  if (wordPagination) {
+    applyIsYatirimWeeklyWordPaginationToSearchParams(query, {
+      isFeatureEnabled: wordPagination.enabled,
+      weekFilter,
+      page: wordPagination.page,
+    });
+    if (wordPagination.enabled) {
+      query.set(IS_YATIRIM_WEEKLY_WORD_PAGINATION_QUERY_PARAM, "true");
+    }
+  }
 
   if (normalizedUnvan) {
     query.set("unvan", normalizedUnvan);
@@ -99,6 +119,7 @@ function getWeeklyDashboardQueryKey(
   unvan: string,
   token: string,
   weekFilter: IsYatirimWeekFilter,
+  isWordPaginationEnabled = false,
 ) {
   return [
     "isYatirimWeeklyDashboard",
@@ -109,6 +130,7 @@ function getWeeklyDashboardQueryKey(
     weekFilter.weekStartDate || "",
     weekFilter.startWeek || "",
     weekFilter.endWeek || "",
+    isWordPaginationEnabled,
   ] as const;
 }
 
@@ -184,9 +206,7 @@ function resolveWeekFilterForActivePeriod(
   if (weekFilter.mode === "last_week") {
     return {
       mode: "week",
-      weekStartDate: getPreviousIncludedWeekStartDate(
-        currentCalendarWeekStart,
-      ),
+      weekStartDate: getPreviousIncludedWeekStartDate(currentCalendarWeekStart),
     };
   }
 
@@ -325,6 +345,10 @@ function IsYatirimWeeklyDashboardContent() {
     weekMode: searchParams.get("weekMode"),
     weekStartDate: searchParams.get("weekStartDate"),
   });
+  const isWordPaginationFeatureEnabled =
+    normalizeIsYatirimWeeklyWordPaginationFlag(
+      searchParams.get(IS_YATIRIM_WEEKLY_WORD_PAGINATION_QUERY_PARAM),
+    );
 
   useEffect(() => {
     if (
@@ -350,26 +374,42 @@ function IsYatirimWeeklyDashboardContent() {
     currentCalendarWeekStart,
   );
   const canLoadDashboard = Boolean(currentCalendarWeekStart);
-  const dashboardQuery = useQuery({
+  const isWordPaginationEnabled =
+    isWordPaginationFeatureEnabled &&
+    isSingleIsYatirimCalendarWeek(resolvedWeekFilter) &&
+    getIsYatirimWeeklyQuestionModel({
+      weekFilter: resolvedWeekFilter,
+    }) === "free_text";
+  const dashboardQuery = useInfiniteQuery({
     queryKey: getWeeklyDashboardQueryKey(
       segment,
       selectedUnvan,
       weeklyToken,
       resolvedWeekFilter,
+      isWordPaginationEnabled,
     ),
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       getWeeklyDashboard(
         segment,
         weeklyToken,
         resolvedWeekFilter,
         selectedUnvan,
+        { enabled: isWordPaginationEnabled, page: pageParam },
       ),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      isWordPaginationEnabled
+        ? getIsYatirimWeeklyWordNextPage(lastPage)
+        : undefined,
     enabled: canLoadDashboard,
-    placeholderData: (previous) => previous,
     refetchOnWindowFocus: false,
   });
+  const dashboardResponse = useMemo(
+    () => mergeIsYatirimWeeklyWordPages(dashboardQuery.data?.pages || []),
+    [dashboardQuery.data?.pages],
+  );
   const previousParticipationWeekFilter = getPreviousParticipationWeekFilter(
-    dashboardQuery.data?.meta.weekFilter || resolvedWeekFilter,
+    dashboardResponse?.meta.weekFilter || resolvedWeekFilter,
   );
   const previousParticipationQuery = useQuery({
     queryKey: previousParticipationWeekFilter
@@ -470,13 +510,14 @@ function IsYatirimWeeklyDashboardContent() {
       errorMessage={
         activePeriodQuery.error
           ? formatApiError(activePeriodQuery.error)
-          : dashboardQuery.error
+          : dashboardQuery.error && !dashboardQuery.isFetchNextPageError
             ? formatApiError(dashboardQuery.error)
             : null
       }
       isLoading={activePeriodQuery.isLoading || dashboardQuery.isLoading}
       isUpdating={
-        (activePeriodQuery.isFetching || dashboardQuery.isFetching) &&
+        (activePeriodQuery.isFetching ||
+          (dashboardQuery.isFetching && !dashboardQuery.isFetchingNextPage)) &&
         !activePeriodQuery.isLoading &&
         !dashboardQuery.isLoading
       }
@@ -485,13 +526,23 @@ function IsYatirimWeeklyDashboardContent() {
       onUnvanSelect={handleUnvanSelect}
       onWeekFilterChange={handleWeekFilterChange}
       previousParticipationResponse={previousParticipationQuery.data}
-      response={dashboardQuery.data}
+      response={dashboardResponse}
       selectedSegment={visibleSegment}
       selectedUnvan={visibleSelectedUnvan}
       dailyToken={dailyToken}
       isUnvanComparisonEnabled={isUnvanComparisonEnabled}
       weeklyToken={weeklyToken}
       weekFilter={requestedWeekFilter}
+      isWordPaginationEnabled={isWordPaginationEnabled}
+      isFetchingNextWordPage={dashboardQuery.isFetchingNextPage}
+      wordPaginationErrorMessage={
+        dashboardQuery.isFetchNextPageError && dashboardQuery.error
+          ? formatApiError(dashboardQuery.error)
+          : null
+      }
+      onLoadMoreWords={() => {
+        void dashboardQuery.fetchNextPage();
+      }}
     />
   );
 }
