@@ -462,8 +462,7 @@ export function normalizeIsYatirimMoodStreakComparisonFlag(
 export function normalizeIsYatirimWordPaginationFlag(
   value: string | null | undefined,
 ) {
-  const normalized = value?.trim().toLowerCase();
-  return normalized === "true" || normalized === "1";
+  return value?.trim().toLowerCase() !== "false";
 }
 
 function normalizeIsYatirimUnvanOrderKey(value: string | null | undefined) {

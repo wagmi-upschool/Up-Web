@@ -118,11 +118,12 @@ test("normalizeIsYatirimMoodStreakComparisonFlag defaults enabled unless explici
   assert.equal(normalizeIsYatirimMoodStreakComparisonFlag(" TRUE "), true);
 });
 
-test("normalizeIsYatirimWordPaginationFlag defaults disabled unless explicitly enabled", () => {
+test("normalizeIsYatirimWordPaginationFlag defaults enabled unless explicitly disabled", () => {
   assert.equal(IS_YATIRIM_WORD_PAGINATION_QUERY_PARAM, "isWordPagination");
-  assert.equal(normalizeIsYatirimWordPaginationFlag(null), false);
-  assert.equal(normalizeIsYatirimWordPaginationFlag(""), false);
+  assert.equal(normalizeIsYatirimWordPaginationFlag(null), true);
+  assert.equal(normalizeIsYatirimWordPaginationFlag(""), true);
   assert.equal(normalizeIsYatirimWordPaginationFlag("false"), false);
+  assert.equal(normalizeIsYatirimWordPaginationFlag(" FALSE "), false);
   assert.equal(normalizeIsYatirimWordPaginationFlag("true"), true);
   assert.equal(normalizeIsYatirimWordPaginationFlag("1"), true);
   assert.equal(normalizeIsYatirimWordPaginationFlag(" TRUE "), true);
