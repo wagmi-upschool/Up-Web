@@ -178,7 +178,7 @@ export function normalizeIsYatirimWeeklyWordPaginationFlag(
 export function isSingleIsYatirimCalendarWeek(
   weekFilter: IsYatirimWeekFilter | undefined,
 ) {
-  return weekFilter?.mode !== "last_4_weeks";
+  return Boolean(weekFilter && weekFilter.mode !== "last_4_weeks");
 }
 
 export function applyIsYatirimWeeklyWordPaginationToSearchParams(

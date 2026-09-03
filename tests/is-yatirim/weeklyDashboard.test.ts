@@ -211,6 +211,14 @@ test("weekly word pagination flag is opt-in and only writes a single-week reques
   assert.equal(multiWeekParams.get("unlimited"), null);
   assert.equal(multiWeekParams.get("wordsPage"), null);
   assert.equal(multiWeekParams.get("wordsPageSize"), null);
+
+  const unresolvedParams = new URLSearchParams();
+  applyIsYatirimWeeklyWordPaginationToSearchParams(unresolvedParams, {
+    isFeatureEnabled: true,
+    weekFilter: undefined,
+    page: 1,
+  });
+  assert.equal(unresolvedParams.get("unlimited"), null);
 });
 
 test("weekly word pages merge by question and preserve independent pagination", () => {

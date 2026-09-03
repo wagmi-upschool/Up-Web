@@ -11,7 +11,6 @@ import {
   QueryClientProvider,
   useInfiniteQuery,
   useQuery,
-  useQueryClient,
 } from "@tanstack/react-query";
 import IsYatirimWeeklyDashboard from "@/components/is-yatirim-weekly-dashboard/dashboard-page";
 import {
@@ -320,7 +319,6 @@ function replaceWeeklyDashboardRoute(
 
 function IsYatirimWeeklyDashboardContent() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const [optimisticBreakdown, setOptimisticBreakdown] =
     useState<OptimisticWeeklyBreakdownSelection | null>(null);
@@ -477,26 +475,6 @@ function IsYatirimWeeklyDashboardContent() {
   };
 
   const handleWeekFilterChange = (nextWeekFilter: IsYatirimWeekFilter) => {
-    const nextResolvedWeekFilter = resolveWeekFilterForActivePeriod(
-      nextWeekFilter,
-      currentCalendarWeekStart,
-    );
-    void queryClient.prefetchQuery({
-      queryKey: getWeeklyDashboardQueryKey(
-        segment,
-        selectedUnvan,
-        weeklyToken,
-        nextResolvedWeekFilter,
-      ),
-      queryFn: () =>
-        getWeeklyDashboard(
-          segment,
-          weeklyToken,
-          nextResolvedWeekFilter,
-          selectedUnvan,
-        ),
-    });
-
     replaceWeeklyDashboardRoute(router, searchParams, {
       segment,
       selectedUnvan,

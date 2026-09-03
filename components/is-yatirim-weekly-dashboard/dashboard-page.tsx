@@ -2248,6 +2248,14 @@ export default function IsYatirimWeeklyDashboard({
   const [freeTextLimit, setFreeTextLimit] = useState<
     WeeklyFreeTextResponseLimit | "all"
   >(10);
+  const displayedFreeTextLimit =
+    !isWordPaginationEnabled && freeTextLimit === "all" ? 10 : freeTextLimit;
+
+  useEffect(() => {
+    if (!isWordPaginationEnabled && freeTextLimit === "all") {
+      setFreeTextLimit(10);
+    }
+  }, [freeTextLimit, isWordPaginationEnabled]);
   const activeSegment =
     selectedSegment || response?.meta.selectedSegmentId || "all";
   const activeUnvan = selectedUnvan;
@@ -2421,7 +2429,7 @@ export default function IsYatirimWeeklyDashboard({
                     errorMessage={wordPaginationErrorMessage}
                     isFetchingNextWordPage={isFetchingNextWordPage}
                     isWordPaginationEnabled={isWordPaginationEnabled}
-                    limit={freeTextLimit}
+                    limit={displayedFreeTextLimit}
                     onLoadMore={onLoadMoreWords}
                     onLimitChange={setFreeTextLimit}
                     questions={
