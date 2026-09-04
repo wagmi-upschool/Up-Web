@@ -26,6 +26,7 @@ import {
   applyIsYatirimWeekFilterToSearchParams,
   applyIsYatirimWeeklyWordPaginationToSearchParams,
   getCurrentIsYatirimWeekStart,
+  getIsYatirimWeeklyDashboardQueryKey,
   getIsYatirimWeeklyQuestionModel,
   getResolvedIsYatirimWeekStart,
   getIsYatirimWeeklyWordNextPage,
@@ -111,26 +112,6 @@ function formatApiError(error: unknown) {
   const raw = error instanceof Error ? error.message : `${error}`;
   const [, ...messageParts] = raw.split(":");
   return messageParts.join(":").trim() || raw;
-}
-
-function getWeeklyDashboardQueryKey(
-  segment: string,
-  unvan: string,
-  token: string,
-  weekFilter: IsYatirimWeekFilter,
-  isWordPaginationEnabled = false,
-) {
-  return [
-    "isYatirimWeeklyDashboard",
-    segment,
-    unvan,
-    token,
-    weekFilter.mode,
-    weekFilter.weekStartDate || "",
-    weekFilter.startWeek || "",
-    weekFilter.endWeek || "",
-    isWordPaginationEnabled,
-  ] as const;
 }
 
 function formatIsoDate(date: Date) {
@@ -379,13 +360,14 @@ function IsYatirimWeeklyDashboardContent() {
       weekFilter: resolvedWeekFilter,
     }) === "free_text";
   const dashboardQuery = useInfiniteQuery({
-    queryKey: getWeeklyDashboardQueryKey(
+    queryKey: getIsYatirimWeeklyDashboardQueryKey({
+      scope: "dashboard",
       segment,
-      selectedUnvan,
-      weeklyToken,
-      resolvedWeekFilter,
+      unvan: selectedUnvan,
+      token: weeklyToken,
+      weekFilter: resolvedWeekFilter,
       isWordPaginationEnabled,
-    ),
+    }),
     queryFn: ({ pageParam }) =>
       getWeeklyDashboard(
         segment,
@@ -410,20 +392,13 @@ function IsYatirimWeeklyDashboardContent() {
     dashboardResponse?.meta.weekFilter || resolvedWeekFilter,
   );
   const previousParticipationQuery = useQuery({
-    queryKey: previousParticipationWeekFilter
-      ? getWeeklyDashboardQueryKey(
-          segment,
-          selectedUnvan,
-          weeklyToken,
-          previousParticipationWeekFilter,
-        )
-      : [
-          "isYatirimWeeklyDashboardPreviousParticipation",
-          segment,
-          selectedUnvan,
-          weeklyToken,
-          "",
-        ],
+    queryKey: getIsYatirimWeeklyDashboardQueryKey({
+      scope: "previousParticipation",
+      segment,
+      unvan: selectedUnvan,
+      token: weeklyToken,
+      weekFilter: previousParticipationWeekFilter || undefined,
+    }),
     queryFn: () =>
       getWeeklyDashboard(
         segment,

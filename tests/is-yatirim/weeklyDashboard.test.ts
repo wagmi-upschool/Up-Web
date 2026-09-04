@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { InfiniteQueryObserver, QueryClient } from "@tanstack/react-query";
 import {
   DEFAULT_IS_YATIRIM_WEEKLY_SEGMENT,
   IS_YATIRIM_WEEKLY_COMPETENCY_ID,
@@ -12,6 +13,7 @@ import {
   WEEKLY_PARTICIPATION_DAYS,
   applyIsYatirimWeeklyWordPaginationToSearchParams,
   getCurrentIsYatirimWeekStart,
+  getIsYatirimWeeklyDashboardQueryKey,
   getLimitedWeeklyFreeTextResponses,
   getIsYatirimWeeklyWordNextPage,
   getIsYatirimWeeklyQuestionModel,
@@ -51,6 +53,100 @@ test("normalizeIsYatirimWeeklyToken trims URL token", () => {
     normalizeIsYatirimWeeklyToken("  weekly-token  "),
     "weekly-token",
   );
+});
+
+test("weekly dashboard query keys isolate infinite and previous participation data", () => {
+  const input = {
+    segment: "all",
+    unvan: "mudur",
+    token: "weekly-token",
+    weekFilter: {
+      mode: "week" as const,
+      weekStartDate: "2026-08-24",
+    },
+  };
+  const dashboardKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    scope: "dashboard",
+  });
+  const previousParticipationKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    scope: "previousParticipation",
+  });
+
+  assert.notDeepEqual(dashboardKey, previousParticipationKey);
+  assert.equal(dashboardKey[0], "isYatirimWeeklyDashboard");
+  assert.equal(
+    previousParticipationKey[0],
+    "isYatirimWeeklyDashboardPreviousParticipation",
+  );
+});
+
+test("weekly dashboard query keys keep week and pagination variants separate", () => {
+  const input = {
+    scope: "previousParticipation" as const,
+    segment: "all",
+    unvan: "",
+    token: "weekly-token",
+  };
+  const firstWeekKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    weekFilter: { mode: "week", weekStartDate: "2026-08-17" },
+  });
+  const secondWeekKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    weekFilter: { mode: "week", weekStartDate: "2026-08-24" },
+  });
+  const dashboardKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    scope: "dashboard",
+    weekFilter: { mode: "week", weekStartDate: "2026-08-24" },
+  });
+  const paginatedDashboardKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    scope: "dashboard",
+    weekFilter: { mode: "week", weekStartDate: "2026-08-24" },
+    isWordPaginationEnabled: true,
+  });
+
+  assert.notDeepEqual(firstWeekKey, secondWeekKey);
+  assert.notDeepEqual(dashboardKey, paginatedDashboardKey);
+  assert.equal(dashboardKey.at(-1), false);
+  assert.equal(paginatedDashboardKey.at(-1), true);
+});
+
+test("previous participation cache data cannot break the infinite observer", () => {
+  const queryClient = new QueryClient();
+  const input = {
+    segment: "all",
+    unvan: "",
+    token: "weekly-token",
+    weekFilter: {
+      mode: "week" as const,
+      weekStartDate: "2026-08-24",
+    },
+  };
+  const previousParticipationKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    scope: "previousParticipation",
+  });
+  const dashboardKey = getIsYatirimWeeklyDashboardQueryKey({
+    ...input,
+    scope: "dashboard",
+  });
+
+  queryClient.setQueryData(previousParticipationKey, { meta: {} });
+
+  let observer: InfiniteQueryObserver | undefined;
+  assert.doesNotThrow(() => {
+    observer = new InfiniteQueryObserver(queryClient, {
+      queryKey: dashboardKey,
+      queryFn: async () => ({ meta: {} }),
+      initialPageParam: 1,
+      getNextPageParam: () => undefined,
+    });
+  });
+  observer?.destroy();
 });
 
 test("getMondayForIsoDate normalizes selected date to Monday", () => {

@@ -42,6 +42,36 @@ export type IsYatirimWeekFilter = {
   weekLabel?: string;
 };
 
+export function getIsYatirimWeeklyDashboardQueryKey({
+  scope,
+  segment,
+  unvan,
+  token,
+  weekFilter,
+  isWordPaginationEnabled = false,
+}: {
+  scope: "dashboard" | "previousParticipation";
+  segment: string;
+  unvan: string;
+  token: string;
+  weekFilter?: IsYatirimWeekFilter;
+  isWordPaginationEnabled?: boolean;
+}) {
+  return [
+    scope === "dashboard"
+      ? "isYatirimWeeklyDashboard"
+      : "isYatirimWeeklyDashboardPreviousParticipation",
+    segment,
+    unvan,
+    token,
+    weekFilter?.mode || "",
+    weekFilter?.weekStartDate || "",
+    weekFilter?.startWeek || "",
+    weekFilter?.endWeek || "",
+    isWordPaginationEnabled,
+  ] as const;
+}
+
 export type WeeklySegmentOption = {
   id: string;
   label: string;
