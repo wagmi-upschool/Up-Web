@@ -137,7 +137,7 @@ test("previous participation cache data cannot break the infinite observer", () 
 
   queryClient.setQueryData(previousParticipationKey, { meta: {} });
 
-  let observer: InfiniteQueryObserver | undefined;
+  let observer: Pick<InfiniteQueryObserver, "destroy"> | undefined;
   assert.doesNotThrow(() => {
     observer = new InfiniteQueryObserver(queryClient, {
       queryKey: dashboardKey,
@@ -279,12 +279,13 @@ test("free-text Top N limits all question cards with the shared selection", () =
   assert.equal(getLimitedWeeklyFreeTextResponses(responses, 40).length, 40);
 });
 
-test("weekly word pagination flag is opt-in and only writes a single-week request", () => {
+test("weekly word pagination defaults on and only writes a single-week request", () => {
   assert.equal(
     IS_YATIRIM_WEEKLY_WORD_PAGINATION_QUERY_PARAM,
     "isWeeklyWordPagination",
   );
-  assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag(null), false);
+  assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag(null), true);
+  assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag(""), true);
   assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag("false"), false);
   assert.equal(normalizeIsYatirimWeeklyWordPaginationFlag("1"), true);
 

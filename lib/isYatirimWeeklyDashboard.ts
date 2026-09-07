@@ -201,8 +201,7 @@ export type WeeklyFreeTextQuestion = {
 export function normalizeIsYatirimWeeklyWordPaginationFlag(
   value: string | null | undefined,
 ) {
-  const normalized = value?.trim().toLowerCase();
-  return normalized === "true" || normalized === "1";
+  return value?.trim().toLowerCase() !== "false";
 }
 
 export function isSingleIsYatirimCalendarWeek(
