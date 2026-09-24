@@ -203,6 +203,7 @@ export type FeedbackQuestion = {
   question_text: string;
   type: FeedbackQuestionType;
   order: number;
+  answer_max_length?: number;
   answer_options?: string[] | FeedbackChoiceOption[];
   scale_min?: number;
   scale_max?: number;

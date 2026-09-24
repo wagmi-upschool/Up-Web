@@ -3,6 +3,7 @@ import test from "node:test";
 import type { FeedbackQuestion } from "../../lib/feedbackClient";
 import {
   buildFeedbackSubmitAnswers,
+  getFeedbackFreeTextMaxLength,
   getLikertGuideItems,
   getLikertGuideText,
   getLikertLevelLabel,
@@ -119,6 +120,19 @@ test("validateFeedbackAnswer limits Pulse free-text answers to 150 characters", 
       MAX_PULSE_FREE_TEXT,
     ),
     "En fazla 150 karakter.",
+  );
+});
+
+test("free-text limit uses the question value and falls back when absent", () => {
+  const question = questions[2];
+  assert.equal(getFeedbackFreeTextMaxLength(question, MAX_PULSE_FREE_TEXT), 150);
+  assert.equal(
+    getFeedbackFreeTextMaxLength({ ...question, answer_max_length: 250 }, MAX_PULSE_FREE_TEXT),
+    250,
+  );
+  assert.equal(
+    getFeedbackFreeTextMaxLength({ ...question, answer_max_length: 0 }, MAX_PULSE_FREE_TEXT),
+    150,
   );
 });
 

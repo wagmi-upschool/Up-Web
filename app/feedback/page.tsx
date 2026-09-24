@@ -38,6 +38,7 @@ import {
 } from "@/lib/feedbackClient";
 import {
   buildFeedbackSubmitAnswers,
+  getFeedbackFreeTextMaxLength,
   getLikertGuideItems,
   getLikertLevelLabel,
   getOrderedChoiceOptions,
@@ -295,7 +296,7 @@ function validateSubmittedModuleAnswers(
     const verdict = validateFeedbackAnswer(
       question,
       rawValue,
-      freeTextMaxLength,
+      getFeedbackFreeTextMaxLength(question, freeTextMaxLength),
     );
     if (verdict !== true) {
       return verdict;
@@ -322,7 +323,7 @@ function validateOptionalModuleAnswers(
     const verdict = validateFeedbackAnswer(
       question,
       rawValue,
-      freeTextMaxLength,
+      getFeedbackFreeTextMaxLength(question, freeTextMaxLength),
     );
     if (verdict !== true) {
       return verdict;
@@ -512,6 +513,7 @@ function QuestionField({
   const rawQuestionValue = form.watch(`answers.${question.question_id}`);
   const questionValue =
     typeof rawQuestionValue === "string" ? rawQuestionValue : "";
+  const answerMaxLength = getFeedbackFreeTextMaxLength(question, freeTextMaxLength);
   const multiSelectValues = Array.isArray(rawQuestionValue)
     ? rawQuestionValue
     : [];
@@ -858,14 +860,14 @@ function QuestionField({
       ) : (
         <textarea
           rows={4}
-          maxLength={freeTextMaxLength}
+          maxLength={answerMaxLength}
           className="mt-3 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
           {...form.register(`answers.${question.question_id}`, {
             validate: (value) =>
-              validateFeedbackAnswer(question, value, freeTextMaxLength),
+              validateFeedbackAnswer(question, value, answerMaxLength),
             maxLength: {
-              value: freeTextMaxLength,
-              message: `En fazla ${freeTextMaxLength} karakter.`,
+              value: answerMaxLength,
+              message: `En fazla ${answerMaxLength} karakter.`,
             },
           })}
         />
@@ -891,7 +893,7 @@ function QuestionField({
 
       {question.type === "free_text" ? (
         <p className="mt-2 text-left text-[11px] text-gray-400">
-          {questionValue.length}/{freeTextMaxLength}
+          {questionValue.length}/{answerMaxLength}
         </p>
       ) : null}
 

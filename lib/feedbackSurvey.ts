@@ -9,6 +9,17 @@ import type {
 export const MAX_FEEDBACK_FREE_TEXT = 2000;
 export const MAX_PULSE_FREE_TEXT = 150;
 
+export function getFeedbackFreeTextMaxLength(
+  question: FeedbackQuestion,
+  fallback: number,
+) {
+  const configured = question.answer_max_length;
+  if (typeof configured === "number" && Number.isInteger(configured) && configured > 0) {
+    return configured;
+  }
+  return fallback;
+}
+
 const DEFAULT_NUMERIC_SCALES = {
   likert: { min: 1, max: 5 },
   percentage: { min: 0, max: 100 },
