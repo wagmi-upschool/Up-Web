@@ -100,14 +100,11 @@ export function getAutoSelectedReceiverId({
   isIsy,
   receivers,
 }: AutoSelectReceiverInput) {
-  if (isSelfMode) {
-    if (receivers.length !== 1) return "";
+  if (receivers.length === 1 || (isIsy && !isSelfMode)) {
     return receivers[0]?.feedback_receiver_id || "";
   }
 
-  if (!isIsy) return "";
-
-  return receivers[0]?.feedback_receiver_id || "";
+  return "";
 }
 
 export function getSurveySubmitButtonLabel(isIsy: boolean) {

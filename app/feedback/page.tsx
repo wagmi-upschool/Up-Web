@@ -402,22 +402,26 @@ function FeedbackLoadingOverlay() {
   );
 }
 
+type FeedbackHeaderPartner = "Akbank" | "İş Yatırım";
+
 function FeedbackPageHeader({
-  isIsy,
+  partner,
   isSelfMode,
+  hasSingleReceiver = false,
 }: {
-  isIsy: boolean;
+  partner?: FeedbackHeaderPartner;
   isSelfMode: boolean;
+  hasSingleReceiver?: boolean;
 }) {
   return (
     <header
       className={`rounded-2xl border border-gray-200 bg-white/95 px-5 py-[18px] shadow-sm ${
-        isIsy
+        partner
           ? "flex items-start justify-between gap-4"
           : "flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4"
       }`}
     >
-      {isIsy ? (
+      {partner ? (
         <>
           <div className="flex min-w-0 items-center gap-4">
             <Image
@@ -433,14 +437,25 @@ function FeedbackPageHeader({
               </h1>
             </div>
           </div>
-          <Image
-            src="/is-yatirim-logo.png"
-            alt="İş Yatırım"
-            width={222}
-            height={58}
-            className="mr-1 h-10 w-auto shrink-0 self-center object-contain sm:h-12"
-            priority
-          />
+          {partner === "Akbank" ? (
+            <Image
+              src="/akbank-logo.svg"
+              alt="Akbank"
+              width={250}
+              height={28}
+              className="mr-1 h-auto w-44 max-w-[30%] shrink-0 self-center"
+              priority
+            />
+          ) : (
+            <Image
+              src="/is-yatirim-logo.png"
+              alt="İş Yatırım"
+              width={222}
+              height={58}
+              className="mr-1 h-10 w-auto shrink-0 self-center object-contain sm:h-12"
+              priority
+            />
+          )}
         </>
       ) : (
         <>
@@ -459,7 +474,9 @@ function FeedbackPageHeader({
               <p className="text-[13px] text-text-description-gray">
                 {isSelfMode
                   ? "Soruları yanıtla, kendini değerlendir, öz farkındalığını geliştir."
-                  : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
+                  : hasSingleReceiver
+                    ? "Soruları yanıtla ve ileri bildirimi gönder."
+                    : "Bir ekip arkadaşı seç, soruları yanıtla ve ileri bildirimi gönder."}
               </p>
             </div>
           </div>
@@ -471,11 +488,11 @@ function FeedbackPageHeader({
 
 function FeedbackLinkTokenErrorScreen({
   error,
-  isIsy,
+  partner,
   isSelfMode,
 }: {
   error: FeedbackLinkTokenErrorState;
-  isIsy: boolean;
+  partner?: FeedbackHeaderPartner;
   isSelfMode: boolean;
 }) {
   const copy = getFeedbackLinkTokenErrorDisplayCopy(error);
@@ -483,7 +500,7 @@ function FeedbackLinkTokenErrorScreen({
   return (
     <FeedbackPageShell>
       <div className="relative z-10 mx-auto max-w-6xl space-y-4 px-2 pb-28 pt-5 sm:px-4">
-        <FeedbackPageHeader isIsy={isIsy} isSelfMode={isSelfMode} />
+        <FeedbackPageHeader partner={partner} isSelfMode={isSelfMode} />
         <div className="rounded-2xl border border-[#F3B4AF] bg-[#FFF4F3] px-6 py-5 shadow-sm">
           <p className="text-[18px] font-semibold text-[#D44C42]">
             {copy.title}
@@ -1039,6 +1056,12 @@ function FeedbackPageContent() {
     resolvedActiveTab === "survey" ? surveyQuestions : valuesQuestions;
   const feedbackReceivers = receivers?.feedback_receivers || [];
   const isIsy = receivers?.is_isy ?? false;
+  const headerPartner: FeedbackHeaderPartner | undefined =
+    giverId === "84883478-70b1-70c8-13da-3ae7bd90cbfe"
+      ? "Akbank"
+      : isIsy
+        ? "İş Yatırım"
+        : undefined;
   const answerFreeTextMaxLength = isIsy
     ? MAX_PULSE_FREE_TEXT
     : MAX_FEEDBACK_FREE_TEXT;
@@ -1365,8 +1388,10 @@ function FeedbackPageContent() {
 
   const receiversEmpty =
     !loadingReceivers && !receiversError && feedbackReceivers.length === 0;
-  const selfReceiver =
-    isSelfMode && feedbackReceivers.length === 1 ? feedbackReceivers[0] : null;
+  const singleReceiver =
+    feedbackReceivers.length === 1 ? feedbackReceivers[0] : null;
+  const showReceiverSection =
+    !isIsy && (headerPartner !== "Akbank" || !singleReceiver);
   const showLoadingOverlay =
     loadingReceivers || (loadingQuestions && Boolean(receiverId));
   const shouldShowInitialLoadingScreen =
@@ -1447,7 +1472,7 @@ function FeedbackPageContent() {
     return (
       <FeedbackLinkTokenErrorScreen
         error={terminalLinkTokenError}
-        isIsy={isIsy}
+        partner={headerPartner}
         isSelfMode={isSelfMode}
       />
     );
@@ -1465,14 +1490,18 @@ function FeedbackPageContent() {
     <FeedbackPageShell>
       {showLoadingOverlay ? <FeedbackLoadingOverlay /> : null}
       <div className="relative z-10 mx-auto max-w-6xl space-y-3 px-2 pb-28 pt-5 sm:px-4">
-        <FeedbackPageHeader isIsy={isIsy} isSelfMode={isSelfMode} />
+        <FeedbackPageHeader
+          partner={headerPartner}
+          isSelfMode={isSelfMode}
+          hasSingleReceiver={Boolean(singleReceiver)}
+        />
 
         <div className="space-y-4">
-          {!isIsy ? (
+          {showReceiverSection ? (
             <section className="space-y-3 rounded-2xl border border-gray-200 bg-white px-5 py-[18px] shadow-sm">
               <div className="flex items-center justify-between">
                 <p className="text-[15px] font-semibold text-title-black">
-                  {isSelfMode
+                  {isSelfMode || singleReceiver
                     ? "Değerlendirilen kişi"
                     : "Değerlendirilecek kişiyi seç"}
                 </p>
@@ -1495,14 +1524,16 @@ function FeedbackPageContent() {
                 </p>
               )}
 
-              {isSelfMode && selfReceiver ? (
+              {singleReceiver ? (
                 <div className="rounded-[10px] border border-gray-300 bg-gray-50 px-4 py-3">
                   <p className="text-[15px] text-title-black">
-                    {formatReceiverLabel(selfReceiver)}
+                    {formatReceiverLabel(singleReceiver)}
                   </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Öz değerlendirme modunda alıcı otomatik seçilir.
-                  </p>
+                  {isSelfMode && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Öz değerlendirme modunda alıcı otomatik seçilir.
+                    </p>
+                  )}
                 </div>
               ) : feedbackReceivers.length ? (
                 <select
@@ -1530,7 +1561,7 @@ function FeedbackPageContent() {
           ) : null}
 
           <section className="space-y-3">
-            {isIsy && receiversError ? (
+            {!showReceiverSection && receiversError ? (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
                 <p className="text-sm text-red-700">
                   {formatApiError(receiversError)}
@@ -1549,7 +1580,7 @@ function FeedbackPageContent() {
               <div className="rounded-2xl border border-gray-200 bg-white px-5 py-[18px] text-[14px] text-gray-500">
                 {isSelfMode
                   ? "Sorular hazırlanıyor. Öz değerlendirme alıcısı otomatik seçilecek."
-                  : isIsy
+                  : isIsy || singleReceiver
                     ? "Sorular hazırlanıyor. Değerlendirme alıcısı otomatik seçilecek."
                     : "Yetkinlik ve soruları görmek için bir alıcı seç."}
               </div>

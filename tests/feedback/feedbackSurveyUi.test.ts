@@ -34,7 +34,7 @@ test("getAutoSelectedReceiverId auto-selects the first receiver for is_isy peer 
   );
 });
 
-test("getAutoSelectedReceiverId keeps manual selection flow for non-isy peer surveys", () => {
+test("getAutoSelectedReceiverId only auto-selects a single receiver for non-isy peer surveys", () => {
   assert.equal(
     getAutoSelectedReceiverId({
       isSelfMode: false,
@@ -42,6 +42,15 @@ test("getAutoSelectedReceiverId keeps manual selection flow for non-isy peer sur
       receivers,
     }),
     "",
+  );
+
+  assert.equal(
+    getAutoSelectedReceiverId({
+      isSelfMode: false,
+      isIsy: false,
+      receivers: [receivers[0]],
+    }),
+    "receiver-1",
   );
 });
 
