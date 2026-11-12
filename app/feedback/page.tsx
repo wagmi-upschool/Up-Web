@@ -99,6 +99,7 @@ const CHOICE_SELECTED_SURFACE =
 const CHOICE_UNSELECTED_SURFACE =
   "border-transparent bg-transparent text-[#66707A] hover:border-[#EFE5DE]/70 hover:bg-[#FBF6F2]/65";
 const ISY_SUCCESS_REDIRECT_DELAY_MS = 8000;
+const optionalAnswerPlaceholder = "İsteğe bağlı...";
 
 function getReceiverEmail(receiver: FeedbackReceiver) {
   return (
@@ -879,6 +880,11 @@ function QuestionField({
           rows={4}
           maxLength={answerMaxLength}
           className="mt-3 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
+          placeholder={
+            question.question_id === "9fc08857-3d21-4367-b89c-4713b62b7281"
+              ? optionalAnswerPlaceholder
+              : undefined
+          }
           {...form.register(`answers.${question.question_id}`, {
             validate: (value) =>
               validateFeedbackAnswer(question, value, answerMaxLength),
@@ -1665,7 +1671,7 @@ function FeedbackPageContent() {
                           rows={4}
                           maxLength={MAX_FEEDBACK_FREE_TEXT}
                           className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
-                          placeholder="İsteğe bağlı..."
+                          placeholder={optionalAnswerPlaceholder}
                           {...surveyForm.register("finalComment", {
                             maxLength: {
                               value: MAX_FEEDBACK_FREE_TEXT,
@@ -1757,7 +1763,7 @@ function FeedbackPageContent() {
                           rows={4}
                           maxLength={MAX_FEEDBACK_FREE_TEXT}
                           className="mt-2 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
-                          placeholder="İsteğe bağlı..."
+                          placeholder={optionalAnswerPlaceholder}
                           {...valuesForm.register("finalComment", {
                             maxLength: {
                               value: MAX_FEEDBACK_FREE_TEXT,
