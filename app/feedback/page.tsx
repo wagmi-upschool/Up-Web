@@ -444,7 +444,7 @@ function FeedbackPageHeader({
               alt="Akbank"
               width={250}
               height={28}
-              className="h-auto w-44 max-w-[30%] shrink-0 self-center"
+              className="h-auto w-60 max-w-[35%] shrink-0 self-center"
               priority
             />
           )}
