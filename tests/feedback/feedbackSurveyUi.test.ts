@@ -76,7 +76,7 @@ test("getAutoSelectedReceiverId only auto-selects self surveys when a single rec
 
 test("is_isy survey chrome uses the updated CTA and hides general comments", () => {
   assert.equal(getSurveySubmitButtonLabel(true), "Tamam");
-  assert.equal(getSurveySubmitButtonLabel(false), "Anket Gönder");
+  assert.equal(getSurveySubmitButtonLabel(false), "Gönder");
   assert.equal(shouldShowGeneralCommentField(true), false);
   assert.equal(shouldShowGeneralCommentField(false), true);
 });

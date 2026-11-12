@@ -108,7 +108,7 @@ export function getAutoSelectedReceiverId({
 }
 
 export function getSurveySubmitButtonLabel(isIsy: boolean) {
-  return isIsy ? "Tamam" : "Anket Gönder";
+  return isIsy ? "Tamam" : "Gönder";
 }
 
 export function shouldShowGeneralCommentField(isIsy: boolean) {
