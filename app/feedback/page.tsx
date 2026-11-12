@@ -45,6 +45,7 @@ import {
   getQuestionScaleMax,
   getQuestionScaleMin,
   hasAnyAnsweredFeedbackQuestion,
+  hasAnsweredFeedbackQuestion,
   isEmptyFeedbackAnswerValue,
   isChoiceQuestion,
   MAX_FEEDBACK_FREE_TEXT,
@@ -94,6 +95,10 @@ const VALUES_OPTION_LABELS = {
   did: "Yaptı",
   didnt: "Yapmadı",
 } as const;
+const yesNoOptionLabels = { did: "Evet", didnt: "Hayır" } as const;
+const akbankMeetingCompetencyId = "4df14b8a-0080-44dc-9029-ce291e16f600";
+const meetingTitleQuestionId = "9fc08857-3d21-4367-b89c-4713b62b7281";
+const meetingSuggestionQuestionId = "31b39f94-454e-47d0-9e64-7f5a2bc69272";
 const CHOICE_SELECTED_SURFACE =
   "border-[#F0E4DD] bg-[#F7EFEC]/90 text-[#8E8A84] shadow-[0_14px_34px_rgba(221,201,189,0.28)]";
 const CHOICE_UNSELECTED_SURFACE =
@@ -118,8 +123,13 @@ function formatReceiverLabel(receiver: FeedbackReceiver) {
   return `ID: ${receiver.feedback_receiver_id}`;
 }
 
-function isRequiredSurveyQuestion(question: FeedbackQuestion) {
-  return question.type !== "free_text";
+function isRequiredSurveyQuestion(
+  question: FeedbackQuestion,
+  isAkbankMeetingSurvey: boolean,
+) {
+  return isAkbankMeetingSurvey
+    ? question.question_id !== meetingSuggestionQuestionId
+    : question.type !== "free_text";
 }
 
 function getRequiredSurveyQuestionMessage(question: FeedbackQuestion) {
@@ -280,13 +290,17 @@ function validateSubmittedModuleAnswers(
   questions: FeedbackQuestion[],
   answers: ModuleFormValues["answers"],
   freeTextMaxLength = MAX_FEEDBACK_FREE_TEXT,
+  isAkbankMeetingSurvey = false,
 ) {
   for (const question of questions) {
     const rawValue = answers[question.question_id];
-    if (isEmptyFeedbackAnswerValue(rawValue)) {
+    const isBlank = isAkbankMeetingSurvey
+      ? !hasAnsweredFeedbackQuestion(question, rawValue)
+      : isEmptyFeedbackAnswerValue(rawValue);
+    if (isBlank) {
       if (
         FEEDBACK_FEATURE_FLAGS.allowBlankSurveyAnswers &&
-        !isRequiredSurveyQuestion(question)
+        !isRequiredSurveyQuestion(question, isAkbankMeetingSurvey)
       ) {
         continue;
       }
@@ -424,6 +438,16 @@ function FeedbackPageHeader({
     >
       {partner ? (
         <>
+          {partner === "Akbank" && (
+            <Image
+              src="/akbank-logo.svg"
+              alt="Akbank"
+              width={250}
+              height={28}
+              className="h-auto w-44 max-w-[30%] shrink-0 self-center"
+              priority
+            />
+          )}
           <div className="flex min-w-0 items-center gap-4">
             <Image
               src="/up.svg"
@@ -438,16 +462,7 @@ function FeedbackPageHeader({
               </h1>
             </div>
           </div>
-          {partner === "Akbank" ? (
-            <Image
-              src="/akbank-logo.svg"
-              alt="Akbank"
-              width={250}
-              height={28}
-              className="mr-1 h-auto w-44 max-w-[30%] shrink-0 self-center"
-              priority
-            />
-          ) : (
+          {partner === "İş Yatırım" && (
             <Image
               src="/is-yatirim-logo.png"
               alt="İş Yatırım"
@@ -522,12 +537,22 @@ function QuestionField({
   module,
   question,
   freeTextMaxLength = MAX_FEEDBACK_FREE_TEXT,
+  isAkbankMeetingSurvey = false,
 }: {
   form: UseFormReturn<ModuleFormValues>;
   module: FeedbackTab;
   question: FeedbackQuestion;
   freeTextMaxLength?: number;
+  isAkbankMeetingSurvey?: boolean;
 }) {
+  const isMeetingTitle =
+    isAkbankMeetingSurvey && question.question_id === meetingTitleQuestionId;
+  const optionalQuestionId = isAkbankMeetingSurvey
+    ? meetingSuggestionQuestionId
+    : meetingTitleQuestionId;
+  const booleanLabels = isAkbankMeetingSurvey
+    ? yesNoOptionLabels
+    : VALUES_OPTION_LABELS;
   const rawQuestionValue = form.watch(`answers.${question.question_id}`);
   const questionValue =
     typeof rawQuestionValue === "string" ? rawQuestionValue : "";
@@ -595,7 +620,10 @@ function QuestionField({
   return (
     <div className={containerClass}>
       <label className={labelClass}>
-        {question.order}. {question.question_text}
+        {question.order}.{" "}
+        {isMeetingTitle
+          ? "Hangi toplantıyı değerlendiriyorsun?"
+          : question.question_text}
       </label>
 
       {question.type === "likert" ? (
@@ -720,7 +748,7 @@ function QuestionField({
                         ? "/up_face_mutlu_icon.svg"
                         : "/up_face_uzgun_icon.svg"
                     }
-                    alt={VALUES_OPTION_LABELS[value]}
+                    alt={isAkbankMeetingSurvey ? "" : booleanLabels[value]}
                     width={24}
                     height={24}
                     className={`${active ? "" : "grayscale opacity-50"}`}
@@ -735,7 +763,7 @@ function QuestionField({
                       : "text-gray-400"
                   }`}
                 >
-                  {VALUES_OPTION_LABELS[value]}
+                  {booleanLabels[value]}
                 </span>
               </button>
             );
@@ -879,9 +907,10 @@ function QuestionField({
         <textarea
           rows={4}
           maxLength={answerMaxLength}
+          aria-required={isMeetingTitle || undefined}
           className="mt-3 w-full rounded-[10px] border border-gray-200 bg-white px-3 py-2.5 text-sm text-title-black outline-none transition-colors focus:border-primary"
           placeholder={
-            question.question_id === "9fc08857-3d21-4367-b89c-4713b62b7281"
+            question.question_id === optionalQuestionId
               ? optionalAnswerPlaceholder
               : undefined
           }
@@ -1072,6 +1101,11 @@ function FeedbackPageContent() {
     ? MAX_PULSE_FREE_TEXT
     : MAX_FEEDBACK_FREE_TEXT;
   const showGeneralCommentField = shouldShowGeneralCommentField(isIsy);
+  const isAkbankMeetingSurvey =
+    headerPartner === "Akbank" &&
+    surveyModule.competency?.competency_id === akbankMeetingCompetencyId;
+  const showSurveyGeneralComment =
+    showGeneralCommentField && !isAkbankMeetingSurvey;
   const autoSelectedReceiverId = getAutoSelectedReceiverId({
     isSelfMode,
     isIsy,
@@ -1337,6 +1371,7 @@ function FeedbackPageContent() {
       surveyQuestions,
       values.answers,
       answerFreeTextMaxLength,
+      isAkbankMeetingSurvey,
     );
     if (validationMessage) {
       toast.error(validationMessage);
@@ -1349,10 +1384,9 @@ function FeedbackPageContent() {
       surveyModule.competency.competency_id,
       answers,
     );
-    const generalComment = getGeneralCommentPayloadValue(
-      isIsy,
-      values.finalComment,
-    );
+    const generalComment = showSurveyGeneralComment
+      ? getGeneralCommentPayloadValue(isIsy, values.finalComment)
+      : undefined;
 
     if (generalComment) {
       payload.free_text_general = generalComment;
@@ -1423,7 +1457,16 @@ function FeedbackPageContent() {
     !surveyModule.competency ||
     !surveyQuestions.length ||
     !surveyForm.formState.isValid ||
-    !surveyHasAnsweredQuestion;
+    !surveyHasAnsweredQuestion ||
+    (isAkbankMeetingSurvey &&
+      surveyQuestions.some(
+        (question) =>
+          isRequiredSurveyQuestion(question, isAkbankMeetingSurvey) &&
+          !hasAnsweredFeedbackQuestion(
+            question,
+            surveyAnswers?.[question.question_id],
+          ),
+      ));
   const valuesSubmitDisabled =
     formDisabled ||
     !valuesAvailable ||
@@ -1659,10 +1702,11 @@ function FeedbackPageContent() {
                         module="survey"
                         question={question}
                         freeTextMaxLength={answerFreeTextMaxLength}
+                        isAkbankMeetingSurvey={isAkbankMeetingSurvey}
                       />
                     ))}
 
-                    {showGeneralCommentField ? (
+                    {showSurveyGeneralComment ? (
                       <div className="rounded-[14px] border border-gray-200 bg-white px-5 py-4">
                         <label className="block text-[12px] font-medium text-gray-500">
                           Eklemek istediğin not var mı?
